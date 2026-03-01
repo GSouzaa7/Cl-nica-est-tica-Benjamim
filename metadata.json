@@ -1,0 +1,5 @@
+{
+  "name": "EstéticaPro - Control Center",
+  "description": "Sistema de gestão para clínicas de estética com design system moderno e auditoria de UI via IA.",
+  "requestFramePermissions": ["microphone"]
+}
