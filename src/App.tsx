@@ -365,7 +365,7 @@ const DashboardView = ({ isDarkMode = true }: { isDarkMode?: boolean }) => {
                 {/* Horizontal grid lines */}
                 <div className="absolute inset-0 flex flex-col justify-between pb-8 z-0">
                   {[...Array(5)].map((_, i) => (
-                    <div key={i} className={`w-full border-b ${isDarkMode ? "border-zinc-800" : "border-zinc-200"}/50 h-0`} />
+                    <div key={i} className={`w-full border-b ${isDarkMode ? "border-zinc-800/50" : "border-zinc-200/50"} h-0`} />
                   ))}
                 </div>
 
@@ -526,11 +526,11 @@ const AgendaView = ({ professionals, services = [], onCompleteService, isDarkMod
       <div className="flex-1 flex px-12 gap-8 z-10 overflow-hidden pb-10">
 
         {/* Main Calendar Area */}
-        <div className={`flex-1 flex flex-col bg-[#0a0a0a] border ${isDarkMode ? "border-zinc-800" : "border-zinc-200"}/80 rounded-3xl overflow-hidden shadow-xl shadow-black/50`}>
+        <div className={`flex-1 flex flex-col bg-[#0a0a0a] border ${isDarkMode ? "border-zinc-800/80" : "border-zinc-200/80"} rounded-3xl overflow-hidden shadow-xl shadow-black/50`}>
           {/* Professionals Header */}
-          <div className={`flex border-b ${isDarkMode ? "border-zinc-800" : "border-zinc-200"}/80 pl-16`}>
+          <div className={`flex border-b ${isDarkMode ? "border-zinc-800/80" : "border-zinc-200/80"} pl-16`}>
             {professionals.map((prof: any) => (
-              <div key={prof.id} className={`flex-1 p-4 flex items-center gap-3 border-r ${isDarkMode ? "border-zinc-800" : "border-zinc-200"}/80 last:border-r-0`}>
+              <div key={prof.id} className={`flex-1 p-4 flex items-center gap-3 border-r ${isDarkMode ? "border-zinc-800/80" : "border-zinc-200/80"} last:border-r-0`}>
                 <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isDarkMode ? "text-white" : "text-zinc-900"} font-bold shadow-lg`} style={{ backgroundColor: prof.color }}>
                   {prof.name.charAt(0).toUpperCase()}
                 </div>
@@ -546,14 +546,14 @@ const AgendaView = ({ professionals, services = [], onCompleteService, isDarkMod
           <div className="flex-1 overflow-y-auto custom-scrollbar relative">
             <CurrentTimeIndicator />
             {timeSlots.map(time => (
-              <div key={time} className={`time-slot-row flex border-b ${isDarkMode ? "border-zinc-800" : "border-zinc-200"}/50 hover:bg-zinc-900/20 transition-colors group`}>
-                <div className={`w-16 p-3 text-xs font-medium text-zinc-500 border-r ${isDarkMode ? "border-zinc-800" : "border-zinc-200"}/80 flex items-center justify-center`}>
+              <div key={time} className={`time-slot-row flex border-b ${isDarkMode ? "border-zinc-800/50" : "border-zinc-200/50"} hover:bg-zinc-900/20 transition-colors group`}>
+                <div className={`w-16 p-3 text-xs font-medium text-zinc-500 border-r ${isDarkMode ? "border-zinc-800/80" : "border-zinc-200/80"} flex items-center justify-center`}>
                   {time}
                 </div>
                 {professionals.map((prof: any) => (
                   <div
                     key={`${prof.id}-${time}`}
-                    className={`flex-1 p-2 border-r ${isDarkMode ? "border-zinc-800" : "border-zinc-200"}/80 last:border-r-0 cursor-pointer hover:bg-zinc-800/30 transition-colors relative`}
+                    className={`flex-1 p-2 border-r ${isDarkMode ? "border-zinc-800/80" : "border-zinc-200/80"} last:border-r-0 cursor-pointer hover:bg-zinc-800/30 transition-colors relative`}
                     onClick={() => handleTimeClick(time)}
                   >
                     <div className="absolute inset-2 rounded-lg border-2 border-dashed border-transparent group-hover:border-zinc-700/50 transition-colors" />
@@ -827,9 +827,9 @@ const CrmView = ({ patients, setPatients, columns, setColumns, onGenerateReceitu
       {/* Content Grid - Kanban Board */}
       <div className="flex-1 flex px-12 gap-6 z-10 overflow-x-auto pb-10 custom-scrollbar items-start">
         {columns.map((column: any) => (
-          <div key={column.id} className={`w-80 shrink-0 bg-[#0a0a0a] border ${isDarkMode ? "border-zinc-800" : "border-zinc-200"}/80 rounded-2xl flex flex-col max-h-full`}>
+          <div key={column.id} className={`w-80 shrink-0 bg-[#0a0a0a] border ${isDarkMode ? "border-zinc-800/80" : "border-zinc-200/80"} rounded-2xl flex flex-col max-h-full`}>
             {/* Column Header */}
-            <div className={`p-4 border-b ${isDarkMode ? "border-zinc-800" : "border-zinc-200"}/80 flex items-center justify-between`}>
+            <div className={`p-4 border-b ${isDarkMode ? "border-zinc-800/80" : "border-zinc-200/80"} flex items-center justify-between`}>
               <div className="flex items-center gap-2">
                 <h3 className={`${isDarkMode ? "text-white" : "text-zinc-900"} font-bold text-sm uppercase tracking-wider`}>{column.title}</h3>
                 <span className="bg-zinc-800 text-zinc-400 text-xs font-bold px-2 py-0.5 rounded-full">{column.cardIds.length}</span>
@@ -958,7 +958,7 @@ const CrmView = ({ patients, setPatients, columns, setColumns, onGenerateReceitu
             </button>
 
             {/* Left Sidebar - Patient Data */}
-            <div className={`w-80 bg-[#050505] border-r ${isDarkMode ? "border-zinc-800" : "border-zinc-200"}/80 p-8 flex flex-col overflow-y-auto custom-scrollbar`}>
+            <div className={`w-80 bg-[#050505] border-r ${isDarkMode ? "border-zinc-800/80" : "border-zinc-200/80"} p-8 flex flex-col overflow-y-auto custom-scrollbar`}>
               <h3 className={`text-lg font-bold ${isDarkMode ? "text-white" : "text-zinc-900"} mb-8`}>Dados Cadastrais</h3>
 
               <div className="flex justify-center mb-8">
@@ -1021,7 +1021,7 @@ const CrmView = ({ patients, setPatients, columns, setColumns, onGenerateReceitu
               <h3 className={`text-lg font-bold ${isDarkMode ? "text-white" : "text-zinc-900"} mb-8`}>Histórico Clínico</h3>
 
               {/* New Record Box */}
-              <div className={`bg-[#050505] border ${isDarkMode ? "border-zinc-800" : "border-zinc-200"}/80 rounded-2xl p-6 mb-8`}>
+              <div className={`bg-[#050505] border ${isDarkMode ? "border-zinc-800/80" : "border-zinc-200/80"} rounded-2xl p-6 mb-8`}>
                 <div className="flex items-center gap-4 mb-4">
                   <button
                     onClick={handleRecordAudio}
@@ -1282,7 +1282,7 @@ const ClientesView = ({ patients, setPatients, onGenerateReceituario, isDarkMode
       <div className="flex-1 overflow-y-auto px-12 pb-10 z-10 custom-scrollbar">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {patients.map(patient => (
-            <div key={patient.id} className={`bg-[#0a0a0a] border ${isDarkMode ? "border-zinc-800" : "border-zinc-200"}/80 rounded-2xl p-6 hover:border-orange-500/30 transition-colors group`}>
+            <div key={patient.id} className={`bg-[#0a0a0a] border ${isDarkMode ? "border-zinc-800/80" : "border-zinc-200/80"} rounded-2xl p-6 hover:border-orange-500/30 transition-colors group`}>
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-center gap-4">
                   <div className={`w-12 h-12 rounded-full bg-orange-500 flex items-center justify-center ${isDarkMode ? "text-white" : "text-zinc-900"} font-bold text-xl shadow-[0_0_15px_rgba(249,115,22,0.2)]`}>
@@ -1338,7 +1338,7 @@ const ClientesView = ({ patients, setPatients, onGenerateReceituario, isDarkMode
             </button>
 
             {/* Left Sidebar - Patient Data */}
-            <div className={`w-80 bg-[#050505] border-r ${isDarkMode ? "border-zinc-800" : "border-zinc-200"}/80 p-8 flex flex-col overflow-y-auto custom-scrollbar`}>
+            <div className={`w-80 bg-[#050505] border-r ${isDarkMode ? "border-zinc-800/80" : "border-zinc-200/80"} p-8 flex flex-col overflow-y-auto custom-scrollbar`}>
               <h3 className={`text-lg font-bold ${isDarkMode ? "text-white" : "text-zinc-900"} mb-8`}>Dados Cadastrais</h3>
 
               <div className="flex justify-center mb-8">
@@ -1401,7 +1401,7 @@ const ClientesView = ({ patients, setPatients, onGenerateReceituario, isDarkMode
               <h3 className={`text-lg font-bold ${isDarkMode ? "text-white" : "text-zinc-900"} mb-8`}>Histórico Clínico</h3>
 
               {/* New Record Box */}
-              <div className={`bg-[#050505] border ${isDarkMode ? "border-zinc-800" : "border-zinc-200"}/80 rounded-2xl p-6 mb-8`}>
+              <div className={`bg-[#050505] border ${isDarkMode ? "border-zinc-800/80" : "border-zinc-200/80"} rounded-2xl p-6 mb-8`}>
                 <div className="flex items-center gap-4 mb-4">
                   <button
                     onClick={handleRecordAudio}
@@ -1566,7 +1566,7 @@ const ProfissionaisView = ({ professionals, setProfessionals, isDarkMode = true 
           {professionals.map((prof: any) => (
             <div
               key={prof.id}
-              className={`bg-[#0a0a0a] border ${isDarkMode ? "border-zinc-800" : "border-zinc-200"}/80 rounded-2xl p-6 relative group transition-all`}
+              className={`bg-[#0a0a0a] border ${isDarkMode ? "border-zinc-800/80" : "border-zinc-200/80"} rounded-2xl p-6 relative group transition-all`}
               style={{ borderTopColor: prof.color, borderTopWidth: '4px' }}
             >
               <div className="flex items-start justify-between mb-6">
@@ -1860,7 +1860,7 @@ const ServicosView = ({ services, setServices, inventory, isDarkMode = true }: a
         </div>
 
         {/* Filter Tabs */}
-        <div className={`flex items-center gap-6 border-b ${isDarkMode ? "border-zinc-800" : "border-zinc-200"}/50 pb-4`}>
+        <div className={`flex items-center gap-6 border-b ${isDarkMode ? "border-zinc-800/50" : "border-zinc-200/50"} pb-4`}>
           {categories.map(cat => (
             <button
               key={cat}
@@ -1886,7 +1886,7 @@ const ServicosView = ({ services, setServices, inventory, isDarkMode = true }: a
             const sMargin = service.price > 0 ? (sNetProfit / service.price) * 100 : 0;
 
             return (
-              <div key={service.id} className={`bg-[#0a0a0a] border ${isDarkMode ? "border-zinc-800" : "border-zinc-200"}/80 rounded-2xl p-6 hover:border-orange-500/30 transition-colors group`}>
+              <div key={service.id} className={`bg-[#0a0a0a] border ${isDarkMode ? "border-zinc-800/80" : "border-zinc-200/80"} rounded-2xl p-6 hover:border-orange-500/30 transition-colors group`}>
                 <div className="flex items-start justify-between mb-4">
                   <span className={`text-[10px] font-bold text-zinc-400 border ${isDarkMode ? "border-zinc-800" : "border-zinc-200"} px-2 py-1 rounded uppercase tracking-wider`}>
                     {service.category}
@@ -1917,7 +1917,7 @@ const ServicosView = ({ services, setServices, inventory, isDarkMode = true }: a
                   </div>
                 </div>
 
-                <div className={`flex items-end justify-between pt-4 border-t ${isDarkMode ? "border-zinc-800" : "border-zinc-200"}/50`}>
+                <div className={`flex items-end justify-between pt-4 border-t ${isDarkMode ? "border-zinc-800/50" : "border-zinc-200/50"}`}>
                   <div>
                     <span className="text-[10px] font-bold text-zinc-500 tracking-wider uppercase block mb-1">Valor</span>
                     <span className={`${isDarkMode ? "text-white" : "text-zinc-900"} font-bold text-2xl`}>{formatCurrency(service.price)}</span>
@@ -2006,7 +2006,7 @@ const ServicosView = ({ services, setServices, inventory, isDarkMode = true }: a
                     </div>
                   </div>
 
-                  <div className={`border ${isDarkMode ? "border-zinc-800" : "border-zinc-200"}/80 rounded-xl p-4 bg-[#050505]`}>
+                  <div className={`border ${isDarkMode ? "border-zinc-800/80" : "border-zinc-200/80"} rounded-xl p-4 bg-[#050505]`}>
                     <div className="flex items-center justify-between mb-4">
                       <div className="flex items-center gap-2">
                         <Box className="text-orange-500" size={16} />
@@ -2018,7 +2018,7 @@ const ServicosView = ({ services, setServices, inventory, isDarkMode = true }: a
                     </div>
 
                     {serviceItems.length === 0 ? (
-                      <div className={`text-center py-4 text-zinc-600 text-xs italic border-t ${isDarkMode ? "border-zinc-800" : "border-zinc-200"}/50`}>
+                      <div className={`text-center py-4 text-zinc-600 text-xs italic border-t ${isDarkMode ? "border-zinc-800/50" : "border-zinc-200/50"}`}>
                         Nenhum insumo adicionado.
                       </div>
                     ) : (
@@ -2051,7 +2051,7 @@ const ServicosView = ({ services, setServices, inventory, isDarkMode = true }: a
                       </div>
                     )}
 
-                    <div className={`mt-4 pt-3 border-t ${isDarkMode ? "border-zinc-800" : "border-zinc-200"}/50 flex justify-end items-center gap-2`}>
+                    <div className={`mt-4 pt-3 border-t ${isDarkMode ? "border-zinc-800/50" : "border-zinc-200/50"} flex justify-end items-center gap-2`}>
                       <span className="text-zinc-500 text-xs">Custo Total:</span>
                       <span className={`${isDarkMode ? "text-white" : "text-zinc-900"} font-bold`}>{formatCurrency(totalCost)}</span>
                     </div>
@@ -2155,7 +2155,7 @@ const ServicosView = ({ services, setServices, inventory, isDarkMode = true }: a
                     </div>
                   </div>
 
-                  <div className={`bg-[#050505] border ${isDarkMode ? "border-zinc-800" : "border-zinc-200"}/80 rounded-xl p-5`}>
+                  <div className={`bg-[#050505] border ${isDarkMode ? "border-zinc-800/80" : "border-zinc-200/80"} rounded-xl p-5`}>
                     <span className="text-[10px] font-bold text-zinc-500 tracking-wider mb-4 uppercase block">Breakdown do Resultado</span>
 
                     <div className="flex flex-col gap-3 text-sm">
@@ -2184,7 +2184,7 @@ const ServicosView = ({ services, setServices, inventory, isDarkMode = true }: a
                         <span>- {formatCurrency(transactionFeeAmount)}</span>
                       </div>
 
-                      <div className={`border-t ${isDarkMode ? "border-zinc-800" : "border-zinc-200"}/80 my-2 pt-4 flex items-end justify-between`}>
+                      <div className={`border-t ${isDarkMode ? "border-zinc-800/80" : "border-zinc-200/80"} my-2 pt-4 flex items-end justify-between`}>
                         <span className="text-zinc-400 text-xs font-bold uppercase tracking-wider">Lucro Líquido</span>
                         <div className="text-right">
                           <span className={`text-2xl font-bold block ${netProfit >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
@@ -2224,7 +2224,7 @@ const ServicosView = ({ services, setServices, inventory, isDarkMode = true }: a
               )}
             </div>
 
-            <div className={`flex items-center gap-4 mt-6 pt-6 border-t ${isDarkMode ? "border-zinc-800" : "border-zinc-200"}/50 shrink-0`}>
+            <div className={`flex items-center gap-4 mt-6 pt-6 border-t ${isDarkMode ? "border-zinc-800/50" : "border-zinc-200/50"} shrink-0`}>
               {activeTab === 'Calculadora de Preço' ? (
                 <>
                   <button
@@ -2367,7 +2367,7 @@ const EstoqueView = ({ inventory, setInventory, isDarkMode = true }: any) => {
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className={`bg-[#0a0a0a] border ${isDarkMode ? "border-zinc-800" : "border-zinc-200"}/80 rounded-2xl p-6 flex flex-col justify-between`}>
+          <div className={`bg-[#0a0a0a] border ${isDarkMode ? "border-zinc-800/80" : "border-zinc-200/80"} rounded-2xl p-6 flex flex-col justify-between`}>
             <div className="flex items-center justify-between mb-4">
               <span className="text-[10px] font-bold text-zinc-500 tracking-wider uppercase">Valor Total em Estoque</span>
               <div className="w-8 h-8 rounded-lg bg-purple-500/10 flex items-center justify-center text-purple-500">
@@ -2380,7 +2380,7 @@ const EstoqueView = ({ inventory, setInventory, isDarkMode = true }: any) => {
             </div>
           </div>
 
-          <div className={`bg-[#0a0a0a] border ${isDarkMode ? "border-zinc-800" : "border-zinc-200"}/80 rounded-2xl p-6 flex flex-col justify-between`}>
+          <div className={`bg-[#0a0a0a] border ${isDarkMode ? "border-zinc-800/80" : "border-zinc-200/80"} rounded-2xl p-6 flex flex-col justify-between`}>
             <div className="flex items-center justify-between mb-4">
               <span className="text-[10px] font-bold text-zinc-500 tracking-wider uppercase">Itens em Baixa</span>
               <div className="w-8 h-8 rounded-lg bg-yellow-500/10 flex items-center justify-center text-yellow-500">
@@ -2408,8 +2408,8 @@ const EstoqueView = ({ inventory, setInventory, isDarkMode = true }: any) => {
 
       {/* Content */}
       <div className="flex-1 px-12 pb-10 z-10 overflow-hidden flex flex-col">
-        <div className={`bg-[#0a0a0a] border ${isDarkMode ? "border-zinc-800" : "border-zinc-200"}/80 rounded-2xl flex-1 flex flex-col overflow-hidden`}>
-          <div className={`p-6 border-b ${isDarkMode ? "border-zinc-800" : "border-zinc-200"}/80 flex items-center justify-between shrink-0`}>
+        <div className={`bg-[#0a0a0a] border ${isDarkMode ? "border-zinc-800/80" : "border-zinc-200/80"} rounded-2xl flex-1 flex flex-col overflow-hidden`}>
+          <div className={`p-6 border-b ${isDarkMode ? "border-zinc-800/80" : "border-zinc-200/80"} flex items-center justify-between shrink-0`}>
             <h3 className={`${isDarkMode ? "text-white" : "text-zinc-900"} font-bold text-lg`}>Inventário</h3>
             <div className="relative w-64">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" size={16} />
@@ -2426,7 +2426,7 @@ const EstoqueView = ({ inventory, setInventory, isDarkMode = true }: any) => {
           <div className="flex-1 overflow-y-auto custom-scrollbar">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className={`border-b ${isDarkMode ? "border-zinc-800" : "border-zinc-200"}/80 text-[10px] font-bold text-zinc-500 uppercase tracking-wider`}>
+                <tr className={`border-b ${isDarkMode ? "border-zinc-800/80" : "border-zinc-200/80"} text-[10px] font-bold text-zinc-500 uppercase tracking-wider`}>
                   <th className="p-4 pl-6">Produto</th>
                   <th className="p-4">Categoria</th>
                   <th className="p-4">Custo Unit.</th>
@@ -2440,7 +2440,7 @@ const EstoqueView = ({ inventory, setInventory, isDarkMode = true }: any) => {
                 {filteredInventory.map((item: any) => {
                   const isLowStock = item.stock <= item.minStock;
                   return (
-                    <tr key={item.id} className={`border-b ${isDarkMode ? "border-zinc-800" : "border-zinc-200"}/50 hover:bg-zinc-900/30 transition-colors group`}>
+                    <tr key={item.id} className={`border-b ${isDarkMode ? "border-zinc-800/50" : "border-zinc-200/50"} hover:bg-zinc-900/30 transition-colors group`}>
                       <td className="p-4 pl-6">
                         <div className="flex items-center gap-3">
                           <div className={`w-8 h-8 rounded-lg bg-zinc-900 border ${isDarkMode ? "border-zinc-800" : "border-zinc-200"} flex items-center justify-center text-zinc-400`}>
@@ -2673,7 +2673,7 @@ const FinanceiroView = ({ expenses, setExpenses, isDarkMode = true }: any) => {
         </div>
 
         {/* Tabs */}
-        <div className={`flex items-center gap-6 border-b ${isDarkMode ? "border-zinc-800" : "border-zinc-200"}/50 pb-4`}>
+        <div className={`flex items-center gap-6 border-b ${isDarkMode ? "border-zinc-800/50" : "border-zinc-200/50"} pb-4`}>
           <button
             onClick={() => setActiveTab('Fluxo de Caixa')}
             className={`flex items-center gap-2 text-sm font-medium transition-colors ${activeTab === 'Fluxo de Caixa' ? 'text-orange-500' : 'text-zinc-500 hover:text-zinc-300'}`}
@@ -2771,7 +2771,7 @@ const FinanceiroView = ({ expenses, setExpenses, isDarkMode = true }: any) => {
                   {[50, 40, 30, 20, 10, 0].map(val => (
                     <div key={val} className="flex items-center gap-4">
                       <span className="text-[10px] text-zinc-600 w-8 text-right">R${val}K</span>
-                      <div className={`flex-1 border-t ${isDarkMode ? "border-zinc-800" : "border-zinc-200"}/50 border-dashed`}></div>
+                      <div className={`flex-1 border-t ${isDarkMode ? "border-zinc-800/50" : "border-zinc-200/50"} border-dashed`}></div>
                     </div>
                   ))}
                 </div>
@@ -2798,15 +2798,15 @@ const FinanceiroView = ({ expenses, setExpenses, isDarkMode = true }: any) => {
                   <span className="text-[10px] font-bold bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 px-2 py-1 rounded-md uppercase tracking-wider">Saudável</span>
                 </div>
                 <div className="space-y-4">
-                  <div className={`flex items-center justify-between border-b ${isDarkMode ? "border-zinc-800" : "border-zinc-200"}/50 pb-4`}>
+                  <div className={`flex items-center justify-between border-b ${isDarkMode ? "border-zinc-800/50" : "border-zinc-200/50"} pb-4`}>
                     <span className="text-sm text-zinc-400">Receita média (3m)</span>
                     <span className={`text-sm font-bold ${isDarkMode ? "text-white" : "text-zinc-900"}`}>R$ 0,00</span>
                   </div>
-                  <div className={`flex items-center justify-between border-b ${isDarkMode ? "border-zinc-800" : "border-zinc-200"}/50 pb-4`}>
+                  <div className={`flex items-center justify-between border-b ${isDarkMode ? "border-zinc-800/50" : "border-zinc-200/50"} pb-4`}>
                     <span className="text-sm text-zinc-400">Despesa média (3m)</span>
                     <span className={`text-sm font-bold ${isDarkMode ? "text-white" : "text-zinc-900"}`}>R$ 0,00</span>
                   </div>
-                  <div className={`flex items-center justify-between border-b ${isDarkMode ? "border-zinc-800" : "border-zinc-200"}/50 pb-4`}>
+                  <div className={`flex items-center justify-between border-b ${isDarkMode ? "border-zinc-800/50" : "border-zinc-200/50"} pb-4`}>
                     <span className="text-sm text-zinc-400">Despesas recorrentes</span>
                     <span className={`text-sm font-bold ${isDarkMode ? "text-white" : "text-zinc-900"}`}>R$ 0,00</span>
                   </div>
@@ -2827,7 +2827,7 @@ const FinanceiroView = ({ expenses, setExpenses, isDarkMode = true }: any) => {
 
             {/* Transactions Table */}
             <div className={`bg-[var(--bg-card)] border border-[var(--border-default)] rounded-2xl flex flex-col overflow-hidden shrink-0 shadow-[var(--card-shadow)]`}>
-              <div className={`p-6 border-b ${isDarkMode ? "border-zinc-800" : "border-zinc-200"}/80 flex items-center justify-between`}>
+              <div className={`p-6 border-b ${isDarkMode ? "border-zinc-800/80" : "border-zinc-200/80"} flex items-center justify-between`}>
                 <h3 className={`${isDarkMode ? "text-white" : "text-zinc-900"} font-bold text-lg`}>Transações</h3>
                 <div className="flex items-center gap-4">
                   <div className="segmented-control">
@@ -2857,7 +2857,7 @@ const FinanceiroView = ({ expenses, setExpenses, isDarkMode = true }: any) => {
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                   <thead>
-                    <tr className={`border-b ${isDarkMode ? "border-zinc-800" : "border-zinc-200"}/80 text-[10px] font-bold text-zinc-500 uppercase tracking-wider`}>
+                    <tr className={`border-b ${isDarkMode ? "border-zinc-800/80" : "border-zinc-200/80"} text-[10px] font-bold text-zinc-500 uppercase tracking-wider`}>
                       <th className="p-4 pl-6">Descrição</th>
                       <th className="p-4">Categoria</th>
                       <th className="p-4">Data</th>
@@ -2867,7 +2867,7 @@ const FinanceiroView = ({ expenses, setExpenses, isDarkMode = true }: any) => {
                   </thead>
                   <tbody>
                     {filteredExpenses.length > 0 ? filteredExpenses.map((item: any) => (
-                      <tr key={item.id} className={`border-b ${isDarkMode ? "border-zinc-800" : "border-zinc-200"}/50 hover:bg-zinc-900/30 transition-colors`}>
+                      <tr key={item.id} className={`border-b ${isDarkMode ? "border-zinc-800/50" : "border-zinc-200/50"} hover:bg-zinc-900/30 transition-colors`}>
                         <td className={`p-4 pl-6 ${isDarkMode ? "text-white" : "text-zinc-900"} font-medium text-sm`}>{item.description}</td>
                         <td className="p-4 text-zinc-400 text-sm">{item.category}</td>
                         <td className="p-4 text-zinc-400 text-sm">{item.dueDate}</td>
@@ -2947,15 +2947,15 @@ const FinanceiroView = ({ expenses, setExpenses, isDarkMode = true }: any) => {
                   <h3 className={`${isDarkMode ? "text-white" : "text-zinc-900"} font-bold`}>Análise de Lucro</h3>
                 </div>
                 <div className="space-y-4 flex-1">
-                  <div className={`flex items-center justify-between border-b ${isDarkMode ? "border-zinc-800" : "border-zinc-200"}/50 pb-4`}>
+                  <div className={`flex items-center justify-between border-b ${isDarkMode ? "border-zinc-800/50" : "border-zinc-200/50"} pb-4`}>
                     <span className="text-sm text-zinc-400">Receita Total</span>
                     <span className="text-sm font-bold text-emerald-500">R$ 0,00</span>
                   </div>
-                  <div className={`flex items-center justify-between border-b ${isDarkMode ? "border-zinc-800" : "border-zinc-200"}/50 pb-4`}>
+                  <div className={`flex items-center justify-between border-b ${isDarkMode ? "border-zinc-800/50" : "border-zinc-200/50"} pb-4`}>
                     <span className="text-sm text-zinc-400">Custos Variáveis</span>
                     <span className="text-sm font-bold text-red-500">-R$ 0,00</span>
                   </div>
-                  <div className={`flex items-center justify-between border-b ${isDarkMode ? "border-zinc-800" : "border-zinc-200"}/50 pb-4`}>
+                  <div className={`flex items-center justify-between border-b ${isDarkMode ? "border-zinc-800/50" : "border-zinc-200/50"} pb-4`}>
                     <span className="text-sm text-zinc-400">Custos Fixos</span>
                     <span className="text-sm font-bold text-red-500">-R$ 0,00</span>
                   </div>
@@ -3010,7 +3010,7 @@ const FinanceiroView = ({ expenses, setExpenses, isDarkMode = true }: any) => {
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                   <thead>
-                    <tr className={`border-b ${isDarkMode ? "border-zinc-800" : "border-zinc-200"}/80 text-[10px] font-bold text-zinc-500 uppercase tracking-wider`}>
+                    <tr className={`border-b ${isDarkMode ? "border-zinc-800/80" : "border-zinc-200/80"} text-[10px] font-bold text-zinc-500 uppercase tracking-wider`}>
                       <th className="p-4 pl-6">Descrição</th>
                       <th className="p-4">Vencimento</th>
                       <th className="p-4">Categoria</th>
@@ -3020,7 +3020,7 @@ const FinanceiroView = ({ expenses, setExpenses, isDarkMode = true }: any) => {
                   </thead>
                   <tbody>
                     {filteredExpenses.length > 0 ? filteredExpenses.map((item: any) => (
-                      <tr key={item.id} className={`border-b ${isDarkMode ? "border-zinc-800" : "border-zinc-200"}/50 hover:bg-zinc-900/30 transition-colors`}>
+                      <tr key={item.id} className={`border-b ${isDarkMode ? "border-zinc-800/50" : "border-zinc-200/50"} hover:bg-zinc-900/30 transition-colors`}>
                         <td className={`p-4 pl-6 ${isDarkMode ? "text-white" : "text-zinc-900"} font-medium text-sm`}>{item.description}</td>
                         <td className="p-4 text-zinc-400 text-sm">{item.dueDate}</td>
                         <td className="p-4 text-zinc-400 text-sm">{item.category}</td>
@@ -3257,7 +3257,7 @@ A clínica apresenta um cenário de estabilidade no curto prazo, porém com opor
         </div>
 
         {/* Tabs */}
-        <div className={`flex items-center gap-6 border-b ${isDarkMode ? "border-zinc-800" : "border-zinc-200"}/50 pb-4`}>
+        <div className={`flex items-center gap-6 border-b ${isDarkMode ? "border-zinc-800/50" : "border-zinc-200/50"} pb-4`}>
           <button
             onClick={() => setActiveTab('Financeiro Detalhado')}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === 'Financeiro Detalhado' ? 'bg-[#1c0d04] text-orange-500 border border-[#431c09]' : 'text-zinc-500 hover:text-zinc-300 border border-transparent'}`}
@@ -3333,7 +3333,7 @@ A clínica apresenta um cenário de estabilidade no curto prazo, porém com opor
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 shrink-0">
-              <div className={`md:col-span-2 bg-[#0a0a0a] border ${isDarkMode ? "border-zinc-800" : "border-zinc-200"}/80 rounded-2xl p-6 flex flex-col h-96`}>
+              <div className={`md:col-span-2 bg-[#0a0a0a] border ${isDarkMode ? "border-zinc-800/80" : "border-zinc-200/80"} rounded-2xl p-6 flex flex-col h-96`}>
                 <h3 className={`${isDarkMode ? "text-white" : "text-zinc-900"} font-bold mb-6`}>Evolução Receita vs Lucro</h3>
                 <div className="flex-1 relative flex items-end pb-6">
                   {/* Y Axis */}
@@ -3342,7 +3342,7 @@ A clínica apresenta um cenário de estabilidade no curto prazo, porém com opor
                   </div>
                   {/* Grid Lines */}
                   <div className="absolute left-8 right-0 top-0 bottom-6 flex flex-col justify-between pointer-events-none">
-                    {[0, 1, 2, 3, 4, 5].map(i => <div key={i} className={`border-t ${isDarkMode ? "border-zinc-800" : "border-zinc-200"}/50 border-dashed w-full h-0`}></div>)}
+                    {[0, 1, 2, 3, 4, 5].map(i => <div key={i} className={`border-t ${isDarkMode ? "border-zinc-800/50" : "border-zinc-200/50"} border-dashed w-full h-0`}></div>)}
                   </div>
                   {/* Chart Line */}
                   <div className="absolute bottom-6 left-8 right-0 h-[2px] bg-emerald-500/50 shadow-[0_0_10px_rgba(16,185,129,0.5)]"></div>
@@ -3408,7 +3408,7 @@ A clínica apresenta um cenário de estabilidade no curto prazo, porém com opor
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 shrink-0">
-              <div className={`bg-[#0a0a0a] border ${isDarkMode ? "border-zinc-800" : "border-zinc-200"}/80 rounded-2xl p-6 flex flex-col h-96`}>
+              <div className={`bg-[#0a0a0a] border ${isDarkMode ? "border-zinc-800/80" : "border-zinc-200/80"} rounded-2xl p-6 flex flex-col h-96`}>
                 <div className="flex items-center gap-3 mb-6">
                   <Crown className="text-yellow-500" size={20} />
                   <h3 className={`${isDarkMode ? "text-white" : "text-zinc-900"} font-bold`}>Ranking da Equipe</h3>
@@ -3418,7 +3418,7 @@ A clínica apresenta um cenário de estabilidade no curto prazo, porém com opor
                 </div>
               </div>
 
-              <div className={`bg-[#0a0a0a] border ${isDarkMode ? "border-zinc-800" : "border-zinc-200"}/80 rounded-2xl p-6 flex flex-col h-96`}>
+              <div className={`bg-[#0a0a0a] border ${isDarkMode ? "border-zinc-800/80" : "border-zinc-200/80"} rounded-2xl p-6 flex flex-col h-96`}>
                 <div className="flex items-center gap-3 mb-6">
                   <BarChart3 className="text-blue-500" size={20} />
                   <h3 className={`${isDarkMode ? "text-white" : "text-zinc-900"} font-bold`}>Taxa de Ocupação Semanal</h3>
@@ -3430,7 +3430,7 @@ A clínica apresenta um cenário de estabilidade no curto prazo, porém com opor
                   </div>
                   {/* Grid Lines */}
                   <div className="absolute left-8 right-0 top-0 bottom-6 flex flex-col justify-between pointer-events-none">
-                    {[0, 1, 2, 3, 4, 5, 6].map(i => <div key={i} className={`border-t ${isDarkMode ? "border-zinc-800" : "border-zinc-200"}/50 border-dashed w-full h-0`}></div>)}
+                    {[0, 1, 2, 3, 4, 5, 6].map(i => <div key={i} className={`border-t ${isDarkMode ? "border-zinc-800/50" : "border-zinc-200/50"} border-dashed w-full h-0`}></div>)}
                   </div>
                   {/* X Axis */}
                   <div className={`absolute bottom-0 left-8 right-0 flex justify-between text-[10px] text-zinc-600 border-t ${isDarkMode ? "border-zinc-800" : "border-zinc-200"} pt-2`}>
@@ -3446,7 +3446,7 @@ A clínica apresenta um cenário de estabilidade no curto prazo, porém com opor
           <>
             {/* Stats Cards */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6 shrink-0">
-              <div className={`bg-[#0a0a0a] border ${isDarkMode ? "border-zinc-800" : "border-zinc-200"}/80 rounded-2xl p-6 flex flex-col justify-between`}>
+              <div className={`bg-[#0a0a0a] border ${isDarkMode ? "border-zinc-800/80" : "border-zinc-200/80"} rounded-2xl p-6 flex flex-col justify-between`}>
                 <div className="flex items-center justify-between mb-4">
                   <div className="w-8 h-8 rounded-lg bg-zinc-800 flex items-center justify-center text-zinc-400">
                     <User size={16} />
@@ -3458,7 +3458,7 @@ A clínica apresenta um cenário de estabilidade no curto prazo, porém com opor
                 </div>
               </div>
 
-              <div className={`bg-[#0a0a0a] border ${isDarkMode ? "border-zinc-800" : "border-zinc-200"}/80 rounded-2xl p-6 flex flex-col justify-between`}>
+              <div className={`bg-[#0a0a0a] border ${isDarkMode ? "border-zinc-800/80" : "border-zinc-200/80"} rounded-2xl p-6 flex flex-col justify-between`}>
                 <div className="flex items-center justify-between mb-4">
                   <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-500">
                     <Activity size={16} />
@@ -3470,7 +3470,7 @@ A clínica apresenta um cenário de estabilidade no curto prazo, porém com opor
                 </div>
               </div>
 
-              <div className={`bg-[#0a0a0a] border ${isDarkMode ? "border-zinc-800" : "border-zinc-200"}/80 rounded-2xl p-6 flex flex-col justify-between`}>
+              <div className={`bg-[#0a0a0a] border ${isDarkMode ? "border-zinc-800/80" : "border-zinc-200/80"} rounded-2xl p-6 flex flex-col justify-between`}>
                 <div className="flex items-center justify-between mb-4">
                   <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-500">
                     <DollarSign size={16} />
@@ -3482,7 +3482,7 @@ A clínica apresenta um cenário de estabilidade no curto prazo, porém com opor
                 </div>
               </div>
 
-              <div className={`bg-[#0a0a0a] border ${isDarkMode ? "border-zinc-800" : "border-zinc-200"}/80 rounded-2xl p-6 flex flex-col justify-between`}>
+              <div className={`bg-[#0a0a0a] border ${isDarkMode ? "border-zinc-800/80" : "border-zinc-200/80"} rounded-2xl p-6 flex flex-col justify-between`}>
                 <div className="flex items-center justify-between mb-4">
                   <div className="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center text-indigo-500">
                     <Target size={16} />
@@ -3496,7 +3496,7 @@ A clínica apresenta um cenário de estabilidade no curto prazo, porém com opor
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 shrink-0">
-              <div className={`md:col-span-2 bg-[#0a0a0a] border ${isDarkMode ? "border-zinc-800" : "border-zinc-200"}/80 rounded-2xl p-6 flex flex-col h-96`}>
+              <div className={`md:col-span-2 bg-[#0a0a0a] border ${isDarkMode ? "border-zinc-800/80" : "border-zinc-200/80"} rounded-2xl p-6 flex flex-col h-96`}>
                 <h3 className={`${isDarkMode ? "text-white" : "text-zinc-900"} font-bold mb-6`}>Evolução Novos vs Recorrentes</h3>
                 <div className="flex-1 relative flex items-end pb-6">
                   {/* Y Axis */}
@@ -3505,7 +3505,7 @@ A clínica apresenta um cenário de estabilidade no curto prazo, porém com opor
                   </div>
                   {/* Grid Lines */}
                   <div className="absolute left-8 right-0 top-0 bottom-6 flex flex-col justify-between pointer-events-none">
-                    {[0, 1, 2, 3, 4].map(i => <div key={i} className={`border-t ${isDarkMode ? "border-zinc-800" : "border-zinc-200"}/50 border-dashed w-full h-0`}></div>)}
+                    {[0, 1, 2, 3, 4].map(i => <div key={i} className={`border-t ${isDarkMode ? "border-zinc-800/50" : "border-zinc-200/50"} border-dashed w-full h-0`}></div>)}
                   </div>
 
                   {/* Chart Line - Mocked SVG */}
@@ -3529,7 +3529,7 @@ A clínica apresenta um cenário de estabilidade no curto prazo, porém com opor
                 </div>
               </div>
 
-              <div className={`bg-[#0a0a0a] border ${isDarkMode ? "border-zinc-800" : "border-zinc-200"}/80 rounded-2xl p-6 flex flex-col h-96`}>
+              <div className={`bg-[#0a0a0a] border ${isDarkMode ? "border-zinc-800/80" : "border-zinc-200/80"} rounded-2xl p-6 flex flex-col h-96`}>
                 <div className="flex items-center gap-3 mb-6">
                   <Crown className="text-yellow-500" size={20} />
                   <h3 className={`${isDarkMode ? "text-white" : "text-zinc-900"} font-bold`}>Clientes VIP</h3>
@@ -3554,7 +3554,7 @@ A clínica apresenta um cenário de estabilidade no curto prazo, porém com opor
               <X size={20} />
             </button>
 
-            <div className={`p-8 border-b ${isDarkMode ? "border-zinc-800" : "border-zinc-200"}/80 shrink-0`}>
+            <div className={`p-8 border-b ${isDarkMode ? "border-zinc-800/80" : "border-zinc-200/80"} shrink-0`}>
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-orange-500/10 flex items-center justify-center text-orange-500 border border-orange-500/20">
                   <Sparkles size={20} />
@@ -3585,7 +3585,7 @@ A clínica apresenta um cenário de estabilidade no curto prazo, porém com opor
             </div>
 
             {!isGenerating && (
-              <div className={`p-6 border-t ${isDarkMode ? "border-zinc-800" : "border-zinc-200"}/80 shrink-0 flex items-center justify-end gap-4`}>
+              <div className={`p-6 border-t ${isDarkMode ? "border-zinc-800/80" : "border-zinc-200/80"} shrink-0 flex items-center justify-end gap-4`}>
                 <button
                   onClick={() => setIsAiModalOpen(false)}
                   className={`bg-transparent ${isDarkMode ? "text-white" : "text-zinc-900"} font-semibold px-6 py-2.5 rounded-full transition-colors hover:bg-zinc-900`}
@@ -3721,7 +3721,7 @@ const SettingsView = ({
                 {/* Table Body */}
                 <div className="flex flex-col">
                   {modules.map((module: any) => (
-                    <div key={module.id} className={`grid grid-cols-5 gap-4 py-4 border-b ${isDarkMode ? "border-zinc-800" : "border-zinc-200"}/50 items-center hover:${isDarkMode ? "bg-zinc-900/20" : "bg-zinc-50"} transition-colors rounded-lg -mx-2 px-2`}>
+                    <div key={module.id} className={`grid grid-cols-5 gap-4 py-4 border-b ${isDarkMode ? "border-zinc-800/50" : "border-zinc-200/50"} items-center hover:${isDarkMode ? "bg-zinc-900/20" : "bg-zinc-50"} transition-colors rounded-lg -mx-2 px-2`}>
                       <div className={`col-span-1 text-sm font-medium ${isDarkMode ? "text-zinc-300" : "text-zinc-900"}`}>{module.name}</div>
                       <div className="col-span-1 flex justify-center">
                         <MatrixToggle
@@ -3839,7 +3839,7 @@ const SettingsView = ({
                     </div>
 
                     {pendingUsers.length === 0 ? (
-                      <div className={`flex flex-col items-center justify-center py-10 text-center border ${isDarkMode ? "border-zinc-800" : "border-zinc-200"}/50 rounded-xl ${isDarkMode ? "bg-zinc-900/10" : "bg-[var(--bg-surface)] shadow-sm"} border-dashed`}>
+                      <div className={`flex flex-col items-center justify-center py-10 text-center border ${isDarkMode ? "border-zinc-800/50" : "border-zinc-200/50"} rounded-xl ${isDarkMode ? "bg-zinc-900/10" : "bg-[var(--bg-surface)] shadow-sm"} border-dashed`}>
                         <div className="w-12 h-12 rounded-full bg-zinc-900 flex items-center justify-center mb-3">
                           <Clock className="text-zinc-500" size={24} />
                         </div>
@@ -3851,7 +3851,7 @@ const SettingsView = ({
                     ) : (
                       <div className="flex flex-col gap-3">
                         {pendingUsers.map(([email]: any) => (
-                          <div key={email} className={`flex items-center justify-between p-4 rounded-xl border ${isDarkMode ? "border-zinc-800" : "border-zinc-200"}/50 ${isDarkMode ? "bg-zinc-900/20" : "bg-[var(--bg-card)] shadow-sm"}`}>
+                          <div key={email} className={`flex items-center justify-between p-4 rounded-xl border ${isDarkMode ? "border-zinc-800/50" : "border-zinc-200/50"} ${isDarkMode ? "bg-zinc-900/20" : "bg-[var(--bg-card)] shadow-sm"}`}>
                             <div className="flex items-center gap-4">
                               <div className="w-10 h-10 rounded-full bg-orange-500/20 flex items-center justify-center text-orange-500 font-bold">
                                 {email.charAt(0).toUpperCase()}
@@ -3887,7 +3887,7 @@ const SettingsView = ({
                     </div>
 
                     {approvedUsers.length === 0 ? (
-                      <div className={`flex flex-col items-center justify-center py-10 text-center border ${isDarkMode ? "border-zinc-800" : "border-zinc-200"}/50 rounded-xl ${isDarkMode ? "bg-zinc-900/10" : "bg-[var(--bg-surface)] shadow-sm"} border-dashed`}>
+                      <div className={`flex flex-col items-center justify-center py-10 text-center border ${isDarkMode ? "border-zinc-800/50" : "border-zinc-200/50"} rounded-xl ${isDarkMode ? "bg-zinc-900/10" : "bg-[var(--bg-surface)] shadow-sm"} border-dashed`}>
                         <div className="w-12 h-12 rounded-full bg-zinc-900 flex items-center justify-center mb-3">
                           <CheckCircle2 className="text-zinc-500" size={24} />
                         </div>
@@ -3896,7 +3896,7 @@ const SettingsView = ({
                     ) : (
                       <div className="flex flex-col gap-3">
                         {approvedUsers.map(([email]: any) => (
-                          <div key={email} className={`flex items-center justify-between p-4 rounded-xl border ${isDarkMode ? "border-zinc-800" : "border-zinc-200"}/50 ${isDarkMode ? "bg-zinc-900/20" : "bg-[var(--bg-card)] shadow-sm"}`}>
+                          <div key={email} className={`flex items-center justify-between p-4 rounded-xl border ${isDarkMode ? "border-zinc-800/50" : "border-zinc-200/50"} ${isDarkMode ? "bg-zinc-900/20" : "bg-[var(--bg-card)] shadow-sm"}`}>
                             <div className="flex items-center gap-4">
                               <div className="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-500 font-bold">
                                 {email.charAt(0).toUpperCase()}
@@ -3927,7 +3927,7 @@ const SettingsView = ({
                     </div>
 
                     {deniedUsers.length === 0 ? (
-                      <div className={`flex flex-col items-center justify-center py-10 text-center border ${isDarkMode ? "border-zinc-800" : "border-zinc-200"}/50 rounded-xl bg-zinc-900/10 border-dashed`}>
+                      <div className={`flex flex-col items-center justify-center py-10 text-center border ${isDarkMode ? "border-zinc-800/50" : "border-zinc-200/50"} rounded-xl bg-zinc-900/10 border-dashed`}>
                         <div className="w-12 h-12 rounded-full bg-zinc-900 flex items-center justify-center mb-3">
                           <XCircle className="text-zinc-500" size={24} />
                         </div>
@@ -3936,7 +3936,7 @@ const SettingsView = ({
                     ) : (
                       <div className="flex flex-col gap-3">
                         {deniedUsers.map(([email]: any) => (
-                          <div key={email} className={`flex items-center justify-between p-4 rounded-xl border ${isDarkMode ? "border-zinc-800" : "border-zinc-200"}/50 bg-zinc-900/20`}>
+                          <div key={email} className={`flex items-center justify-between p-4 rounded-xl border ${isDarkMode ? "border-zinc-800/50" : "border-zinc-200/50"} bg-zinc-900/20`}>
                             <div className="flex items-center gap-4">
                               <div className="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center text-red-500 font-bold">
                                 {email.charAt(0).toUpperCase()}
@@ -3965,7 +3965,7 @@ const SettingsView = ({
                       <h4 className={`text-base font-medium ${isDarkMode ? "text-white" : "text-zinc-900"} mb-1`}>Auditoria de Acessos</h4>
                       <p className="text-sm text-zinc-500">Histórico de aprovações e revogações.</p>
                     </div>
-                    <div className={`flex flex-col items-center justify-center py-10 text-center border ${isDarkMode ? "border-zinc-800" : "border-zinc-200"}/50 rounded-xl bg-zinc-900/10 border-dashed`}>
+                    <div className={`flex flex-col items-center justify-center py-10 text-center border ${isDarkMode ? "border-zinc-800/50" : "border-zinc-200/50"} rounded-xl bg-zinc-900/10 border-dashed`}>
                       <div className="w-12 h-12 rounded-full bg-zinc-900 flex items-center justify-center mb-3">
                         <List className="text-zinc-500" size={24} />
                       </div>
@@ -4772,7 +4772,13 @@ const SettingsView = ({
 };
 
 export default function App() {
-  const [isDarkMode, setIsDarkMode] = useState(true);
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('theme');
+      return saved ? saved === 'dark' : true;
+    }
+    return true;
+  });
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [currentUserEmail, setCurrentUserEmail] = useState('');
   const [userStatuses, setUserStatuses] = useState<Record<string, AccessStatus>>({
@@ -4788,7 +4794,15 @@ export default function App() {
 
   // Sync theme class on <html> element for CSS custom properties
   React.useEffect(() => {
-    document.documentElement.classList.toggle('light', !isDarkMode);
+    if (isDarkMode) {
+      document.documentElement.classList.remove('light');
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('theme', 'dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+      document.documentElement.classList.add('light');
+      localStorage.setItem('theme', 'light');
+    }
   }, [isDarkMode]);
 
   const [patients, setPatients] = useState<any[]>([]);

@@ -13,9 +13,7 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
   const [theme, setTheme] = useState<Theme>('light');
 
   useEffect(() => {
-    // Force light mode as per requirements
-    document.documentElement.classList.remove('dark');
-    document.documentElement.classList.add('light');
+    // Removido o forçamento estático para permitir que o App.tsx gerencie o localStorage
   }, []);
 
   return (

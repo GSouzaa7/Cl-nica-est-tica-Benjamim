@@ -220,7 +220,7 @@ body {
       border: 1px solid var(--border-default) !important;
     }
 
-    /* Explicit Border Color Overrides */
+    /* Explicit Border Color Overrides - Modern Light Mode */
     .border-zinc-800,
     .border-zinc-800\/80,
     .border-zinc-800\/50,
@@ -229,7 +229,7 @@ body {
     .border-orange-900\/30,
     .border-emerald-900\/30,
     .border-red-900\/30 {
-      border-color: var(--border-default) !important;
+      border-color: transparent !important;
     }
 
     /* Specific Text Color Overrides for Dark-themed elements in Light Mode */
@@ -254,7 +254,7 @@ body {
     background-color: var(--bg-surface) !important;
   }
 
-  /* Border overrides */
+  /* Border overrides - Modern Light Mode */
   .border-white\/10,
   .border-white\/5,
   .border-zinc-800,
@@ -262,7 +262,7 @@ body {
   .border-zinc-800\/80,
   .border-orange-900\/30,
   .border-red-900\/30 {
-    border-color: var(--border-default) !important;
+    border-color: transparent !important;
   }
 
   /* Text overrides – white to dark */
