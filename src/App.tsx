@@ -1287,6 +1287,16 @@ const ClientesView = ({ patients, setPatients, onGenerateReceituario, isDarkMode
   const [editPhone, setEditPhone] = useState('');
   const [editEmail, setEditEmail] = useState('');
   const [editNotes, setEditNotes] = useState('');
+  const [clientCPF, setClientCPF] = useState('');
+
+  const formatCPF = (value: string) => {
+    return value
+      .replace(/\D/g, '') // Remove tudo o que não é dígito
+      .replace(/(\d{3})(\d)/, '$1.$2')
+      .replace(/(\d{3})(\d)/, '$1.$2')
+      .replace(/(\d{3})(\d{1,2})/, '$1-$2')
+      .replace(/(-\d{2})\d+?$/, '$1'); // Limita a 11 dígitos
+  };
 
   React.useEffect(() => {
     if (currentPatient) {
@@ -1294,6 +1304,7 @@ const ClientesView = ({ patients, setPatients, onGenerateReceituario, isDarkMode
       setEditPhone(currentPatient.phone || '');
       setEditEmail(currentPatient.email || '');
       setEditNotes(currentPatient.notes || '');
+      setClientCPF(currentPatient.cpf ? formatCPF(currentPatient.cpf) : '');
     }
   }, [currentPatient?.id]);
 
@@ -1407,6 +1418,7 @@ const ClientesView = ({ patients, setPatients, onGenerateReceituario, isDarkMode
         phone: editPhone,
         email: editEmail,
         notes: editNotes,
+        cpf: clientCPF.replace(/\D/g, ''),
       };
       setPatients([updatedPatient, ...patients]);
       setIsNewPatientModalOpen(false);
@@ -1418,6 +1430,7 @@ const ClientesView = ({ patients, setPatients, onGenerateReceituario, isDarkMode
         phone: editPhone,
         email: editEmail,
         notes: editNotes,
+        cpf: clientCPF.replace(/\D/g, ''),
       };
       setPatients(patients.map((p: any) => p.id === currentPatient.id ? updatedPatient : p));
     }
@@ -1529,6 +1542,15 @@ const ClientesView = ({ patients, setPatients, onGenerateReceituario, isDarkMode
                     value={editName}
                     onChange={e => setEditName(e.target.value)}
                     className={`w-full bg-[#0a0a0a] border border-zinc-800 rounded-xl px-4 py-2.5 ${isDarkMode ? "text-white" : "text-zinc-900"} focus:outline-none focus:border-orange-500 transition-colors text-sm`}
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-zinc-500 mb-1 uppercase tracking-widest">CPF (Obrigatório)</label>
+                  <input
+                    placeholder="000.000.000-00"
+                    value={clientCPF}
+                    onChange={(e) => setClientCPF(formatCPF(e.target.value))}
+                    className="w-full bg-[#050505] border border-zinc-800 rounded-xl px-4 py-3 text-sm text-white focus:border-orange-500 outline-none transition-all"
                   />
                 </div>
                 <div>

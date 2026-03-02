@@ -1,14 +1,25 @@
 import React, { useState } from 'react';
 import { FileSignature, Printer, Save } from 'lucide-react';
 
+const compareDates = (d1: string, d2: string) => {
+  if (!d1 || !d2) return false;
+  const format = (d: string) => new Date(d).toISOString().split('T')[0].replace(/-/g, '');
+  try {
+    const normalizeBR = (s: string) => s.includes('/') ? s.split('/').reverse().join('') : s.replace(/-/g, '');
+    return normalizeBR(d1) === normalizeBR(d2);
+  } catch { return false; }
+};
+
 export const ReceituarioView = ({ patients, professionals, selectedPatientId, isDarkMode = true }: any) => {
   const [tipo, setTipo] = useState('simples');
   const [patientId, setPatientId] = useState(selectedPatientId || '');
   const [professionalId, setProfessionalId] = useState(professionals[0]?.id || '');
   const [conteudo, setConteudo] = useState('');
+  const [historyLookupDate, setHistoryLookupDate] = useState(new Date().toISOString().split('T')[0]);
+  const [patientSearch, setPatientSearch] = useState('');
 
-  const selectedPatient = patients.find((p: any) => p.id === patientId);
-  const selectedProfessional = professionals.find((p: any) => p.id === professionalId);
+  const selectedPatientData = patients?.find((p: any) => p.id === patientId);
+  const selectedProfessional = professionals?.find((p: any) => p.id === professionalId);
 
   const handlePrint = () => {
     window.print();
@@ -46,7 +57,64 @@ export const ReceituarioView = ({ patients, professionals, selectedPatientId, is
         <div className="flex gap-8 max-w-7xl mx-auto">
 
           {/* Controls */}
-          <div className={`w-80 shrink-0 ${isDarkMode ? 'bg-[#0a0a0a] border-zinc-800' : 'bg-white border-zinc-200'} border rounded-2xl p-6 shadow-xl flex flex-col gap-6`}>
+          <div className={`w-80 shrink-0 ${isDarkMode ? 'bg-[#0a0a0a] border-zinc-800' : 'bg-white border-zinc-200'} border rounded-2xl p-6 shadow-xl flex flex-col gap-6 print:hidden`}>
+
+            <div className="space-y-3">
+              <div className="p-4 rounded-2xl bg-orange-500/5 border border-orange-500/10">
+                <label className="block text-[10px] font-bold text-orange-600 mb-2 uppercase tracking-widest">
+                  Data da Sessão Anterior
+                </label>
+                <input
+                  type="date"
+                  max={new Date().toISOString().split('T')[0]}
+                  value={historyLookupDate}
+                  onChange={(e) => setHistoryLookupDate(e.target.value)}
+                  className="w-full bg-[#050505] border border-zinc-800 rounded-xl px-4 py-3 text-sm text-white focus:border-orange-500 outline-none transition-all"
+                />
+              </div>
+
+              <div className={`mt-4 p-5 rounded-2xl border ${patientId ? "border-orange-500/20 bg-orange-500/5" : "border-zinc-800 bg-zinc-900/30"} h-[220px] flex flex-col print:hidden`}>
+                <div className="flex items-center gap-2 mb-3">
+                  <div className={`w-2 h-2 rounded-full ${patientId ? "bg-orange-500 animate-pulse" : "bg-zinc-600"}`} />
+                  <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Resumo da Evolução</span>
+                </div>
+
+                <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">
+                  {(() => {
+                    const client = patients?.find((c: any) => String(c.id) === String(patientId) || c.name.toLowerCase() === patientSearch.toLowerCase());
+
+                    if (!client) {
+                      return <p className="text-xs text-zinc-600 italic text-center mt-8">Selecione um paciente para carregar o histórico clínico.</p>;
+                    }
+
+                    // Busca exata pela data selecionada
+                    const exactEntry = client?.history?.find((h: any) => compareDates(h.date, historyLookupDate));
+
+                    // Fallback: Se não houver na data, pega o registro mais recente (último)
+                    const latestEntry = client?.history?.[client.history.length - 1];
+
+                    const contentToShow = exactEntry?.content || latestEntry?.content || client?.notes;
+
+                    if (!contentToShow) {
+                      return <p className="text-xs text-zinc-500 italic mt-8 text-center">Nenhum registro clínico encontrado para o paciente.</p>;
+                    }
+
+                    return (
+                      <div className="space-y-2">
+                        <p className="text-xs text-zinc-300 leading-relaxed font-medium">{contentToShow}</p>
+                        <button
+                          onClick={() => setConteudo(prev => prev + "\n\nNotas da sessão anterior: " + contentToShow)}
+                          className="text-[9px] font-bold text-orange-500 uppercase hover:underline block mt-2"
+                        >
+                          + Importar para a receita
+                        </button>
+                      </div>
+                    );
+                  })()}
+                </div>
+              </div>
+            </div>
+
             <div>
               <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Tipo de Receituário</label>
               <select value={tipo} onChange={(e) => setTipo(e.target.value)} className={`w-full ${isDarkMode ? 'bg-zinc-900 border-zinc-700 text-white' : 'bg-white border-zinc-200 text-zinc-900'} border rounded-xl px-4 py-3 focus:outline-none focus:border-orange-500 transition-colors`}>
@@ -67,10 +135,18 @@ export const ReceituarioView = ({ patients, professionals, selectedPatientId, is
 
             <div>
               <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Paciente</label>
-              <select value={patientId} onChange={(e) => setPatientId(e.target.value)} className={`w-full ${isDarkMode ? 'bg-zinc-900 border-zinc-700 text-white' : 'bg-white border-zinc-200 text-zinc-900'} border rounded-xl px-4 py-3 focus:outline-none focus:border-orange-500 transition-colors`}>
+              <select
+                value={patientId}
+                onChange={(e) => {
+                  setPatientId(e.target.value);
+                  const pt = patients.find((p: any) => String(p.id) === String(e.target.value));
+                  if (pt) setPatientSearch(pt.name);
+                }}
+                className={`w-full ${isDarkMode ? 'bg-zinc-900 border-zinc-700 text-white' : 'bg-white border-zinc-200 text-zinc-900'} border rounded-xl px-4 py-3 focus:outline-none focus:border-orange-500 transition-colors`}
+              >
                 <option value="">Selecione um paciente</option>
                 {patients.map((p: any) => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
+                  <option key={p.id} value={p.id}>{p.name} - ID/CPF: {p.cpf || p.id}</option>
                 ))}
               </select>
             </div>
@@ -92,7 +168,7 @@ export const ReceituarioView = ({ patients, professionals, selectedPatientId, is
               {/* This is the printable area */}
               <PrintableReceituario
                 tipo={tipo}
-                patient={selectedPatient}
+                patient={selectedPatientData}
                 professional={selectedProfessional}
                 conteudo={conteudo}
               />
@@ -128,7 +204,7 @@ export const ReceituarioView = ({ patients, professionals, selectedPatientId, is
       <div className="hidden print:block print-area w-[210mm] min-h-[297mm] bg-[#ffffff] text-zinc-900 p-[20mm]">
         <PrintableReceituario
           tipo={tipo}
-          patient={selectedPatient}
+          patient={selectedPatientData}
           professional={selectedProfessional}
           conteudo={conteudo}
         />
