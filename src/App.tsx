@@ -3248,7 +3248,7 @@ A clínica apresenta um cenário de estabilidade no curto prazo, porém com opor
           <div className="flex items-center gap-4">
             <button
               onClick={handleGenerateReport}
-              className="bg-gradient-to-r from-[#4a2511] to-[#2a1408] border border-orange-500/30 hover:border-orange-500/60 text-orange-500 font-semibold px-6 py-2.5 rounded-full flex items-center gap-2 transition-all shadow-[0_0_15px_rgba(249,115,22,0.15)] hover:shadow-[0_0_20px_rgba(249,115,22,0.3)]"
+              className={`font-semibold px-6 py-2.5 rounded-full flex items-center gap-2 transition-all shadow-[0_0_15px_rgba(249,115,22,0.15)] hover:shadow-[0_0_20px_rgba(249,115,22,0.3)] border ${isDarkMode ? "bg-gradient-to-r from-[#4a2511] to-[#2a1408] border-orange-500/30 hover:border-orange-500/60 text-orange-500" : "bg-gradient-to-r from-orange-400 to-orange-500 border-transparent hover:from-orange-500 hover:to-orange-600 text-white"}`}
             >
               <Sparkles size={18} />
               Criar Relatório IA
@@ -4791,6 +4791,11 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('Pendentes');
   const [isSaving, setIsSaving] = useState(false);
   const [selectedPatientForReceituario, setSelectedPatientForReceituario] = useState<string | null>(null);
+  const [isAssistantOpen, setIsAssistantOpen] = useState(false);
+  const [chatMessage, setChatMessage] = useState('');
+  const [chatHistory, setChatHistory] = useState([
+    { role: 'assistant', text: 'Olá! Sou o Estetix AI. Como posso ajudar com a gestão da sua clínica hoje?' }
+  ]);
 
   // Sync theme class on <html> element for CSS custom properties
   React.useEffect(() => {
@@ -5049,9 +5054,63 @@ export default function App() {
         )}
 
         {/* Floating Action Button (Robot icon) */}
-        <button className="absolute bottom-8 right-8 w-14 h-14 bg-orange-500 rounded-full flex items-center justify-center shadow-lg shadow-orange-500/20 hover:bg-orange-600 transition-colors z-50 hover:scale-105 active:scale-95">
-          <Bot className={`${isDarkMode ? "text-white" : "text-zinc-900"}`} size={24} />
-          <span className="absolute top-0 right-0 w-3.5 h-3.5 bg-emerald-500 border-2 border-[#050505] rounded-full"></span>
+        {isAssistantOpen && (
+          <div className={`absolute bottom-28 right-8 w-80 md:w-96 h-[500px] flex flex-col rounded-2xl shadow-2xl border overflow-hidden z-50 transition-all ${isDarkMode ? "bg-[#0a0a0a] border-zinc-800" : "bg-white border-[var(--border-default)]"}`}>
+            {/* Header */}
+            <div className={`p-4 border-b flex items-center justify-between bg-gradient-to-r from-orange-500 to-orange-600 text-white ${isDarkMode ? "border-zinc-800" : "border-orange-600"}`}>
+              <div className="flex items-center gap-2">
+                <Bot size={20} />
+                <span className="font-bold text-sm">Estetix AI</span>
+              </div>
+              <button onClick={() => setIsAssistantOpen(false)} className="hover:text-orange-200 transition-colors">
+                <X size={18} />
+              </button>
+            </div>
+            {/* Chat Area */}
+            <div className="flex-1 p-4 overflow-y-auto flex flex-col gap-4 custom-scrollbar">
+              {chatHistory.map((msg, i) => (
+                <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`max-w-[85%] p-3 rounded-2xl text-sm ${msg.role === 'user' ? 'bg-orange-500 text-white rounded-tr-sm shadow-md' : (isDarkMode ? 'bg-[#121214] text-zinc-300 border border-zinc-800 rounded-tl-sm' : 'bg-zinc-100 text-zinc-700 border border-zinc-200 rounded-tl-sm shadow-sm')}`}>
+                    {msg.text}
+                  </div>
+                </div>
+              ))}
+            </div>
+            {/* Input Area */}
+            <div className={`p-3 border-t flex gap-2 ${isDarkMode ? "border-zinc-800 bg-[#050505]" : "border-[var(--border-default)] bg-zinc-50"}`}>
+              <input
+                type="text"
+                value={chatMessage}
+                onChange={(e) => setChatMessage(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && chatMessage.trim()) {
+                    setChatHistory([...chatHistory, { role: 'user', text: chatMessage }, { role: 'assistant', text: 'Processando sua solicitação... (Integração com LLM em breve)' }]);
+                    setChatMessage('');
+                  }
+                }}
+                placeholder="Digite sua dúvida..."
+                className={`flex-1 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 border transition-colors ${isDarkMode ? "bg-[#121214] border-zinc-800 text-white" : "bg-white border-zinc-200 text-zinc-900"}`}
+              />
+              <button
+                onClick={() => {
+                  if (chatMessage.trim()) {
+                    setChatHistory([...chatHistory, { role: 'user', text: chatMessage }, { role: 'assistant', text: 'Processando sua solicitação... (Integração com LLM em breve)' }]);
+                    setChatMessage('');
+                  }
+                }}
+                className="bg-orange-500 hover:bg-orange-600 text-white w-10 h-10 rounded-xl transition-colors flex items-center justify-center shrink-0"
+              >
+                <ArrowRight size={18} />
+              </button>
+            </div>
+          </div>
+        )}
+        <button
+          onClick={() => setIsAssistantOpen(!isAssistantOpen)}
+          className="absolute bottom-8 right-8 w-14 h-14 bg-orange-500 rounded-full flex items-center justify-center shadow-lg shadow-orange-500/20 hover:bg-orange-600 transition-colors z-50 hover:scale-105 active:scale-95"
+        >
+          {isAssistantOpen ? <X className="text-white" size={24} /> : <Bot className={`${isDarkMode ? "text-white" : "text-zinc-900"}`} size={24} />}
+          {!isAssistantOpen && <span className="absolute top-0 right-0 w-3.5 h-3.5 bg-emerald-500 border-2 border-[#050505] rounded-full"></span>}
         </button>
       </main>
     </div>

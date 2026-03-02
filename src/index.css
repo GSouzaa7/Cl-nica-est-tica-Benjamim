@@ -313,14 +313,7 @@ body {
     /* Keep white text for primary orange buttons only */
   }
 
-  /* Alert/Status backgrounds for Light Mode */
-  .bg-\[\#1c0d0d\] {
-    background-color: #FEF2F2 !important;
-  }
-
-  .bg-\[\#1c140d\] {
-    background-color: #FFFBEB !important;
-  }
+  /* Alert/Status backgrounds foram excluídos para respeitar opacidade base do tailwind */
 
   /* Specific icon/circle borders */
   .border-emerald-900\/50 {
