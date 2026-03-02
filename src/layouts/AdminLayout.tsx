@@ -2,16 +2,16 @@ import React from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { usePermissions } from '../contexts/PermissionContext';
-import { 
-  LayoutDashboard, 
-  Calendar, 
-  Users, 
-  UserCircle, 
-  Briefcase, 
-  Package, 
-  DollarSign, 
-  BarChart2, 
-  Settings, 
+import {
+  LayoutDashboard,
+  Calendar,
+  Users,
+  UserCircle,
+  Briefcase,
+  Package,
+  DollarSign,
+  BarChart2,
+  Settings,
   LogOut,
   Sparkles
 } from 'lucide-react';
@@ -45,7 +45,7 @@ export const AdminLayout = () => {
         <div className="p-6">
           <h1 className="text-xl font-bricolage text-primary-400 tracking-tight">Estética Avançada</h1>
         </div>
-        
+
         <div className="px-4 py-2 text-xs font-semibold text-neutral-500 uppercase tracking-wider">
           Menu
         </div>
@@ -58,10 +58,9 @@ export const AdminLayout = () => {
                 to={item.path}
                 end={item.path === '/admin'}
                 className={({ isActive }) =>
-                  `flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-colors ${
-                    isActive
-                      ? 'bg-white/10 text-white'
-                      : 'text-neutral-400 hover:bg-white/5 hover:text-white'
+                  `flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-colors ${isActive
+                    ? 'bg-white/10 text-white'
+                    : 'text-neutral-400 hover:bg-white/5 hover:text-white'
                   }`
                 }
               >
@@ -77,10 +76,9 @@ export const AdminLayout = () => {
             <NavLink
               to="/admin/configuracoes"
               className={({ isActive }) =>
-                `flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-colors ${
-                  isActive
-                    ? 'bg-white/10 text-white'
-                    : 'text-neutral-400 hover:bg-white/5 hover:text-white'
+                `flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-colors ${isActive
+                  ? 'bg-white/10 text-white'
+                  : 'text-neutral-400 hover:bg-white/5 hover:text-white'
                 }`
               }
             >
@@ -100,14 +98,14 @@ export const AdminLayout = () => {
 
       {/* Main Content */}
       <main className="flex-1 overflow-y-auto relative">
-        <div className="absolute inset-0 z-0 pointer-events-none">
-          <div className="stars absolute inset-0"></div>
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[500px] bg-orange-900/5 blur-[120px] rounded-full"></div>
+        <div className="fixed z-0 pointer-events-none top-0 right-0 bottom-0 left-0">
+          <div className="glow-blob absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[500px] bg-orange-900/10 blur-[120px] rounded-full"></div>
+          <div className="glow-blob absolute bottom-0 right-0 w-[600px] h-[600px] bg-orange-950/20 blur-[100px] rounded-full"></div>
         </div>
         <div className="relative z-10 p-8 h-full">
           <Outlet />
         </div>
-        
+
         {/* Virtual Assistant Button */}
         <button className="fixed bottom-6 right-6 w-14 h-14 rounded-full bg-gradient-to-tr from-purple-600 to-blue-500 flex items-center justify-center shadow-[0_0_20px_rgba(168,85,247,0.4)] hover:scale-105 transition-transform z-50">
           <Sparkles className="w-6 h-6 text-white" />

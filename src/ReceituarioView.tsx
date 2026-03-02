@@ -21,16 +21,16 @@ export const ReceituarioView = ({ patients, professionals, selectedPatientId, is
   return (
     <div className="flex-1 flex flex-col relative overflow-hidden">
       {/* Background stars/dots effect */}
-      <div className="absolute inset-0 pointer-events-none opacity-20" style={{ backgroundImage: `radial-gradient(circle at center, ${isDarkMode ? "#ffffff" : "#000000"} 1px, transparent 1px)`, backgroundSize: "48px 48px" }} />
+
 
       {/* Header - Hidden in print */}
       <header className="pt-12 px-12 pb-8 z-10 shrink-0 flex items-center justify-between print:hidden">
         <div className="flex items-center gap-3">
-          <FileSignature className={isDarkMode ? "text-white" : "text-zinc-900"} size={32} />
-          <h1 className={`text-3xl font-bold ${isDarkMode ? "text-white" : "text-zinc-900"} tracking-tight`}>Receituário</h1>
+          <FileSignature className="text-[var(--text-primary)]" size={32} />
+          <h1 className="text-3xl font-bold text-[var(--text-primary)] tracking-tight">Receituário</h1>
         </div>
         <div className="flex gap-4">
-          <button onClick={handleSave} className="flex items-center gap-2 px-6 py-2.5 rounded-full bg-zinc-800 hover:bg-zinc-700 text-white font-semibold transition-colors">
+          <button onClick={handleSave} className="flex items-center gap-2 px-6 py-2.5 rounded-full bg-[var(--bg-surface)] border border-[var(--border-default)] hover:bg-zinc-800 hover:text-white text-[var(--text-primary)] font-semibold transition-all shadow-[var(--card-shadow)]">
             <Save size={18} />
             Salvar no Prontuário
           </button>
@@ -44,12 +44,12 @@ export const ReceituarioView = ({ patients, professionals, selectedPatientId, is
       {/* Content Grid - Hidden in print */}
       <div className="flex-1 overflow-y-auto px-12 pb-10 z-10 custom-scrollbar print:hidden">
         <div className="flex gap-8 max-w-7xl mx-auto">
-          
+
           {/* Controls */}
-          <div className={`w-80 shrink-0 ${isDarkMode ? "bg-[#0c0c0e] border-zinc-800/80" : "bg-white border-zinc-200"} border rounded-2xl p-6 shadow-xl flex flex-col gap-6`}>
+          <div className="w-80 shrink-0 bg-[var(--bg-card)] border border-[var(--border-default)] rounded-2xl p-6 shadow-[var(--card-shadow)] flex flex-col gap-6">
             <div>
               <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Tipo de Receituário</label>
-              <select value={tipo} onChange={(e) => setTipo(e.target.value)} className={`w-full bg-[#050505] border border-zinc-800 rounded-xl px-4 py-3 ${isDarkMode ? "text-white" : "text-zinc-900"} focus:outline-none focus:border-orange-500 transition-colors`}>
+              <select value={tipo} onChange={(e) => setTipo(e.target.value)} className="w-full bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-xl px-4 py-3 text-[var(--text-primary)] focus:outline-none focus:border-orange-500 transition-colors">
                 <option value="simples">Receituário Simples</option>
                 <option value="controlado">Controle Especial (2 vias)</option>
                 <option value="antibiotico">Antibiótico (2 vias)</option>
@@ -58,7 +58,7 @@ export const ReceituarioView = ({ patients, professionals, selectedPatientId, is
 
             <div>
               <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Profissional Emitente</label>
-              <select value={professionalId} onChange={(e) => setProfessionalId(e.target.value)} className={`w-full bg-[#050505] border border-zinc-800 rounded-xl px-4 py-3 ${isDarkMode ? "text-white" : "text-zinc-900"} focus:outline-none focus:border-orange-500 transition-colors`}>
+              <select value={professionalId} onChange={(e) => setProfessionalId(e.target.value)} className="w-full bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-xl px-4 py-3 text-[var(--text-primary)] focus:outline-none focus:border-orange-500 transition-colors">
                 {professionals.map((p: any) => (
                   <option key={p.id} value={p.id}>{p.name}</option>
                 ))}
@@ -67,7 +67,7 @@ export const ReceituarioView = ({ patients, professionals, selectedPatientId, is
 
             <div>
               <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Paciente</label>
-              <select value={patientId} onChange={(e) => setPatientId(e.target.value)} className={`w-full bg-[#050505] border border-zinc-800 rounded-xl px-4 py-3 ${isDarkMode ? "text-white" : "text-zinc-900"} focus:outline-none focus:border-orange-500 transition-colors`}>
+              <select value={patientId} onChange={(e) => setPatientId(e.target.value)} className="w-full bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-xl px-4 py-3 text-[var(--text-primary)] focus:outline-none focus:border-orange-500 transition-colors">
                 <option value="">Selecione um paciente</option>
                 {patients.map((p: any) => (
                   <option key={p.id} value={p.id}>{p.name}</option>
@@ -77,11 +77,11 @@ export const ReceituarioView = ({ patients, professionals, selectedPatientId, is
 
             <div className="flex-1 flex flex-col">
               <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Prescrição (Medicamentos/Exames)</label>
-              <textarea 
+              <textarea
                 value={conteudo}
                 onChange={(e) => setConteudo(e.target.value)}
                 placeholder="Ex: Dipirona 500mg - Tomar 1 comprimido de 8/8h se dor..."
-                className={`flex-1 w-full bg-[#050505] border border-zinc-800 rounded-xl px-4 py-3 ${isDarkMode ? "text-white" : "text-zinc-900"} focus:outline-none focus:border-orange-500 transition-colors resize-none`}
+                className="flex-1 w-full bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-xl px-4 py-3 text-[var(--text-primary)] focus:outline-none focus:border-orange-500 transition-colors resize-none"
               />
             </div>
           </div>
@@ -90,11 +90,11 @@ export const ReceituarioView = ({ patients, professionals, selectedPatientId, is
           <div className="flex-1 bg-zinc-200 rounded-2xl p-8 overflow-y-auto flex justify-center shadow-inner">
             <div className="bg-white w-[210mm] min-h-[297mm] shadow-2xl p-[20mm] text-black font-sans relative">
               {/* This is the printable area */}
-              <PrintableReceituario 
-                tipo={tipo} 
-                patient={selectedPatient} 
-                professional={selectedProfessional} 
-                conteudo={conteudo} 
+              <PrintableReceituario
+                tipo={tipo}
+                patient={selectedPatient}
+                professional={selectedProfessional}
+                conteudo={conteudo}
               />
             </div>
           </div>
@@ -123,14 +123,14 @@ export const ReceituarioView = ({ patients, professionals, selectedPatientId, is
           }
         }
       `}</style>
-      
+
       {/* Hidden Print Container */}
       <div className="hidden print:block print-area w-[210mm] min-h-[297mm] bg-white text-black p-[20mm]">
-        <PrintableReceituario 
-          tipo={tipo} 
-          patient={selectedPatient} 
-          professional={selectedProfessional} 
-          conteudo={conteudo} 
+        <PrintableReceituario
+          tipo={tipo}
+          patient={selectedPatient}
+          professional={selectedProfessional}
+          conteudo={conteudo}
         />
       </div>
     </div>
@@ -139,7 +139,7 @@ export const ReceituarioView = ({ patients, professionals, selectedPatientId, is
 
 const PrintableReceituario = ({ tipo, patient, professional, conteudo }: any) => {
   const dataAtual = new Date().toLocaleDateString('pt-BR');
-  
+
   const Header = () => (
     <div className="text-center border-b-2 border-black pb-4 mb-8">
       <h2 className="text-2xl font-bold uppercase">{professional?.name || 'Nome do Profissional'}</h2>
@@ -209,7 +209,7 @@ const PrintableReceituario = ({ tipo, patient, professional, conteudo }: any) =>
           <p className="font-bold mb-2">PRESCRIÇÃO:</p>
           {conteudo || '...'}
         </div>
-        
+
         <Footer />
       </div>
     );
@@ -247,7 +247,7 @@ const PrintableReceituario = ({ tipo, patient, professional, conteudo }: any) =>
           <p className="font-bold mb-2">PRESCRIÇÃO:</p>
           {conteudo || '...'}
         </div>
-        
+
         <Footer />
       </div>
     );

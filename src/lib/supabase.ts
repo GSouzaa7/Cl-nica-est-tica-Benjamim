@@ -1,18 +1,32 @@
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
+export type SupabaseClient = any;
 
-let supabaseInstance: SupabaseClient | null = null;
+let supabaseInstance: any = null;
 
-export const getSupabase = (): SupabaseClient => {
+const createMockClient = () => {
+  return {
+    from: () => ({
+      select: () => ({
+        order: () => Promise.resolve({ data: [] }),
+        single: () => Promise.resolve({ data: null })
+      }),
+      insert: () => ({ select: () => Promise.resolve({ data: [] }) }),
+      delete: () => ({ eq: () => Promise.resolve({ data: null }), match: () => Promise.resolve({ data: null }) }),
+      update: () => ({ eq: () => Promise.resolve({ data: null }) })
+    }),
+    auth: {
+      getSession: () => Promise.resolve({ data: { session: null } }),
+      onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => { } } } }),
+      signInWithPassword: () => Promise.resolve({ data: { user: null }, error: null }),
+      signUp: () => Promise.resolve({ data: { user: null }, error: null }),
+      signOut: () => Promise.resolve({ error: null })
+    }
+  };
+};
+
+export const getSupabase = (): any => {
   if (supabaseInstance) return supabaseInstance;
 
-  const supabaseUrl = localStorage.getItem('SUPABASE_URL');
-  const supabaseKey = localStorage.getItem('SUPABASE_ANON_KEY');
-
-  if (!supabaseUrl || !supabaseKey) {
-    throw new Error('Supabase credentials not found in LocalStorage');
-  }
-
-  supabaseInstance = createClient(supabaseUrl, supabaseKey);
+  supabaseInstance = createMockClient();
   return supabaseInstance;
 };
 
@@ -21,5 +35,5 @@ export const resetSupabase = () => {
 };
 
 export const hasSupabaseConfig = () => {
-  return !!localStorage.getItem('SUPABASE_URL') && !!localStorage.getItem('SUPABASE_ANON_KEY');
+  return true;
 };

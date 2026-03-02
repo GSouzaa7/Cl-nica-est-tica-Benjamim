@@ -9,11 +9,11 @@ interface CardProps {
 
 export const Card = ({ children, className = '', title, subtitle }: CardProps) => {
   return (
-    <div className={`bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden ${className}`}>
+    <div className={`bg-neutral-900 border border-white/10 rounded-xl shadow-sm overflow-hidden ${className}`}>
       {(title || subtitle) && (
-        <div className="px-6 py-4 border-b border-slate-100">
-          {title && <h3 className="text-lg font-semibold text-slate-800">{title}</h3>}
-          {subtitle && <p className="text-sm text-slate-500">{subtitle}</p>}
+        <div className="px-6 py-4 border-b border-white/10">
+          {title && <h3 className="text-lg font-semibold text-white">{title}</h3>}
+          {subtitle && <p className="text-sm text-neutral-400">{subtitle}</p>}
         </div>
       )}
       <div className="p-6">
@@ -23,21 +23,21 @@ export const Card = ({ children, className = '', title, subtitle }: CardProps) =
   );
 };
 
-export const Button = ({ 
-  children, 
-  variant = 'primary', 
-  className = '', 
-  ...props 
+export const Button = ({
+  children,
+  variant = 'primary',
+  className = '',
+  ...props
 }: React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: 'primary' | 'secondary' | 'outline' | 'ghost' }) => {
   const variants = {
-    primary: 'bg-orange-500 hover:bg-orange-600 text-white shadow-sm shadow-orange-500/20',
-    secondary: 'bg-slate-800 hover:bg-slate-900 text-white',
-    outline: 'bg-transparent border border-slate-200 text-slate-600 hover:bg-slate-50',
-    ghost: 'bg-transparent text-slate-600 hover:bg-slate-100'
+    primary: 'bg-gradient-to-t from-yellow-200 via-orange-400 to-orange-500 text-[#2c1306] shadow-[0_0_40px_-5px_rgba(249,115,22,0.6)] hover:scale-105 hover:shadow-[0_0_60px_-5px_rgba(249,115,22,0.8)] border-none',
+    secondary: 'bg-white text-black hover:bg-neutral-200',
+    outline: 'bg-transparent border border-white/10 text-neutral-300 hover:bg-white/5',
+    ghost: 'bg-transparent text-neutral-400 hover:bg-white/5 hover:text-white'
   };
 
   return (
-    <button 
+    <button
       className={`px-4 py-2 rounded-xl font-medium transition-all duration-200 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none flex items-center justify-center gap-2 ${variants[variant]} ${className}`}
       {...props}
     >

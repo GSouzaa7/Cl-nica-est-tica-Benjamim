@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
-import { 
-  LayoutDashboard, 
-  Calendar, 
-  BarChart3, 
-  Users, 
-  Box, 
-  DollarSign, 
-  PieChart, 
-  Settings, 
+import {
+  LayoutDashboard,
+  Calendar,
+  BarChart3,
+  Users,
+  Box,
+  DollarSign,
+  PieChart,
+  Settings,
   LogOut,
   Sparkles,
   ChevronRight,
@@ -30,13 +30,15 @@ interface SidebarItemProps {
 const SidebarItem = ({ icon, label, active, onClick }: SidebarItemProps) => (
   <button
     onClick={onClick}
-    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group ${
-      active 
-        ? 'bg-orange-50 text-orange-600 font-semibold' 
-        : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'
-    }`}
+    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group ${active ? 'font-semibold' : ''}`}
+    style={{
+      backgroundColor: active ? 'var(--sidebar-active-bg)' : 'transparent',
+      color: active ? 'var(--sidebar-active-text)' : 'var(--sidebar-text)',
+    }}
+    onMouseEnter={(e) => { if (!active) { (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'var(--sidebar-hover-bg)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--sidebar-hover-text)'; } }}
+    onMouseLeave={(e) => { if (!active) { (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'transparent'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--sidebar-text)'; } }}
   >
-    <div className={`${active ? 'text-orange-600' : 'text-slate-400 group-hover:text-slate-600'}`}>
+    <div style={{ color: active ? 'var(--sidebar-active-text)' : 'inherit' }}>
       {icon}
     </div>
     <span className="text-sm">{label}</span>
@@ -53,7 +55,7 @@ export const Layout = ({ children, activeMenu, setActiveMenu }: any) => {
 
   const handleAiReview = async () => {
     if (!config?.geminiApiKey) return;
-    
+
     setIsAnalyzing(true);
     try {
       const layoutDesc = `Página atual: ${activeMenu}. O layout segue um design system laranja com fundo slate-50 e cards brancos.`;
@@ -68,7 +70,7 @@ export const Layout = ({ children, activeMenu, setActiveMenu }: any) => {
 
   const applyImprovement = async (suggestion: string) => {
     if (!supabase) return;
-    
+
     setAppliedImprovements(prev => [...prev, suggestion]);
     await saveAuditLog(supabase, {
       page_name: activeMenu,
@@ -78,18 +80,18 @@ export const Layout = ({ children, activeMenu, setActiveMenu }: any) => {
   };
 
   return (
-    <div className="flex h-screen bg-slate-50 text-slate-800 font-sans overflow-hidden">
+    <div className="flex h-screen font-sans overflow-hidden transition-colors duration-300" style={{ backgroundColor: 'var(--bg-base)', color: 'var(--text-primary)' }}>
       {/* Sidebar */}
-      <aside className="w-72 bg-white border-r border-slate-200 flex flex-col shrink-0 z-20">
+      <aside className="w-72 flex flex-col shrink-0 z-20 transition-colors duration-300" style={{ backgroundColor: 'var(--sidebar-bg)', borderRight: '1px solid var(--sidebar-border)' }}>
         <div className="p-8 flex items-center gap-3">
-          <div className="w-10 h-10 bg-orange-500 rounded-xl flex items-center justify-center shadow-lg shadow-orange-500/20">
-            <Sparkles className="text-white" size={24} />
+          <div className="w-10 h-10 bg-gradient-to-t from-yellow-200 via-orange-400 to-orange-500 rounded-xl flex items-center justify-center shadow-[0_0_20px_rgba(249,115,22,0.4)]">
+            <Sparkles className="text-[#2c1306]" size={24} />
           </div>
-          <span className="text-xl font-bold tracking-tight text-slate-900">Estética<span className="text-orange-500">Pro</span></span>
+          <span className="text-xl font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>Estética<span className="text-orange-500">Pro</span></span>
         </div>
 
         <nav className="flex-1 px-4 space-y-1 overflow-y-auto custom-scrollbar">
-          <div className="text-[10px] font-bold text-slate-400 mb-4 px-4 tracking-widest uppercase">Menu Principal</div>
+          <div className="text-[10px] font-bold mb-4 px-4 tracking-widest uppercase" style={{ color: 'var(--text-tertiary)' }}>Menu Principal</div>
           <SidebarItem icon={<LayoutDashboard size={20} />} label="Dashboard" active={activeMenu === 'Dashboard'} onClick={() => setActiveMenu('Dashboard')} />
           <SidebarItem icon={<Calendar size={20} />} label="Agenda" active={activeMenu === 'Agenda'} onClick={() => setActiveMenu('Agenda')} />
           <SidebarItem icon={<BarChart3 size={20} />} label="CRM" active={activeMenu === 'CRM'} onClick={() => setActiveMenu('CRM')} />
@@ -99,7 +101,7 @@ export const Layout = ({ children, activeMenu, setActiveMenu }: any) => {
           <SidebarItem icon={<PieChart size={20} />} label="Relatórios" active={activeMenu === 'Relatórios'} onClick={() => setActiveMenu('Relatórios')} />
         </nav>
 
-        <div className="p-4 border-t border-slate-100 space-y-1">
+        <div className="p-4 space-y-1" style={{ borderTop: '1px solid var(--border-default)' }}>
           <SidebarItem icon={<Settings size={20} />} label="Configurações" active={activeMenu === 'Configurações'} onClick={() => setActiveMenu('Configurações')} />
           <SidebarItem icon={<LogOut size={20} />} label="Sair" active={false} onClick={clearConfig} />
         </div>
@@ -107,10 +109,16 @@ export const Layout = ({ children, activeMenu, setActiveMenu }: any) => {
 
       {/* Main Content */}
       <main className="flex-1 flex flex-col relative overflow-hidden">
-        {children}
+        <div className="absolute inset-0 z-0 pointer-events-none">
+          <div className="glow-blob absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[500px] bg-orange-900/10 blur-[120px] rounded-full"></div>
+          <div className="glow-blob absolute bottom-0 right-0 w-[600px] h-[600px] bg-orange-950/20 blur-[100px] rounded-full"></div>
+        </div>
+        <div className="relative z-10 w-full h-full flex flex-col">
+          {children}
+        </div>
 
         {/* AI UI Review Toggle */}
-        <button 
+        <button
           onClick={() => setIsAiPanelOpen(true)}
           className="absolute bottom-8 right-8 w-14 h-14 bg-orange-500 text-white rounded-full flex items-center justify-center shadow-lg shadow-orange-500/30 hover:bg-orange-600 transition-all z-40 hover:scale-110 active:scale-95 group"
         >
@@ -143,7 +151,7 @@ export const Layout = ({ children, activeMenu, setActiveMenu }: any) => {
                   </div>
                   <h4 className="text-slate-800 font-medium mb-2">Análise de Interface</h4>
                   <p className="text-slate-500 text-sm mb-6">Deixe a IA analisar o layout atual e sugerir melhorias de UX.</p>
-                  <button 
+                  <button
                     onClick={handleAiReview}
                     className="bg-orange-500 text-white px-6 py-2.5 rounded-xl font-medium hover:bg-orange-600 transition-colors"
                   >
@@ -186,14 +194,13 @@ export const Layout = ({ children, activeMenu, setActiveMenu }: any) => {
                     {aiResult.suggestions.map((suggestion: string, i: number) => (
                       <div key={i} className="group relative bg-white border border-slate-200 p-4 rounded-xl hover:border-orange-300 transition-all">
                         <p className="text-sm text-slate-700 mb-3">{suggestion}</p>
-                        <button 
+                        <button
                           disabled={appliedImprovements.includes(suggestion)}
                           onClick={() => applyImprovement(suggestion)}
-                          className={`w-full py-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-2 transition-all ${
-                            appliedImprovements.includes(suggestion)
-                              ? 'bg-emerald-50 text-emerald-600 border border-emerald-100'
-                              : 'bg-orange-50 text-orange-600 border border-orange-100 hover:bg-orange-100'
-                          }`}
+                          className={`w-full py-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-2 transition-all ${appliedImprovements.includes(suggestion)
+                            ? 'bg-emerald-50 text-emerald-600 border border-emerald-100'
+                            : 'bg-orange-50 text-orange-600 border border-orange-100 hover:bg-orange-100'
+                            }`}
                         >
                           {appliedImprovements.includes(suggestion) ? (
                             <><CheckCircle2 size={14} /> Aplicado</>
@@ -205,7 +212,7 @@ export const Layout = ({ children, activeMenu, setActiveMenu }: any) => {
                     ))}
                   </div>
 
-                  <button 
+                  <button
                     onClick={() => { setAiResult(null); setAppliedImprovements([]); }}
                     className="w-full py-3 text-slate-400 text-sm hover:text-slate-600 transition-colors"
                   >

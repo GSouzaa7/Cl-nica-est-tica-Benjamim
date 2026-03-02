@@ -1,4 +1,4 @@
-import { SupabaseClient } from '@supabase/supabase-js';
+import { SupabaseClient } from './supabase';
 
 export interface AuditLog {
   page_name: string;

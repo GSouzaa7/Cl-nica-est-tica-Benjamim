@@ -4,22 +4,412 @@
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
 }
 
+/* ─── THEME TOKENS ───────────────────────────── */
+:root {
+  --bg-base: #050505;
+  --bg-surface: #0A0A0A;
+  --bg-card: #0A0A0A;
+  --border-default: rgba(255, 255, 255, 0.10);
+  --text-primary: #FFFFFF;
+  --text-secondary: #A3A3A3;
+  --text-tertiary: #737373;
+  --accent-primary: #F97316;
+  --accent-glow: rgba(249, 115, 22, 0.6);
+  --input-bg: #050505;
+  --input-border: rgba(255, 255, 255, 0.10);
+  --input-text: #FFFFFF;
+  --input-placeholder: #525252;
+  --input-focus-border: rgba(249, 115, 22, 0.6);
+  --sidebar-bg: #050505;
+  --sidebar-border: rgba(255, 255, 255, 0.10);
+  --sidebar-text: #A3A3A3;
+  --sidebar-hover-bg: rgba(255, 255, 255, 0.05);
+  --sidebar-hover-text: #FFFFFF;
+  --sidebar-active-bg: rgba(249, 115, 22, 0.10);
+  --sidebar-active-text: #F97316;
+  --card-shadow: none;
+  --glow-opacity: 1;
+  --grid-line: rgba(255, 255, 255, 0.05);
+  --chart-label: #A3A3A3;
+}
+
+:root.light {
+  --bg-base: #FAFAFA;
+  --bg-surface: #FFFFFF;
+  --bg-card: #FFFFFF;
+  --border-default: rgba(0, 0, 0, 0.08);
+  --text-primary: #0A0A0A;
+  --text-secondary: #525252;
+  --text-tertiary: #737373;
+  --accent-primary: #F97316;
+  --accent-glow: rgba(249, 115, 22, 0.4);
+  --input-bg: #FFFFFF;
+  --input-border: rgba(0, 0, 0, 0.12);
+  --input-text: #0A0A0A;
+  --input-placeholder: #9CA3AF;
+  --input-focus-border: rgba(249, 115, 22, 0.6);
+  --sidebar-bg: #FFFFFF;
+  --sidebar-border: rgba(0, 0, 0, 0.08);
+  --sidebar-text: #525252;
+  --sidebar-hover-bg: rgba(249, 115, 22, 0.08);
+  --sidebar-hover-text: #F97316;
+  --sidebar-active-bg: rgba(249, 115, 22, 0.12);
+  --sidebar-active-text: #F97316;
+  --card-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+  --glow-opacity: 0;
+  --grid-line: rgba(0, 0, 0, 0.08);
+  --chart-label: #525252;
+}
+
+/* ─── GLOBAL STYLES ──────────────────────────── */
 body {
   font-family: 'Inter', sans-serif;
+  background-color: var(--bg-base);
+  color: var(--text-primary);
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Custom glow for the lightning card */
+.electric-card {
+  box-shadow: 0 0 30px rgba(249, 115, 22, 0.3), inset 0 0 20px rgba(249, 115, 22, 0.1);
+}
+
+.electric-border {
+  background: linear-gradient(180deg, rgba(251, 146, 60, 1) 0%, rgba(251, 146, 60, 0) 100%);
+}
+
+/* Starry background effect (login only) */
+.stars {
+  background-image:
+    radial-gradient(1px 1px at 20px 30px, #fff, rgba(0, 0, 0, 0)),
+    radial-gradient(1px 1px at 40px 70px, #ffffff, rgba(0, 0, 0, 0)),
+    radial-gradient(1px 1px at 50px 160px, #ffffff, rgba(0, 0, 0, 0)),
+    radial-gradient(1.5px 1.5px at 90px 40px, #ffffff, rgba(0, 0, 0, 0)),
+    radial-gradient(1px 1px at 130px 80px, #ffffff, rgba(0, 0, 0, 0));
+  background-size: 200px 200px;
+  opacity: 0.2;
+}
+
+/* ─── GLOW BLOBS (hidden in light mode) ──────── */
+.glow-blob {
+  opacity: var(--glow-opacity);
+  transition: opacity 0.3s ease;
+}
+
+@keyframes fadeInUpBlur {
+  0% {
+    opacity: 0;
+    transform: translateY(20px);
+    filter: blur(10px);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+
+.animate-entry {
+  animation: fadeInUpBlur 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.delay-75 {
+  animation-delay: 75ms;
+}
+
+.delay-100 {
+  animation-delay: 100ms;
+}
+
+.delay-150 {
+  animation-delay: 150ms;
+}
+
+.delay-200 {
+  animation-delay: 200ms;
+}
+
+.delay-300 {
+  animation-delay: 300ms;
+}
+
+.delay-500 {
+  animation-delay: 500ms;
+}
+
+.delay-700 {
+  animation-delay: 700ms;
+}
+
+/* ─── THEME-AWARE GLOBAL OVERRIDES ───────────── */
+@layer base {
+
+  /* Global Inputs */
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="number"],
+  input[type="date"],
+  input[type="time"],
+  select,
+  textarea {
+    background-color: var(--input-bg) !important;
+    border: 1px solid var(--input-border) !important;
+    color: var(--input-text) !important;
+    transition: all 0.2s ease;
+  }
+
+  input::placeholder,
+  select::placeholder,
+  textarea::placeholder {
+    color: var(--input-placeholder) !important;
+  }
+
+  input:focus,
+  select:focus,
+  textarea:focus {
+    outline: none !important;
+    border-color: var(--input-focus-border) !important;
+  }
+
+  /* Global Surface overrides */
+  div.bg-white {
+    background-color: var(--bg-card) !important;
+    border-color: var(--border-default) !important;
+  }
+
+  .bg-slate-50,
+  .bg-slate-100 {
+    background-color: var(--bg-surface) !important;
+    border-color: var(--border-default)
+      /* Borders hardcoded */
+  }
+
+  /* ─── LIGHT MODE OVERRIDES FOR HARDCODED CLASSES ─ */
+  :root.light {
+
+    /* Backgrounds: Dark Containers -> White Card */
+    .bg-\[\#121214\],
+    .bg-\[\#0a0a0a\],
+    .bg-\[\#0A0A0A\],
+    .bg-\[\#0c0c0e\],
+    .bg-\[\#050505\],
+    .bg-neutral-900,
+    .bg-zinc-950,
+    .bg-zinc-900,
+    .bg-zinc-900\/20,
+    .bg-zinc-900\/10,
+    .bg-black {
+      background-color: var(--bg-card) !important;
+      box-shadow: var(--card-shadow) !important;
+    }
+
+    /* Secondary Backgrounds: Dark Accent -> Light Surface */
+    .bg-\[\#1c0d04\],
+    .bg-\[\#2a1408\],
+    .bg-\[\#2a1a08\],
+    .bg-\[\#1c0d0d\],
+    .bg-\[\#333333\],
+    .bg-\[\#18181b\],
+    .bg-orange-500\/10,
+    .bg-emerald-500\/10,
+    .bg-red-500\/10,
+    .bg-yellow-500\/10 {
+      background-color: var(--bg-surface) !important;
+      border: 1px solid var(--border-default) !important;
+    }
+
+    /* Explicit Border Color Overrides */
+    .border-zinc-800,
+    .border-zinc-800\/80,
+    .border-zinc-800\/50,
+    .border-zinc-700,
+    .border-white\/10,
+    .border-orange-900\/30,
+    .border-emerald-900\/30,
+    .border-red-900\/30 {
+      border-color: var(--border-default) !important;
+    }
+
+    /* Specific Text Color Overrides for Dark-themed elements in Light Mode */
+    .text-white,
+    .text-zinc-300,
+    .text-zinc-200,
+    .text-zinc-400 {
+      color: var(--text-primary) !important;
+    }
+
+    .text-zinc-600,
+    .text-zinc-500 {
+      color: var(--text-secondary) !important;
+    }
+  }
+
+  /* Surface backgrounds */
+  .bg-neutral-800,
+  .bg-zinc-800,
+  .bg-zinc-800\/50,
+  .bg-white\/5 {
+    background-color: var(--bg-surface) !important;
+  }
+
+  /* Border overrides */
+  .border-white\/10,
+  .border-white\/5,
+  .border-zinc-800,
+  .border-zinc-800\/50,
+  .border-zinc-800\/80,
+  .border-orange-900\/30,
+  .border-red-900\/30 {
+    border-color: var(--border-default) !important;
+  }
+
+  /* Text overrides – white to dark */
+  .text-white,
+  .text-zinc-100,
+  .text-zinc-200,
+  .text-zinc-300,
+  .text-neutral-100,
+  .text-neutral-200,
+  .text-neutral-300 {
+    color: var(--text-primary) !important;
+  }
+
+  .text-zinc-400,
+  .text-neutral-400,
+  .text-zinc-500,
+  .text-neutral-500 {
+    color: var(--text-secondary) !important;
+  }
+
+  .text-zinc-600,
+  .text-neutral-600,
+  .text-zinc-700 {
+    color: var(--text-tertiary) !important;
+  }
+
+  /* Hover state fix: hover:text-white should not be actual white in light mode */
+  .hover\:text-white:hover {
+    color: var(--text-primary) !important;
+  }
+
+  /* Special AI/Premium Buttons - Keep the gradient but adjust shadow/border */
+  .bg-gradient-to-br.from-orange-400.to-orange-600,
+  .bg-gradient-to-r.from-orange-500.to-orange-600 {
+    box-shadow: 0 4px 15px -1px rgba(249, 115, 22, 0.3) !important;
+  }
+
+  /* Specific fix for Relatórios active tab button */
+  button.bg-orange-900\/20,
+  button.bg-zinc-800 {
+    background-color: var(--bg-surface) !important;
+    color: var(--text-primary) !important;
+    border: 1px solid var(--border-default) !important;
+  }
+
+  button.bg-orange-500 {
+    color: #FFFFFF !important;
+    /* Keep white text for primary orange buttons only */
+  }
+
+  /* Alert/Status backgrounds for Light Mode */
+  .bg-\[\#1c0d0d\] {
+    background-color: #FEF2F2 !important;
+  }
+
+  .bg-\[\#1c140d\] {
+    background-color: #FFFBEB !important;
+  }
+
+  /* Specific icon/circle borders */
+  .border-emerald-900\/50 {
+    border-color: rgba(16, 185, 129, 0.2) !important;
+  }
+
+  .border-orange-900\/50 {
+    border-color: rgba(249, 115, 22, 0.2) !important;
+  }
+
+  .border-blue-900\/50 {
+    border-color: rgba(59, 130, 246, 0.2) !important;
+  }
+
+  .border-purple-900\/50 {
+    border-color: rgba(139, 92, 246, 0.2) !important;
+  }
+
+  /* Chart grid and labels */
+  .stroke-zinc-800 {
+    stroke: var(--grid-line) !important;
+  }
+
+  .text-\[10px\].text-zinc-500 {
+    color: var(--chart-label) !important;
+  }
+
+  /* Tables */
+  thead.bg-black\/20 {
+    background-color: rgba(0, 0, 0, 0.02) !important;
+  }
+
+  /* Shadow overrides */
+  .shadow-black\/50,
+  .shadow-2xl {
+    box-shadow: var(--card-shadow) !important;
+  }
+
+  /* Dividers in light mode */
+  hr {
+    background: rgba(0, 0, 0, 0.08) !important;
+  }
+}
+
+/* ─── SEGMENTED CONTROL COMPONENT ────────────── */
+.segmented-control {
+  display: inline-flex;
+  border-radius: 9999px;
+  padding: 4px;
+  border: 1px solid var(--border-default);
+  background-color: var(--bg-surface);
+  transition: all 0.3s ease;
+}
+
+.segmented-control-item {
+  padding: 6px 16px;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  transition: all 0.2s ease;
+  background: transparent;
+}
+
+.segmented-control-item:hover:not(.active) {
+  color: var(--text-primary);
+}
+
+.segmented-control-item.active {
+  background: linear-gradient(to top, #fde68a, #fb923c, #f97316) !important;
+  color: #2c1306 !important;
+  box-shadow: 0 0 20px -6px rgba(249, 115, 22, 0.5) !important;
 }
 
 @layer utilities {
   .custom-scrollbar::-webkit-scrollbar {
     width: 6px;
   }
+
   .custom-scrollbar::-webkit-scrollbar-track {
     background: transparent;
   }
+
   .custom-scrollbar::-webkit-scrollbar-thumb {
-    background: #27272a;
+    background: var(--text-tertiary);
     border-radius: 10px;
   }
+
   .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-    background: #3f3f46;
+    background: var(--text-secondary);
   }
 }
