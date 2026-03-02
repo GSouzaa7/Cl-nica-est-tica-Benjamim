@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { HexColorPicker } from 'react-colorful';
 import {
   LayoutDashboard,
@@ -461,8 +461,8 @@ const CurrentTimeIndicator = () => {
   const minutes = now.getMinutes();
   const minutesFromStart = (hours - 8) * 60 + minutes;
 
-  // Assuming calendar hours: 08:00 to 17:00 (which is 9 hours * 60 mins = 540 mins)
-  if (minutesFromStart < 0 || minutesFromStart > 540) return null;
+  // Assuming calendar hours: 08:00 to 20:00 (which is 12 hours * 60 mins = 720 mins)
+  if (minutesFromStart < 0 || minutesFromStart > 720) return null;
 
   // Each slot represents 30 minutes
   const topPx = (minutesFromStart / 30) * slotHeight;
@@ -478,20 +478,56 @@ const CurrentTimeIndicator = () => {
   );
 };
 
+const SERVICE_INVENTORY_MAP: Record<string, string> = {
+  'Botox': '1x Seringa 1ml, 2x Agulhas 30G, 4U Toxina Botulínica',
+  'Harmonização Facial': '2x Preenchedor Hialurônico, Kit Cânulas, Anestésico',
+  'Limpeza de Pele': 'Kit Higienização, Máscara Calmante, 2x Gaze Estéril',
+  'default': 'Kit Descartável Padrão, Gel Condutor, Luvas Nitrílicas'
+};
+
 const AgendaView = ({ professionals, services = [], onCompleteService, isDarkMode = true }: any) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedTime, setSelectedTime] = useState('08:00');
   const [selectedService, setSelectedService] = useState('');
+  const [selectedProfessional, setSelectedProfessional] = useState('');
+  const [isProfDropdownOpen, setIsProfDropdownOpen] = useState(false);
+  const [isServiceDropdownOpen, setIsServiceDropdownOpen] = useState(false);
+  const [patientName, setPatientName] = useState('');
+  const [appointments, setAppointments] = useState<any[]>([]);
+  const [selectedAppDetails, setSelectedAppDetails] = useState<any | null>(null);
+  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
+
+  // Indexador para performance O(1) no render da grade
+  const appointmentsMap = useMemo(() => {
+    const map: Record<string, any> = {};
+    appointments.forEach(app => {
+      const prof = professionals.find((p: any) => p.id === app.professionalId);
+      const key = `${app.professionalId}-${app.time}`;
+      map[key] = { ...app, displayColor: prof?.color || 'orange' };
+    });
+    return map;
+  }, [appointments, professionals]); // Reage a mudanças em ambos
 
   const timeSlots = [
     '08:00', '08:30', '09:00', '09:30', '10:00', '10:30', '11:00', '11:30',
     '12:00', '12:30', '13:00', '13:30', '14:00', '14:30', '15:00', '15:30',
-    '16:00', '16:30'
+    '16:00', '16:30', '17:00', '17:30', '18:00', '18:30', '19:00', '19:30'
   ];
 
   const handleTimeClick = (time: string) => {
+    if (isDetailsModalOpen) return; // Impede abrir modal de novo agendamento se o de detalhes estiver aberto
     setSelectedTime(time);
     setIsModalOpen(true);
+  };
+
+  const getContrastYIQ = (hexcolor: string) => {
+    const colors: Record<string, string> = { red: '#ef4444', blue: '#3b82f6', green: '#22c55e', purple: '#a855f7', orange: '#f97316' };
+    const hex = hexcolor.startsWith('#') ? hexcolor : (colors[hexcolor] || '#f97316');
+    const r = parseInt(hex.substring(1, 3), 16);
+    const g = parseInt(hex.substring(3, 5), 16);
+    const b = parseInt(hex.substring(5, 7), 16);
+    const yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000;
+    return (yiq >= 128) ? 'text-zinc-900' : 'text-white';
   };
 
   return (
@@ -546,17 +582,37 @@ const AgendaView = ({ professionals, services = [], onCompleteService, isDarkMod
           <div className="flex-1 overflow-y-auto custom-scrollbar relative">
             <CurrentTimeIndicator />
             {timeSlots.map(time => (
-              <div key={time} className={`time-slot-row flex border-b ${isDarkMode ? "border-zinc-800/50" : "border-zinc-200/50"} hover:bg-zinc-900/20 transition-colors group`}>
+              <div key={time} className={`time-slot-row flex border-b ${isDarkMode ? "border-zinc-800/50" : "border-zinc-200/50"} transition-colors`}>
                 <div className={`w-16 p-3 text-xs font-medium text-zinc-500 border-r ${isDarkMode ? "border-zinc-800/80" : "border-zinc-200/80"} flex items-center justify-center`}>
                   {time}
                 </div>
                 {professionals.map((prof: any) => (
                   <div
                     key={`${prof.id}-${time}`}
-                    className={`flex-1 p-2 border-r ${isDarkMode ? "border-zinc-800/80" : "border-zinc-200/80"} last:border-r-0 cursor-pointer hover:bg-zinc-800/30 transition-colors relative`}
+                    className={`flex-1 p-2 border-r ${isDarkMode ? "border-zinc-800/80" : "border-zinc-200/80"} last:border-r-0 cursor-pointer transition-colors relative group ${isDarkMode ? "hover:bg-orange-500/10" : "hover:bg-orange-50"}`}
                     onClick={() => handleTimeClick(time)}
                   >
-                    <div className="absolute inset-2 rounded-lg border-2 border-dashed border-transparent group-hover:border-zinc-700/50 transition-colors" />
+                    <div className={`absolute inset-2 rounded-lg border-2 border-dashed border-transparent transition-all duration-300 ${isDarkMode ? "group-hover:border-orange-500/30" : "group-hover:border-orange-400/60"}`} />
+                    {(() => {
+                      const app = appointmentsMap[`${prof.id}-${time}`];
+                      if (!app) return null;
+                      const textColor = getContrastYIQ(app.displayColor);
+                      const bgColor = app.displayColor.startsWith('#') ? app.displayColor :
+                        app.displayColor === 'red' ? '#ef4444' :
+                          app.displayColor === 'blue' ? '#3b82f6' :
+                            app.displayColor === 'green' ? '#22c55e' :
+                              app.displayColor === 'purple' ? '#a855f7' : '#f97316';
+                      return (
+                        <div
+                          className={`absolute inset-1 z-20 ${textColor} p-2 rounded-lg shadow-md animate-in zoom-in duration-200 flex flex-col overflow-hidden cursor-pointer hover:ring-2 hover:ring-white/50 transition-all`}
+                          style={{ backgroundColor: bgColor }}
+                          onClick={(e) => { e.stopPropagation(); setSelectedAppDetails(app); setIsDetailsModalOpen(true); }}
+                        >
+                          <span className="text-[10px] font-bold uppercase truncate leading-tight pointer-events-none">{app.patient}</span>
+                          <span className="text-[9px] opacity-90 truncate leading-tight pointer-events-none">{app.service}</span>
+                        </div>
+                      );
+                    })()}
                   </div>
                 ))}
               </div>
@@ -570,7 +626,7 @@ const AgendaView = ({ professionals, services = [], onCompleteService, isDarkMod
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className={`${isDarkMode ? "bg-[#0a0a0a] border-orange-900/30 shadow-[0_0_50px_rgba(249,115,22,0.1)]" : "bg-white border-[var(--border-default)] shadow-2xl"} border rounded-3xl w-full max-w-md p-8 relative`}>
             <button
-              onClick={() => setIsModalOpen(false)}
+              onClick={() => { setIsModalOpen(false); setIsProfDropdownOpen(false); setIsServiceDropdownOpen(false); setSelectedProfessional(''); }}
               className={`absolute top-6 right-6 text-zinc-500 hover:${isDarkMode ? "text-white" : "text-zinc-900"} transition-colors`}
             >
               <X size={20} />
@@ -584,6 +640,8 @@ const AgendaView = ({ professionals, services = [], onCompleteService, isDarkMod
                 <input
                   type="text"
                   placeholder="Buscar paciente..."
+                  value={patientName}
+                  onChange={(e) => setPatientName(e.target.value)}
                   className={`w-full bg-[#050505] border border-zinc-800 rounded-xl px-4 py-3 ${isDarkMode ? "text-white" : "text-zinc-900"} focus:outline-none focus:border-orange-500 transition-colors`}
                 />
               </div>
@@ -602,6 +660,9 @@ const AgendaView = ({ professionals, services = [], onCompleteService, isDarkMod
                     type="time"
                     value={selectedTime}
                     onChange={(e) => setSelectedTime(e.target.value)}
+                    min="08:00"
+                    max="19:30"
+                    step="1800"
                     className={`w-full bg-[#050505] border border-zinc-800 rounded-xl px-4 py-3 ${isDarkMode ? "text-white" : "text-zinc-900"} focus:outline-none focus:border-orange-500 transition-colors`}
                   />
                 </div>
@@ -609,38 +670,151 @@ const AgendaView = ({ professionals, services = [], onCompleteService, isDarkMod
 
               <div>
                 <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Profissional</label>
-                <select className={`w-full bg-[#050505] border border-zinc-800 rounded-xl px-4 py-3 ${isDarkMode ? "text-white" : "text-zinc-900"} focus:outline-none focus:border-orange-500 transition-colors`}>
-                  {professionals.map((prof: any) => (
-                    <option key={prof.id} value={prof.id}>{prof.name}</option>
-                  ))}
-                </select>
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setIsProfDropdownOpen(!isProfDropdownOpen)}
+                    className={`w-full flex items-center justify-between bg-[#050505] border border-zinc-800 rounded-xl px-4 py-3 ${isDarkMode ? "text-white" : "text-zinc-900"} focus:outline-none focus:border-orange-500 transition-colors relative z-10`}
+                  >
+                    <span className="truncate">{(professionals && selectedProfessional) ? professionals.find((p: any) => p.id === selectedProfessional)?.name : 'Selecione um profissional'}</span>
+                    <ChevronDown size={16} className={`shrink-0 transition-transform duration-200 ${isProfDropdownOpen ? 'rotate-180' : ''} text-zinc-500`} />
+                  </button>
+                  {isProfDropdownOpen && (
+                    <>
+                      <div className="fixed inset-0 z-40" onClick={() => setIsProfDropdownOpen(false)} />
+                      <div className={`absolute top-full left-0 w-full mt-2 z-50 rounded-xl border shadow-xl overflow-hidden ${isDarkMode ? "bg-[#121214] border-zinc-800" : "bg-white border-zinc-200"}`}>
+                        {(professionals || []).map((prof: any) => (
+                          <button key={prof.id} type="button" onClick={() => { setSelectedProfessional(prof.id); setIsProfDropdownOpen(false); }} className={`w-full text-left px-4 py-2.5 text-sm transition-colors relative z-50 ${selectedProfessional === prof.id ? 'bg-orange-500/10 text-orange-500 font-medium' : (isDarkMode ? 'text-zinc-300 hover:bg-zinc-800' : 'text-zinc-700 hover:bg-zinc-100')}`}>{prof.name}</button>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
               </div>
 
               <div>
                 <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Serviço</label>
-                <select
-                  value={selectedService}
-                  onChange={(e) => setSelectedService(e.target.value)}
-                  className={`w-full bg-[#050505] border border-zinc-800 rounded-xl px-4 py-3 ${isDarkMode ? "text-white" : "text-zinc-900"} focus:outline-none focus:border-orange-500 transition-colors`}
-                >
-                  <option value="">Selecione um serviço</option>
-                  {services.map((service: any) => (
-                    <option key={service.id} value={service.id}>{service.name}</option>
-                  ))}
-                </select>
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setIsServiceDropdownOpen(!isServiceDropdownOpen)}
+                    className={`w-full flex items-center justify-between bg-[#050505] border border-zinc-800 rounded-xl px-4 py-3 ${isDarkMode ? "text-white" : "text-zinc-900"} focus:outline-none focus:border-orange-500 transition-colors relative z-10`}
+                  >
+                    <span className="truncate">{(services && selectedService) ? services.find((s: any) => s.id === selectedService)?.name : 'Selecione um serviço'}</span>
+                    <ChevronDown size={16} className={`shrink-0 transition-transform duration-200 ${isServiceDropdownOpen ? 'rotate-180' : ''} text-zinc-500`} />
+                  </button>
+                  {isServiceDropdownOpen && (
+                    <>
+                      <div className="fixed inset-0 z-40" onClick={() => setIsServiceDropdownOpen(false)} />
+                      <div className={`absolute top-full left-0 w-full mt-2 z-50 rounded-xl border shadow-xl overflow-hidden max-h-48 overflow-y-auto custom-scrollbar ${isDarkMode ? "bg-[#121214] border-zinc-800" : "bg-white border-zinc-200"}`}>
+                        {(services || []).map((service: any) => (
+                          <button key={service.id} type="button" onClick={() => { setSelectedService(service.id); setIsServiceDropdownOpen(false); }} className={`w-full text-left px-4 py-2.5 text-sm transition-colors relative z-50 ${selectedService === service.id ? 'bg-orange-500/10 text-orange-500 font-medium' : (isDarkMode ? 'text-zinc-300 hover:bg-zinc-800' : 'text-zinc-700 hover:bg-zinc-100')}`}>{service.name}</button>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
               </div>
 
               <button
                 onClick={() => {
-                  if (selectedService && onCompleteService) {
-                    onCompleteService(selectedService);
+                  if (!patientName || !selectedService || !selectedProfessional || !selectedTime) {
+                    alert('Erro: Preencha todos os campos antes de confirmar.');
+                    return;
                   }
+                  const newApp = {
+                    id: Date.now(),
+                    patient: patientName,
+                    service: services.find((s: any) => s.id === selectedService)?.name || 'Serviço',
+                    time: selectedTime,
+                    professionalId: selectedProfessional,
+                  };
+                  setAppointments(prev => [...prev, newApp]);
+                  // Cleanup Total de Estados
                   setIsModalOpen(false);
+                  setPatientName('');
                   setSelectedService('');
+                  setSelectedProfessional('');
+                  setIsProfDropdownOpen(false);
+                  setIsServiceDropdownOpen(false);
                 }}
                 className="w-full bg-gradient-to-r from-orange-400 to-orange-500 hover:from-orange-500 hover:to-orange-600 text-black font-semibold py-3.5 rounded-xl transition-all shadow-[0_0_20px_rgba(249,115,22,0.2)] mt-2"
               >
                 Confirmar Agendamento
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Details / Life Cycle Modal */}
+      {isDetailsModalOpen && selectedAppDetails && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className={`${isDarkMode ? "bg-[#0a0a0a] border-orange-900/30 shadow-[0_0_50px_rgba(249,115,22,0.1)]" : "bg-white border-[var(--border-default)] shadow-2xl"} border rounded-3xl w-full max-w-sm p-8 relative`}>
+            <button
+              onClick={() => { setIsDetailsModalOpen(false); setSelectedAppDetails(null); }}
+              className={`absolute top-6 right-6 text-zinc-500 hover:${isDarkMode ? "text-white" : "text-zinc-900"} transition-colors`}
+            >
+              <X size={20} />
+            </button>
+
+            <h2 className={`text-xl font-bold ${isDarkMode ? "text-white" : "text-zinc-900"} mb-1`}>Detalhes do Atendimento</h2>
+            <p className="text-zinc-500 text-sm mb-6">{selectedAppDetails.time} • Status: Confirmado</p>
+
+            <div className={`p-4 rounded-xl border ${isDarkMode ? "border-zinc-800 bg-[#121214]" : "border-zinc-200 bg-zinc-50"} mb-6`}>
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-full bg-orange-500/10 flex items-center justify-center text-orange-500">
+                  <User size={20} />
+                </div>
+                <div>
+                  <div className={`font-semibold ${isDarkMode ? "text-white" : "text-zinc-900"}`}>{selectedAppDetails.patient}</div>
+                  <div className="text-xs text-zinc-500">{selectedAppDetails.service}</div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-3">
+              <button
+                onClick={() => {
+                  setPatientName(selectedAppDetails.patient);
+                  setSelectedService(services.find((s: any) => s.name === selectedAppDetails.service)?.id || '');
+                  setSelectedProfessional(selectedAppDetails.professionalId);
+                  setSelectedTime(selectedAppDetails.time);
+                  setIsDetailsModalOpen(false);
+                  setIsModalOpen(true);
+                }}
+                className={`w-full py-3 rounded-xl border ${isDarkMode ? "border-zinc-800 text-white hover:bg-zinc-800" : "border-zinc-200 text-zinc-900 hover:bg-zinc-100"} font-medium transition-colors`}
+              >
+                Remarcar Agendamento
+              </button>
+
+              <button
+                onClick={() => {
+                  const serviceName = selectedAppDetails.service;
+                  const insumos = SERVICE_INVENTORY_MAP[serviceName] || SERVICE_INVENTORY_MAP['default'];
+                  alert(`✅ ATENDIMENTO FINALIZADO\n\nPaciente: ${selectedAppDetails.patient}\nBaixa no Estoque: ${insumos}`);
+                  setAppointments(prev => prev.filter(a => a.id !== selectedAppDetails.id));
+                  setIsDetailsModalOpen(false);
+                  setSelectedAppDetails(null);
+                }}
+                className="w-full py-3 rounded-xl bg-green-500/10 text-green-500 hover:bg-green-500/20 font-medium transition-colors"
+              >
+                Concluído (Baixa no Estoque)
+              </button>
+
+              <button
+                onClick={() => {
+                  const cancelReason = prompt('Motivo do cancelamento (opcional):');
+                  if (cancelReason !== null) {
+                    setAppointments(prev => prev.filter(a => a.id !== selectedAppDetails.id));
+                    setIsDetailsModalOpen(false);
+                    setSelectedAppDetails(null);
+                    alert(`Agendamento cancelado com sucesso.`);
+                  }
+                }}
+                className="w-full py-3 rounded-xl bg-red-500/10 text-red-500 hover:bg-red-500/20 font-medium transition-colors"
+              >
+                Cancelar Atendimento
               </button>
             </div>
           </div>
@@ -3645,6 +3819,19 @@ const SettingsView = ({
   isDarkMode = true
 }: any) => {
   const [faqs, setFaqs] = useState([{ q: 'Dói fazer botox?', a: 'Utilizamos pomada anestésica de alta eficácia para garantir o máximo de conforto.' }]);
+  const [workingDays, setWorkingDays] = useState([true, true, true, true, true, true, false]);
+  const [aiTone, setAiTone] = useState('Empático e Acolhedor');
+  const [isToneDropdownOpen, setIsToneDropdownOpen] = useState(false);
+  const [paymentMethods, setPaymentMethods] = useState([
+    { name: 'PIX', tax: '0.00', days: '0', active: true },
+    { name: 'Cartão de Débito', tax: '1.99', days: '1', active: true },
+    { name: 'Crédito à Vista', tax: '3.49', days: '30', active: true },
+    { name: 'Crédito Parcelado (12x)', tax: '12.99', days: '30', active: true },
+    { name: 'Boleto Bancário', tax: '2.50', days: '3', active: false },
+  ]);
+  const [discountCardTax, setDiscountCardTax] = useState(true);
+  const [discountProductCost, setDiscountProductCost] = useState(true);
+  const [autoEmission, setAutoEmission] = useState(false);
   const [finCategories, setFinCategories] = useState([
     { id: '1', name: 'Procedimentos Injetáveis', type: 'Receita' },
     { id: '2', name: 'Estética Facial', type: 'Receita' },
@@ -3994,7 +4181,7 @@ const SettingsView = ({
 
               <div className="flex flex-col gap-6">
                 <div className="flex items-center gap-6">
-                  <div className={`w-24 h-24 rounded-2xl bg-zinc-900 border ${isDarkMode ? "border-zinc-800" : "border-zinc-200"} flex items-center justify-center relative group cursor-pointer overflow-hidden`}>
+                  <div onClick={() => alert('Abrindo galeria de mídia para seleção de imagem...')} className={`w-24 h-24 rounded-2xl bg-zinc-900 border ${isDarkMode ? "border-zinc-800" : "border-zinc-200"} flex items-center justify-center relative group cursor-pointer overflow-hidden`}>
                     <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                       <Upload size={20} className={`${isDarkMode ? "text-white" : "text-zinc-900"} mb-1`} />
                       <span className={`text-[10px] font-medium ${isDarkMode ? "text-white" : "text-zinc-900"}`}>Alterar Logo</span>
@@ -4004,9 +4191,17 @@ const SettingsView = ({
                   <div>
                     <h4 className={`text-sm font-medium ${isDarkMode ? "text-white" : "text-zinc-900"} mb-1`}>Logo da Clínica</h4>
                     <p className="text-xs text-zinc-500 mb-3">Recomendado: 512x512px (PNG ou JPG)</p>
-                    <button className={`px-4 py-2 rounded-lg ${isDarkMode ? "bg-zinc-900 border-zinc-800 hover:bg-zinc-800" : "bg-white border-[var(--border-default)] hover:bg-zinc-50 shadow-sm"} border text-sm font-medium ${isDarkMode ? "text-white" : "text-zinc-900"} transition-colors`}>
+                    <label className={`px-4 py-2 rounded-lg ${isDarkMode ? "bg-zinc-900 border-zinc-800 hover:bg-zinc-800" : "bg-white border-[var(--border-default)] hover:bg-zinc-50 shadow-sm"} border text-sm font-medium ${isDarkMode ? "text-white" : "text-zinc-900"} transition-colors cursor-pointer inline-block text-center`}>
                       Fazer Upload
-                    </button>
+                      <input
+                        type="file"
+                        accept="image/png, image/jpeg"
+                        className="hidden"
+                        onChange={(e) => {
+                          if (e.target.files && e.target.files.length > 0) alert('Nova logo selecionada com sucesso!');
+                        }}
+                      />
+                    </label>
                   </div>
                 </div>
 
@@ -4038,7 +4233,7 @@ const SettingsView = ({
               </div>
 
               <div className="mt-6 flex justify-end">
-                <button className={`px-6 py-2 rounded-lg bg-orange-500 hover:bg-orange-600 ${isDarkMode ? "text-white" : "text-zinc-900"} text-sm font-medium transition-colors`}>
+                <button onClick={() => alert('Perfil da clínica atualizado!')} className={`px-6 py-2 rounded-lg bg-orange-500 hover:bg-orange-600 ${isDarkMode ? "text-white" : "text-zinc-900"} text-sm font-medium transition-colors`}>
                   Salvar Perfil
                 </button>
               </div>
@@ -4106,7 +4301,7 @@ const SettingsView = ({
               </div>
 
               <div className="mt-6 flex justify-end">
-                <button className={`px-6 py-2 rounded-lg bg-orange-500 hover:bg-orange-600 ${isDarkMode ? "text-white" : "text-zinc-900"} text-sm font-medium transition-colors`}>
+                <button onClick={() => alert('Informações de contato e endereço salvas!')} className={`px-6 py-2 rounded-lg bg-orange-500 hover:bg-orange-600 ${isDarkMode ? "text-white" : "text-zinc-900"} text-sm font-medium transition-colors`}>
                   Salvar Contato
                 </button>
               </div>
@@ -4142,7 +4337,7 @@ const SettingsView = ({
               </div>
 
               <div className="mt-6 flex justify-end">
-                <button className={`px-6 py-2 rounded-lg bg-orange-500 hover:bg-orange-600 ${isDarkMode ? "text-white" : "text-zinc-900"} text-sm font-medium transition-colors`}>
+                <button onClick={() => alert('Dados do Responsável Técnico registrados!')} className={`px-6 py-2 rounded-lg bg-orange-500 hover:bg-orange-600 ${isDarkMode ? "text-white" : "text-zinc-900"} text-sm font-medium transition-colors`}>
                   Salvar Responsável
                 </button>
               </div>
@@ -4176,7 +4371,16 @@ const SettingsView = ({
                           <input type="time" defaultValue={i < 5 ? "13:00" : ""} disabled={i >= 5} className={`${isDarkMode ? "bg-zinc-900 border-zinc-800" : "bg-white border-zinc-200"} border rounded-md px-2 py-1 text-xs ${isDarkMode ? "text-white" : "text-zinc-900"} focus:outline-none focus:border-orange-500 disabled:opacity-50`} />
                         </div>
                         <div className="ml-auto">
-                          <Toggle checked={i < 6} onChange={() => { }} disabled={false} />
+                          <Toggle
+                            checked={workingDays[i]}
+                            onChange={() => {
+                              const newDays = [...workingDays];
+                              newDays[i] = !newDays[i];
+                              setWorkingDays(newDays);
+                            }}
+                            disabled={false}
+                            isDarkMode={isDarkMode}
+                          />
                         </div>
                       </div>
                     ))}
@@ -4195,7 +4399,7 @@ const SettingsView = ({
               </div>
 
               <div className="mt-6 flex justify-end">
-                <button className={`px-6 py-2 rounded-lg bg-orange-500 hover:bg-orange-600 ${isDarkMode ? "text-white" : "text-zinc-900"} text-sm font-medium transition-colors`}>
+                <button onClick={() => alert('Grade de horários e fuso horário configurados!')} className={`px-6 py-2 rounded-lg bg-orange-500 hover:bg-orange-600 ${isDarkMode ? "text-white" : "text-zinc-900"} text-sm font-medium transition-colors`}>
                   Salvar Configurações
                 </button>
               </div>
@@ -4225,12 +4429,45 @@ const SettingsView = ({
                   </div>
                   <div>
                     <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Tom de Voz</label>
-                    <select className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800 text-white" : "bg-white border-zinc-200 text-zinc-900"} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors`}>
-                      <option>Empático e Acolhedor</option>
-                      <option>Profissional e Técnico</option>
-                      <option>Descontraído e Jovem</option>
-                      <option>Focado em Vendas</option>
-                    </select>
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={() => setIsToneDropdownOpen(!isToneDropdownOpen)}
+                        className={`w-full flex items-center justify-between ${isDarkMode ? "bg-[#121214] border-zinc-800 text-white" : "bg-white border-zinc-200 text-zinc-900"} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors relative z-10`}
+                      >
+                        {aiTone}
+                        <ChevronDown size={16} className={`transition-transform duration-200 ${isToneDropdownOpen ? 'rotate-180' : ''} text-zinc-500`} />
+                      </button>
+                      {isToneDropdownOpen && (
+                        <>
+                          {/* Invisible Overlay para fechar ao clicar fora */}
+                          <div
+                            className="fixed inset-0 z-40"
+                            onClick={() => setIsToneDropdownOpen(false)}
+                          />
+
+                          {/* Dropdown Menu */}
+                          <div className={`absolute top-full left-0 w-full mt-2 z-50 rounded-xl border shadow-xl overflow-hidden ${isDarkMode ? "bg-[#121214] border-zinc-800" : "bg-white border-zinc-200"}`}>
+                            {['Empático e Acolhedor', 'Profissional e Técnico', 'Descontraído e Jovem', 'Focado em Vendas'].map((tone) => (
+                              <button
+                                key={tone}
+                                type="button"
+                                onClick={() => {
+                                  setAiTone(tone);
+                                  setIsToneDropdownOpen(false);
+                                }}
+                                className={`w-full text-left px-4 py-2.5 text-sm transition-colors relative z-50 ${aiTone === tone
+                                  ? 'bg-orange-500/10 text-orange-500 font-medium'
+                                  : (isDarkMode ? 'text-zinc-300 hover:bg-zinc-800' : 'text-zinc-700 hover:bg-zinc-100')
+                                  }`}
+                              >
+                                {tone}
+                              </button>
+                            ))}
+                          </div>
+                        </>
+                      )}
+                    </div>
                   </div>
                 </div>
 
@@ -4247,7 +4484,7 @@ const SettingsView = ({
               </div>
 
               <div className="mt-6 flex justify-end">
-                <button className={`px-6 py-2 rounded-lg bg-orange-500 hover:bg-orange-600 ${isDarkMode ? "text-white" : "text-zinc-900"} text-sm font-medium transition-colors`}>
+                <button onClick={() => alert('Configurações de Identidade e Persona salvas com sucesso!')} className={`px-6 py-2 rounded-lg bg-orange-500 hover:bg-orange-600 ${isDarkMode ? "text-white" : "text-zinc-900"} text-sm font-medium transition-colors`}>
                   Salvar Persona
                 </button>
               </div>
@@ -4264,7 +4501,7 @@ const SettingsView = ({
                 {/* Upload */}
                 <div>
                   <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-3 uppercase">Upload de Documentos (Treinamento)</label>
-                  <div className={`border-2 border-dashed border-zinc-800 hover:border-orange-500/50 ${isDarkMode ? "bg-[#121214]" : "bg-zinc-50"} rounded-xl p-8 flex flex-col items-center justify-center text-center transition-colors cursor-pointer group`}>
+                  <label className={`border-2 border-dashed border-zinc-800 hover:border-orange-500/50 ${isDarkMode ? "bg-[#121214]" : "bg-zinc-50"} rounded-xl p-8 flex flex-col items-center justify-center text-center transition-colors cursor-pointer group`}>
                     <div className="w-12 h-12 rounded-full bg-zinc-900 group-hover:bg-orange-500/10 flex items-center justify-center mb-4 transition-colors">
                       <Upload className="text-zinc-500 group-hover:text-orange-500 transition-colors" size={24} />
                     </div>
@@ -4272,7 +4509,8 @@ const SettingsView = ({
                     <p className="text-xs text-zinc-500 max-w-sm">
                       Envie PDFs, tabelas de preços, manuais de procedimentos e protocolos. A IA lerá esses arquivos para responder aos clientes.
                     </p>
-                  </div>
+                    <input type="file" multiple accept=".pdf,.doc,.docx,.txt,.csv" className="hidden" onChange={(e) => { if (e.target.files && e.target.files.length > 0) alert(`${e.target.files.length} arquivo(s) selecionado(s) para treinamento da IA!`); }} />
+                  </label>
                 </div>
 
                 {/* Diferenciais */}
@@ -4321,7 +4559,7 @@ const SettingsView = ({
               </div>
 
               <div className="mt-8 flex justify-end">
-                <button className={`px-6 py-2 rounded-lg bg-orange-500 hover:bg-orange-600 ${isDarkMode ? "text-white" : "text-zinc-900"} text-sm font-medium transition-colors`}>
+                <button onClick={() => alert('Documentos de treinamento e Diferenciais salvos na Base de Conhecimento!')} className={`px-6 py-2 rounded-lg bg-orange-500 hover:bg-orange-600 ${isDarkMode ? "text-white" : "text-zinc-900"} text-sm font-medium transition-colors`}>
                   Salvar Base de Conhecimento
                 </button>
               </div>
@@ -4359,7 +4597,7 @@ const SettingsView = ({
                     <span className="text-[10px] font-bold bg-emerald-500/10 text-emerald-500 px-2 py-1 rounded">CONECTADO</span>
                   </div>
                   <p className="text-xs text-zinc-400 mb-4 line-clamp-2">Envio automático de lembretes, confirmações de agendamento e atendimento via IA.</p>
-                  <button className={`w-full py-2 rounded-lg border ${isDarkMode ? "border-zinc-700 hover:bg-zinc-800" : "border-zinc-200 hover:bg-zinc-100"} ${isDarkMode ? "text-zinc-300" : "text-zinc-900"} text-xs font-medium transition-colors`}>
+                  <button onClick={() => alert('Abrindo painel de configuração do WhatsApp Business...')} className={`w-full py-2 rounded-lg border ${isDarkMode ? "border-zinc-700 hover:bg-zinc-800" : "border-zinc-200 hover:bg-zinc-100"} ${isDarkMode ? "text-zinc-300" : "text-zinc-900"} text-xs font-medium transition-colors`}>
                     Configurar
                   </button>
                 </div>
@@ -4379,7 +4617,7 @@ const SettingsView = ({
                     <span className="text-[10px] font-bold bg-zinc-800 text-zinc-500 px-2 py-1 rounded">DESCONECTADO</span>
                   </div>
                   <p className="text-xs text-zinc-400 mb-4 line-clamp-2">Processe pagamentos online, gere links de cobrança e gerencie assinaturas.</p>
-                  <button className={`w-full py-2 rounded-lg bg-orange-500 hover:bg-orange-600 ${isDarkMode ? "text-white" : "text-zinc-900"} text-xs font-medium transition-colors`}>
+                  <button onClick={() => alert('Iniciando autenticação com o Stripe...')} className={`w-full py-2 rounded-lg bg-orange-500 hover:bg-orange-600 ${isDarkMode ? "text-white" : "text-zinc-900"} text-xs font-medium transition-colors`}>
                     Conectar
                   </button>
                 </div>
@@ -4399,7 +4637,7 @@ const SettingsView = ({
                     <span className="text-[10px] font-bold bg-zinc-800 text-zinc-500 px-2 py-1 rounded">DESCONECTADO</span>
                   </div>
                   <p className="text-xs text-zinc-400 mb-4 line-clamp-2">Sincronize a agenda do sistema com o calendário pessoal dos profissionais.</p>
-                  <button className={`w-full py-2 rounded-lg bg-orange-500 hover:bg-orange-600 ${isDarkMode ? "text-white" : "text-zinc-900"} text-xs font-medium transition-colors`}>
+                  <button onClick={() => alert('Solicitando permissões do Google Calendar...')} className={`w-full py-2 rounded-lg bg-orange-500 hover:bg-orange-600 ${isDarkMode ? "text-white" : "text-zinc-900"} text-xs font-medium transition-colors`}>
                     Conectar
                   </button>
                 </div>
@@ -4419,7 +4657,7 @@ const SettingsView = ({
                     <span className="text-[10px] font-bold bg-zinc-800 text-zinc-500 px-2 py-1 rounded">DESCONECTADO</span>
                   </div>
                   <p className="text-xs text-zinc-400 mb-4 line-clamp-2">Sincronize leads do CRM e envie campanhas de e-mail marketing direcionadas.</p>
-                  <button className={`w-full py-2 rounded-lg bg-orange-500 hover:bg-orange-600 ${isDarkMode ? "text-white" : "text-zinc-900"} text-xs font-medium transition-colors`}>
+                  <button onClick={() => alert('Iniciando integração com RD Station Marketing...')} className={`w-full py-2 rounded-lg bg-orange-500 hover:bg-orange-600 ${isDarkMode ? "text-white" : "text-zinc-900"} text-xs font-medium transition-colors`}>
                     Conectar
                   </button>
                 </div>
@@ -4433,7 +4671,7 @@ const SettingsView = ({
                   <Key className="text-zinc-400" size={20} />
                   <h3 className={`font-medium ${isDarkMode ? "text-white" : "text-zinc-900"}`}>Chaves de API (Para Desenvolvedores)</h3>
                 </div>
-                <a href="#" className="text-xs text-orange-500 hover:text-orange-400 flex items-center gap-1">
+                <a href="#" onClick={(e) => { e.preventDefault(); alert('Redirecionando para portal de documentação da API...'); }} className="text-xs text-orange-500 hover:text-orange-400 flex items-center gap-1">
                   Ver Documentação <ExternalLink size={12} />
                 </a>
               </div>
@@ -4452,11 +4690,11 @@ const SettingsView = ({
                   <div className="flex gap-2">
                     <div className="relative flex-1">
                       <input type="text" readOnly value="pk_live_51O..." className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800" : "bg-[var(--bg-card)] border-[var(--border-default)]"} border rounded-xl pl-4 pr-10 py-2.5 text-zinc-400 text-sm font-mono focus:outline-none`} />
-                      <button className={`absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:${isDarkMode ? "text-white" : "text-zinc-900"} transition-colors`}>
+                      <button onClick={() => alert('Simulando: Visibilidade da chave alternada.')} className={`absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:${isDarkMode ? "text-white" : "text-zinc-900"} transition-colors`}>
                         <Eye size={16} />
                       </button>
                     </div>
-                    <button className={`px-4 py-2 rounded-xl ${isDarkMode ? "bg-zinc-900 hover:bg-zinc-800 border-zinc-800 text-white" : "bg-zinc-100 hover:bg-zinc-200 border-[var(--border-default)] text-zinc-900"} border transition-colors flex items-center justify-center`}>
+                    <button onClick={() => alert('Chave de API copiada para a área de transferência!')} className={`px-4 py-2 rounded-xl ${isDarkMode ? "bg-zinc-900 hover:bg-zinc-800 border-zinc-800 text-white" : "bg-zinc-100 hover:bg-zinc-200 border-[var(--border-default)] text-zinc-900"} border transition-colors flex items-center justify-center`}>
                       <Copy size={16} />
                     </button>
                   </div>
@@ -4468,16 +4706,16 @@ const SettingsView = ({
                   <div className="flex gap-2">
                     <div className="relative flex-1">
                       <input type="password" readOnly value="sk_live_51O..." className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800" : "bg-[var(--bg-card)] border-[var(--border-default)]"} border rounded-xl pl-4 pr-10 py-2.5 text-zinc-400 text-sm font-mono focus:outline-none`} />
-                      <button className={`absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:${isDarkMode ? "text-white" : "text-zinc-900"} transition-colors`}>
+                      <button onClick={() => alert('Simulando: Visibilidade da chave alternada.')} className={`absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:${isDarkMode ? "text-white" : "text-zinc-900"} transition-colors`}>
                         <Eye size={16} />
                       </button>
                     </div>
-                    <button className={`px-4 py-2 rounded-xl ${isDarkMode ? "bg-zinc-900 hover:bg-zinc-800 border-zinc-800 text-white" : "bg-zinc-100 hover:bg-zinc-200 border-[var(--border-default)] text-zinc-900"} border transition-colors flex items-center justify-center`}>
+                    <button onClick={() => alert('Chave de API copiada para a área de transferência!')} className={`px-4 py-2 rounded-xl ${isDarkMode ? "bg-zinc-900 hover:bg-zinc-800 border-zinc-800 text-white" : "bg-zinc-100 hover:bg-zinc-200 border-[var(--border-default)] text-zinc-900"} border transition-colors flex items-center justify-center`}>
                       <Copy size={16} />
                     </button>
                   </div>
                   <div className="mt-3 flex justify-end">
-                    <button className="text-xs text-red-500 hover:text-red-400 font-medium transition-colors">
+                    <button onClick={() => alert('Aviso: Uma nova Secret Key foi gerada. Atualize suas integrações.')} className="text-xs text-red-500 hover:text-red-400 font-medium transition-colors">
                       Gerar Nova Chave Secreta
                     </button>
                   </div>
@@ -4532,11 +4770,11 @@ const SettingsView = ({
               </div>
 
               <div className="mt-6 flex justify-between items-center">
-                <button className={`px-4 py-2 rounded-lg ${isDarkMode ? "border-zinc-800 text-zinc-300 hover:bg-zinc-800" : "border-zinc-200 text-zinc-900 hover:bg-zinc-50 shadow-sm"} border text-sm font-medium transition-colors flex items-center gap-2`}>
+                <button onClick={() => alert('Disparando payload de teste (POST 200 OK) para o endpoint...')} className={`px-4 py-2 rounded-lg ${isDarkMode ? "border-zinc-800 text-zinc-300 hover:bg-zinc-800" : "border-zinc-200 text-zinc-900 hover:bg-zinc-50 shadow-sm"} border text-sm font-medium transition-colors flex items-center gap-2`}>
                   <Zap size={16} />
                   Testar Webhook
                 </button>
-                <button className={`px-6 py-2 rounded-lg bg-orange-500 hover:bg-orange-600 ${isDarkMode ? "text-white" : "text-zinc-900"} text-sm font-medium transition-colors`}>
+                <button onClick={() => alert('Endpoint e configurações de Webhook salvos com sucesso!')} className={`px-6 py-2 rounded-lg bg-orange-500 hover:bg-orange-600 ${isDarkMode ? "text-white" : "text-zinc-900"} text-sm font-medium transition-colors`}>
                   Salvar Webhook
                 </button>
               </div>
@@ -4566,13 +4804,7 @@ const SettingsView = ({
                   <div className="col-span-2 text-center">Ativo</div>
                 </div>
 
-                {[
-                  { name: 'PIX', tax: '0.00', days: '0', active: true },
-                  { name: 'Cartão de Débito', tax: '1.99', days: '1', active: true },
-                  { name: 'Crédito à Vista', tax: '3.49', days: '30', active: true },
-                  { name: 'Crédito Parcelado (12x)', tax: '12.99', days: '30', active: true },
-                  { name: 'Boleto Bancário', tax: '2.50', days: '3', active: false },
-                ].map((method) => (
+                {paymentMethods.map((method, index) => (
                   <div key={method.name} className="grid grid-cols-12 gap-4 items-center py-2">
                     <div className={`col-span-4 text-sm ${isDarkMode ? "text-zinc-300" : "text-zinc-900"} font-medium`}>{method.name}</div>
                     <div className="col-span-3 flex justify-center">
@@ -4582,14 +4814,23 @@ const SettingsView = ({
                       </div>
                     </div>
                     <div className="col-span-2 flex justify-center">
-                      <Toggle checked={method.active} onChange={() => { }} disabled={false} />
+                      <Toggle
+                        checked={method.active}
+                        onChange={() => {
+                          const newMethods = [...paymentMethods];
+                          newMethods[index].active = !newMethods[index].active;
+                          setPaymentMethods(newMethods);
+                        }}
+                        disabled={false}
+                        isDarkMode={isDarkMode}
+                      />
                     </div>
                   </div>
                 ))}
               </div>
 
               <div className="mt-6 flex justify-end">
-                <button className={`px-6 py-2 rounded-lg bg-orange-500 hover:bg-orange-600 ${isDarkMode ? "text-white" : "text-zinc-900"} text-sm font-medium transition-colors`}>
+                <button onClick={() => alert('Taxas salvas com sucesso!')} className={`px-6 py-2 rounded-lg bg-orange-500 hover:bg-orange-600 ${isDarkMode ? "text-white" : "text-zinc-900"} text-sm font-medium transition-colors`}>
                   Salvar Taxas
                 </button>
               </div>
@@ -4651,7 +4892,7 @@ const SettingsView = ({
               </div>
 
               <div className="mt-6 flex justify-end">
-                <button className={`px-6 py-2 rounded-lg bg-orange-500 hover:bg-orange-600 ${isDarkMode ? "text-white" : "text-zinc-900"} text-sm font-medium transition-colors`}>
+                <button onClick={() => alert('Categorias salvas com sucesso!')} className={`px-6 py-2 rounded-lg bg-orange-500 hover:bg-orange-600 ${isDarkMode ? "text-white" : "text-zinc-900"} text-sm font-medium transition-colors`}>
                   Salvar Categorias
                 </button>
               </div>
@@ -4670,7 +4911,7 @@ const SettingsView = ({
                     <h4 className={`text-sm font-medium ${isDarkMode ? "text-white" : "text-zinc-900"} mb-1`}>Descontar Taxa de Cartão</h4>
                     <p className="text-xs text-zinc-500">Deduzir a taxa da maquininha antes de calcular a comissão do profissional.</p>
                   </div>
-                  <Toggle checked={true} onChange={() => { }} disabled={false} />
+                  <Toggle checked={discountCardTax} onChange={() => setDiscountCardTax(!discountCardTax)} disabled={false} isDarkMode={isDarkMode} />
                 </div>
 
                 <div className={`flex items-center justify-between p-4 rounded-xl border border-zinc-800/50 ${isDarkMode ? "bg-[#121214]" : "bg-zinc-50"}`}>
@@ -4678,7 +4919,7 @@ const SettingsView = ({
                     <h4 className={`text-sm font-medium ${isDarkMode ? "text-white" : "text-zinc-900"} mb-1`}>Descontar Custo de Produto</h4>
                     <p className="text-xs text-zinc-500">Deduzir o valor dos insumos utilizados antes de calcular a comissão.</p>
                   </div>
-                  <Toggle checked={true} onChange={() => { }} disabled={false} />
+                  <Toggle checked={discountProductCost} onChange={() => setDiscountProductCost(!discountProductCost)} disabled={false} isDarkMode={isDarkMode} />
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
@@ -4697,7 +4938,7 @@ const SettingsView = ({
               </div>
 
               <div className="mt-6 flex justify-end">
-                <button className={`px-6 py-2 rounded-lg bg-orange-500 hover:bg-orange-600 ${isDarkMode ? "text-white" : "text-zinc-900"} text-sm font-medium transition-colors`}>
+                <button onClick={() => alert('Regras salvas com sucesso!')} className={`px-6 py-2 rounded-lg bg-orange-500 hover:bg-orange-600 ${isDarkMode ? "text-white" : "text-zinc-900"} text-sm font-medium transition-colors`}>
                   Salvar Regras
                 </button>
               </div>
@@ -4739,9 +4980,10 @@ const SettingsView = ({
                         <p className="text-[10px] text-zinc-500 uppercase font-bold tracking-tighter">Máximo 5MB</p>
                       </div>
                     </div>
-                    <button className={`px-4 py-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-medium ${isDarkMode ? "text-white" : "text-zinc-900"} transition-colors`}>
+                    <label className={`px-4 py-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-medium ${isDarkMode ? "text-white" : "text-zinc-900"} transition-colors cursor-pointer`}>
                       Selecionar Arquivo
-                    </button>
+                      <input type="file" accept=".pfx,.p12" className="hidden" onChange={(e) => { if (e.target.files && e.target.files.length > 0) alert(`Arquivo "${e.target.files[0].name}" carregado com sucesso!`); }} />
+                    </label>
                   </div>
                 </div>
 
@@ -4750,12 +4992,12 @@ const SettingsView = ({
                     <h4 className={`text-sm font-medium ${isDarkMode ? "text-white" : "text-zinc-900"} mb-1`}>Emissão Automática</h4>
                     <p className="text-xs text-zinc-500">Emitir nota fiscal de serviço automaticamente após confirmação de pagamento.</p>
                   </div>
-                  <Toggle checked={false} onChange={() => { }} disabled={false} />
+                  <Toggle checked={autoEmission} onChange={() => setAutoEmission(!autoEmission)} disabled={false} isDarkMode={isDarkMode} />
                 </div>
               </div>
 
               <div className="mt-6 flex justify-end">
-                <button className={`px-6 py-2 rounded-lg bg-orange-500 hover:bg-orange-600 ${isDarkMode ? "text-white" : "text-zinc-900"} text-sm font-medium transition-colors`}>
+                <button onClick={() => alert('Dados Fiscais salvos com sucesso!')} className={`px-6 py-2 rounded-lg bg-orange-500 hover:bg-orange-600 ${isDarkMode ? "text-white" : "text-zinc-900"} text-sm font-medium transition-colors`}>
                   Salvar Dados Fiscais
                 </button>
               </div>
@@ -4785,7 +5027,7 @@ export default function App() {
     'camila@estetica.com': 'pending'
   });
   const [activeMenu, setActiveMenu] = useState('Dashboard');
-  const [activeSettingsMenu, setActiveSettingsMenu] = useState('Usuários & Permissões');
+  const [activeSettingsMenu, setActiveSettingsMenu] = useState('Conta & Organização');
   const [role, setRole] = useState<'admin' | 'profissional'>('admin');
   const [matrixRole, setMatrixRole] = useState<'admin' | 'profissional'>('admin');
   const [activeTab, setActiveTab] = useState('Pendentes');
@@ -4997,7 +5239,10 @@ export default function App() {
             <span className="text-sm font-medium">{isDarkMode ? 'Modo Claro' : 'Modo Escuro'}</span>
           </button>
           {role === 'admin' && (
-            <NavItem icon={<Settings size={18} />} label="Configurações" active={activeMenu === 'Configurações'} onClick={() => setActiveMenu('Configurações')} isDarkMode={isDarkMode} />
+            <NavItem icon={<Settings size={18} />} label="Configurações" active={activeMenu === 'Configurações'} onClick={() => {
+              setActiveMenu('Configurações');
+              setActiveSettingsMenu('Conta & Organização');
+            }} isDarkMode={isDarkMode} />
           )}
           <NavItem icon={<LogOut size={18} />} label="Sair" active={false} onClick={handleLogout} isDarkMode={isDarkMode} />
         </div>
