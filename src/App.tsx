@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { HexColorPicker } from 'react-colorful';
 import {
   LayoutDashboard,
@@ -431,6 +431,53 @@ const DashboardView = ({ isDarkMode = true }: { isDarkMode?: boolean }) => {
   );
 };
 
+const CurrentTimeIndicator = () => {
+  const [now, setNow] = useState(new Date());
+  const [slotHeight, setSlotHeight] = useState(41); // fallback height
+
+  useEffect(() => {
+    // Get actual height of a row from DOM for precise calculation
+    const slotEl = document.querySelector('.time-slot-row');
+    if (slotEl) {
+      setSlotHeight(slotEl.clientHeight);
+    }
+
+    // Set minimal timeout to sync with next clock minute
+    const msToNextMinute = 60000 - (new Date().getSeconds() * 1000 + new Date().getMilliseconds());
+    let interval: any;
+
+    const timeout = setTimeout(() => {
+      setNow(new Date());
+      interval = setInterval(() => setNow(new Date()), 60000);
+    }, msToNextMinute);
+
+    return () => {
+      clearTimeout(timeout);
+      if (interval) clearInterval(interval);
+    };
+  }, []);
+
+  const hours = now.getHours();
+  const minutes = now.getMinutes();
+  const minutesFromStart = (hours - 8) * 60 + minutes;
+
+  // Assuming calendar hours: 08:00 to 17:00 (which is 9 hours * 60 mins = 540 mins)
+  if (minutesFromStart < 0 || minutesFromStart > 540) return null;
+
+  // Each slot represents 30 minutes
+  const topPx = (minutesFromStart / 30) * slotHeight;
+
+  return (
+    <div
+      className="absolute left-0 right-0 z-30 flex items-center pointer-events-none transition-all duration-1000"
+      style={{ top: `${topPx}px`, transform: 'translateY(-50%)' }}
+    >
+      <div className="absolute left-[59px] w-2.5 h-2.5 rounded-full bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.8)]"></div>
+      <div className="ml-[64px] h-[2px] bg-red-500/80 flex-1 shadow-[0_0_8px_rgba(239,68,68,0.5)]"></div>
+    </div>
+  );
+};
+
 const AgendaView = ({ professionals, services = [], onCompleteService, isDarkMode = true }: any) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedTime, setSelectedTime] = useState('08:00');
@@ -496,9 +543,10 @@ const AgendaView = ({ professionals, services = [], onCompleteService, isDarkMod
           </div>
 
           {/* Time Slots */}
-          <div className="flex-1 overflow-y-auto custom-scrollbar">
+          <div className="flex-1 overflow-y-auto custom-scrollbar relative">
+            <CurrentTimeIndicator />
             {timeSlots.map(time => (
-              <div key={time} className={`flex border-b ${isDarkMode ? "border-zinc-800" : "border-zinc-200"}/50 hover:bg-zinc-900/20 transition-colors group`}>
+              <div key={time} className={`time-slot-row flex border-b ${isDarkMode ? "border-zinc-800" : "border-zinc-200"}/50 hover:bg-zinc-900/20 transition-colors group`}>
                 <div className={`w-16 p-3 text-xs font-medium text-zinc-500 border-r ${isDarkMode ? "border-zinc-800" : "border-zinc-200"}/80 flex items-center justify-center`}>
                   {time}
                 </div>
@@ -1668,6 +1716,8 @@ const ServicosView = ({ services, setServices, inventory, isDarkMode = true }: a
   const [duration, setDuration] = useState('');
   const [price, setPrice] = useState('');
   const [tax, setTax] = useState('');
+  const [commission, setCommission] = useState('');
+  const [transactionFee, setTransactionFee] = useState('');
   const [description, setDescription] = useState('');
   const [serviceItems, setServiceItems] = useState<{ id: string, itemId: string, quantity: number }[]>([]);
 
@@ -1683,6 +1733,8 @@ const ServicosView = ({ services, setServices, inventory, isDarkMode = true }: a
       setDuration(service.duration.toString());
       setPrice(service.price.toString());
       setTax(service.tax.toString());
+      setCommission(service.commission?.toString() || '');
+      setTransactionFee(service.transactionFee?.toString() || '');
       setDescription(service.description || '');
       setServiceItems(service.items || []);
     } else {
@@ -1692,6 +1744,8 @@ const ServicosView = ({ services, setServices, inventory, isDarkMode = true }: a
       setDuration('');
       setPrice('');
       setTax('');
+      setCommission('');
+      setTransactionFee('');
       setDescription('');
       setServiceItems([]);
     }
@@ -1709,6 +1763,8 @@ const ServicosView = ({ services, setServices, inventory, isDarkMode = true }: a
       duration: parseInt(duration) || 0,
       price: parseFloat(price) || 0,
       tax: parseFloat(tax) || 0,
+      commission: parseFloat(commission) || 0,
+      transactionFee: parseFloat(transactionFee) || 0,
       description,
       items: serviceItems
     };
@@ -1750,12 +1806,18 @@ const ServicosView = ({ services, setServices, inventory, isDarkMode = true }: a
   const totalCost = serviceItems.reduce((sum, item) => sum + calculateItemCost(item.itemId, item.quantity), 0);
   const currentPrice = parseFloat(price) || 0;
   const currentTax = parseFloat(tax) || 0;
+  const currentCommission = parseFloat(commission) || 0;
+  const currentTransactionFee = parseFloat(transactionFee) || 0;
+
   const taxAmount = currentPrice * (currentTax / 100);
+  const commissionAmount = currentPrice * (currentCommission / 100);
+  const transactionFeeAmount = currentPrice * (currentTransactionFee / 100);
+
   const grossProfit = currentPrice - totalCost;
-  const netProfit = grossProfit - taxAmount;
+  const netProfit = grossProfit - taxAmount - commissionAmount - transactionFeeAmount;
   const marginPercent = currentPrice > 0 ? (netProfit / currentPrice) * 100 : 0;
 
-  const idealPrice = totalCost / (1 - (parseFloat(desiredMargin) / 100) - (currentTax / 100));
+  const idealPrice = totalCost / Math.max(0.01, (1 - (parseFloat(desiredMargin) / 100) - (currentTax / 100) - (currentCommission / 100) - (currentTransactionFee / 100)));
 
   const filteredServices = filterCategory === 'Todos' ? services : services.filter((s: any) => s.category === filterCategory);
 
@@ -2069,6 +2131,28 @@ const ServicosView = ({ services, setServices, inventory, isDarkMode = true }: a
                         />
                       </div>
                     </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Comissão (%)</label>
+                        <input
+                          type="number"
+                          value={commission}
+                          onChange={(e) => setCommission(e.target.value)}
+                          placeholder="0"
+                          className={`w-full bg-[#050505] border border-zinc-800 rounded-xl px-4 py-3 ${isDarkMode ? "text-white" : "text-zinc-900"} focus:outline-none focus:border-orange-500 transition-colors`}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Taxa de Transação (%)</label>
+                        <input
+                          type="number"
+                          value={transactionFee}
+                          onChange={(e) => setTransactionFee(e.target.value)}
+                          placeholder="0"
+                          className={`w-full bg-[#050505] border border-zinc-800 rounded-xl px-4 py-3 ${isDarkMode ? "text-white" : "text-zinc-900"} focus:outline-none focus:border-orange-500 transition-colors`}
+                        />
+                      </div>
+                    </div>
                   </div>
 
                   <div className={`bg-[#050505] border ${isDarkMode ? "border-zinc-800" : "border-zinc-200"}/80 rounded-xl p-5`}>
@@ -2090,6 +2174,14 @@ const ServicosView = ({ services, setServices, inventory, isDarkMode = true }: a
                       <div className="flex justify-between text-red-400">
                         <span>Impostos</span>
                         <span>- {formatCurrency(taxAmount)}</span>
+                      </div>
+                      <div className="flex justify-between text-red-400">
+                        <span>Comissões</span>
+                        <span>- {formatCurrency(commissionAmount)}</span>
+                      </div>
+                      <div className="flex justify-between text-red-400">
+                        <span>Taxas de Transação</span>
+                        <span>- {formatCurrency(transactionFeeAmount)}</span>
                       </div>
 
                       <div className={`border-t ${isDarkMode ? "border-zinc-800" : "border-zinc-200"}/80 my-2 pt-4 flex items-end justify-between`}>
