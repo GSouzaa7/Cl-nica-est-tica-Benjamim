@@ -3614,6 +3614,16 @@ A clínica apresenta um cenário de estabilidade no curto prazo, porém com opor
   );
 };
 
+const MatrixToggle = ({ checked, onChange, disabled }: { checked: boolean, onChange: () => void, disabled: boolean }) => (
+  <button
+    type="button"
+    className={`relative inline-flex h-5 w-9 shrink-0 items-center justify-center rounded-full border-2 transition-colors duration-200 ease-in-out focus:outline-none ${checked ? 'bg-orange-500 border-orange-500' : 'bg-zinc-300 border-zinc-300'} ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+    onClick={() => !disabled && onChange()}
+  >
+    <span className={`pointer-events-none absolute left-0 inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition-transform duration-200 ease-in-out ${checked ? 'translate-x-4' : 'translate-x-0'}`} />
+  </button>
+);
+
 const SettingsView = ({
   role,
   currentPermissions,
@@ -3714,28 +3724,28 @@ const SettingsView = ({
                     <div key={module.id} className={`grid grid-cols-5 gap-4 py-4 border-b ${isDarkMode ? "border-zinc-800" : "border-zinc-200"}/50 items-center hover:${isDarkMode ? "bg-zinc-900/20" : "bg-zinc-50"} transition-colors rounded-lg -mx-2 px-2`}>
                       <div className={`col-span-1 text-sm font-medium ${isDarkMode ? "text-zinc-300" : "text-zinc-900"}`}>{module.name}</div>
                       <div className="col-span-1 flex justify-center">
-                        <Toggle
+                        <MatrixToggle
                           checked={currentPermissions[module.id].view}
                           onChange={() => handleToggle(module.id, 'view')}
                           disabled={matrixRole === 'admin'}
                         />
                       </div>
                       <div className="col-span-1 flex justify-center">
-                        <Toggle
+                        <MatrixToggle
                           checked={currentPermissions[module.id].create}
                           onChange={() => handleToggle(module.id, 'create')}
                           disabled={matrixRole === 'admin'}
                         />
                       </div>
                       <div className="col-span-1 flex justify-center">
-                        <Toggle
+                        <MatrixToggle
                           checked={currentPermissions[module.id].edit}
                           onChange={() => handleToggle(module.id, 'edit')}
                           disabled={matrixRole === 'admin'}
                         />
                       </div>
                       <div className="col-span-1 flex justify-center">
-                        <Toggle
+                        <MatrixToggle
                           checked={currentPermissions[module.id].delete}
                           onChange={() => handleToggle(module.id, 'delete')}
                           disabled={matrixRole === 'admin'}
@@ -4808,6 +4818,7 @@ export default function App() {
     dashboard: { view: true, create: false, edit: false, delete: false },
     crm: { view: true, create: true, edit: false, delete: false },
     clientes: { view: true, create: true, edit: true, delete: false },
+    receituario: { view: true, create: true, edit: true, delete: false },
     agenda: { view: true, create: true, edit: true, delete: true },
     financeiro: { view: false, create: false, edit: false, delete: false },
     relatorios: { view: true, create: false, edit: false, delete: false },
@@ -4869,6 +4880,7 @@ export default function App() {
     dashboard: { view: true, create: true, edit: true, delete: true },
     crm: { view: true, create: true, edit: true, delete: true },
     clientes: { view: true, create: true, edit: true, delete: true },
+    receituario: { view: true, create: true, edit: true, delete: true },
     agenda: { view: true, create: true, edit: true, delete: true },
     financeiro: { view: true, create: true, edit: true, delete: true },
     relatorios: { view: true, create: true, edit: true, delete: true },
@@ -4879,6 +4891,7 @@ export default function App() {
     { id: 'dashboard', name: 'Dashboard' },
     { id: 'crm', name: 'CRM' },
     { id: 'clientes', name: 'Clientes' },
+    { id: 'receituario', name: 'Receituário' },
     { id: 'agenda', name: 'Agenda' },
     { id: 'financeiro', name: 'Financeiro' },
     { id: 'relatorios', name: 'Relatórios' },
