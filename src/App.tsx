@@ -1658,6 +1658,9 @@ const ProfissionaisView = ({ professionals, setProfessionals, isDarkMode = true 
   const [name, setName] = useState('');
   const [specialty, setSpecialty] = useState('');
   const [color, setColor] = useState('#f97316');
+  const [docType, setDocType] = useState('CRM');
+  const [docNumber, setDocNumber] = useState('');
+  const [docUF, setDocUF] = useState('');
 
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [tempColor, setTempColor] = useState('#f97316');
@@ -1669,12 +1672,18 @@ const ProfissionaisView = ({ professionals, setProfessionals, isDarkMode = true 
       setSpecialty(prof.specialty || '');
       setColor(prof.color);
       setTempColor(prof.color);
+      setDocType(prof.doc?.type || 'CRM');
+      setDocNumber(prof.doc?.number || '');
+      setDocUF(prof.doc?.uf || '');
     } else {
       setEditingId(null);
       setName('');
       setSpecialty('');
       setColor('#f97316');
       setTempColor('#f97316');
+      setDocType('CRM');
+      setDocNumber('');
+      setDocUF('');
     }
     setIsModalOpen(true);
     setShowColorPicker(false);
@@ -1685,7 +1694,7 @@ const ProfissionaisView = ({ professionals, setProfessionals, isDarkMode = true 
 
     if (editingId) {
       setProfessionals(professionals.map((p: any) =>
-        p.id === editingId ? { ...p, name, specialty, color } : p
+        p.id === editingId ? { ...p, name, specialty, color, doc: { type: docType, number: docNumber, uf: docUF } } : p
       ));
     } else {
       setProfessionals([...professionals, {
@@ -1693,7 +1702,8 @@ const ProfissionaisView = ({ professionals, setProfessionals, isDarkMode = true 
         name,
         specialty,
         color,
-        active: true
+        active: true,
+        doc: { type: docType, number: docNumber, uf: docUF }
       }]);
     }
     setIsModalOpen(false);
@@ -1768,7 +1778,7 @@ const ProfissionaisView = ({ professionals, setProfessionals, isDarkMode = true 
               </div>
 
               <div className="flex items-center justify-between">
-                <span className={`bg-blue-600 ${isDarkMode ? "text-white" : "text-zinc-900"} text-[10px] font-bold px-3 py-1 rounded-full tracking-wider`}>ATIVO</span>
+                <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 text-[10px] font-bold">ATIVO</span>
                 <div className="flex items-center gap-2">
                   <div className="w-3 h-3 rounded-full" style={{ backgroundColor: prof.color }} />
                   <span className="text-zinc-500 text-xs font-mono">{prof.color}</span>
@@ -1802,15 +1812,27 @@ const ProfissionaisView = ({ professionals, setProfessionals, isDarkMode = true 
             <h2 className={`text-2xl font-bold ${isDarkMode ? "text-white" : "text-zinc-900"} mb-8`}>Cadastrar Profissional</h2>
 
             <div className="flex flex-col gap-6">
-              <div>
-                <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Nome do Profissional</label>
-                <input
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Ex: Dr. Rafael Costa"
-                  className={`w-full bg-[#050505] border border-zinc-800 rounded-xl px-4 py-3 ${isDarkMode ? "text-white" : "text-zinc-900"} focus:outline-none focus:border-orange-500 transition-colors`}
-                />
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-[10px] font-bold text-zinc-500 mb-1">NOME COMPLETO</label>
+                  <input value={name} onChange={(e) => setName(e.target.value)} className="w-full bg-[#050505] border border-zinc-800 rounded-xl px-4 py-3 text-white focus:border-orange-500 outline-none" />
+                </div>
+                <div className="grid grid-cols-12 gap-3">
+                  <div className="col-span-5">
+                    <label className="block text-[10px] font-bold text-zinc-500 mb-1">DOCUMENTO</label>
+                    <select value={docType} onChange={(e) => setDocType(e.target.value)} className="w-full bg-[#050505] border border-zinc-800 rounded-xl px-3 py-3 text-sm text-white outline-none focus:border-orange-500">
+                      {['CRM', 'CRO', 'COREN', 'CRBM', 'Outros'].map(t => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                  </div>
+                  <div className="col-span-4">
+                    <label className="block text-[10px] font-bold text-zinc-500 mb-1">NÚMERO</label>
+                    <input value={docNumber} onChange={(e) => setDocNumber(e.target.value.replace(/\D/g, ''))} placeholder="000000" className="w-full bg-[#050505] border border-zinc-800 rounded-xl px-3 py-3 text-sm text-white outline-none focus:border-orange-500" />
+                  </div>
+                  <div className="col-span-3">
+                    <label className="block text-[10px] font-bold text-zinc-500 mb-1">UF</label>
+                    <input value={docUF} maxLength={2} onChange={(e) => setDocUF(e.target.value.toUpperCase().replace(/[^A-Z]/g, ''))} placeholder="SP" className="w-full bg-[#050505] border border-zinc-800 rounded-xl px-3 py-3 text-sm text-white text-center outline-none focus:border-orange-500" />
+                  </div>
+                </div>
               </div>
 
               <div>
