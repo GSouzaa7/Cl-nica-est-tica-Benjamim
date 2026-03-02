@@ -46,10 +46,10 @@ export const ReceituarioView = ({ patients, professionals, selectedPatientId, is
         <div className="flex gap-8 max-w-7xl mx-auto">
 
           {/* Controls */}
-          <div className="w-80 shrink-0 bg-[var(--bg-card)] border border-[var(--border-default)] rounded-2xl p-6 shadow-[var(--card-shadow)] flex flex-col gap-6">
+          <div className={`w-80 shrink-0 ${isDarkMode ? 'bg-[#0a0a0a] border-zinc-800' : 'bg-white border-zinc-200'} border rounded-2xl p-6 shadow-xl flex flex-col gap-6`}>
             <div>
               <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Tipo de Receituário</label>
-              <select value={tipo} onChange={(e) => setTipo(e.target.value)} className="w-full bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-xl px-4 py-3 text-[var(--text-primary)] focus:outline-none focus:border-orange-500 transition-colors">
+              <select value={tipo} onChange={(e) => setTipo(e.target.value)} className={`w-full ${isDarkMode ? 'bg-zinc-900 border-zinc-700 text-white' : 'bg-white border-zinc-200 text-zinc-900'} border rounded-xl px-4 py-3 focus:outline-none focus:border-orange-500 transition-colors`}>
                 <option value="simples">Receituário Simples</option>
                 <option value="controlado">Controle Especial (2 vias)</option>
                 <option value="antibiotico">Antibiótico (2 vias)</option>
@@ -58,7 +58,7 @@ export const ReceituarioView = ({ patients, professionals, selectedPatientId, is
 
             <div>
               <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Profissional Emitente</label>
-              <select value={professionalId} onChange={(e) => setProfessionalId(e.target.value)} className="w-full bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-xl px-4 py-3 text-[var(--text-primary)] focus:outline-none focus:border-orange-500 transition-colors">
+              <select value={professionalId} onChange={(e) => setProfessionalId(e.target.value)} className={`w-full ${isDarkMode ? 'bg-zinc-900 border-zinc-700 text-white' : 'bg-white border-zinc-200 text-zinc-900'} border rounded-xl px-4 py-3 focus:outline-none focus:border-orange-500 transition-colors`}>
                 {professionals.map((p: any) => (
                   <option key={p.id} value={p.id}>{p.name}</option>
                 ))}
@@ -67,7 +67,7 @@ export const ReceituarioView = ({ patients, professionals, selectedPatientId, is
 
             <div>
               <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Paciente</label>
-              <select value={patientId} onChange={(e) => setPatientId(e.target.value)} className="w-full bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-xl px-4 py-3 text-[var(--text-primary)] focus:outline-none focus:border-orange-500 transition-colors">
+              <select value={patientId} onChange={(e) => setPatientId(e.target.value)} className={`w-full ${isDarkMode ? 'bg-zinc-900 border-zinc-700 text-white' : 'bg-white border-zinc-200 text-zinc-900'} border rounded-xl px-4 py-3 focus:outline-none focus:border-orange-500 transition-colors`}>
                 <option value="">Selecione um paciente</option>
                 {patients.map((p: any) => (
                   <option key={p.id} value={p.id}>{p.name}</option>
@@ -81,14 +81,14 @@ export const ReceituarioView = ({ patients, professionals, selectedPatientId, is
                 value={conteudo}
                 onChange={(e) => setConteudo(e.target.value)}
                 placeholder="Ex: Dipirona 500mg - Tomar 1 comprimido de 8/8h se dor..."
-                className="flex-1 w-full bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-xl px-4 py-3 text-[var(--text-primary)] focus:outline-none focus:border-orange-500 transition-colors resize-none"
+                className={`flex-1 w-full ${isDarkMode ? 'bg-zinc-900 border-zinc-700 text-white' : 'bg-white border-zinc-200 text-zinc-900'} border rounded-xl px-4 py-3 focus:outline-none focus:border-orange-500 transition-colors resize-none`}
               />
             </div>
           </div>
 
           {/* Preview Area */}
           <div className="flex-1 bg-zinc-200 rounded-2xl p-8 overflow-y-auto flex justify-center shadow-inner">
-            <div className="bg-white w-[210mm] min-h-[297mm] shadow-2xl p-[20mm] text-black font-sans relative">
+            <div className="bg-[#ffffff] w-[210mm] min-h-[297mm] shadow-2xl p-[20mm] text-zinc-900 font-sans relative">
               {/* This is the printable area */}
               <PrintableReceituario
                 tipo={tipo}
@@ -125,7 +125,7 @@ export const ReceituarioView = ({ patients, professionals, selectedPatientId, is
       `}</style>
 
       {/* Hidden Print Container */}
-      <div className="hidden print:block print-area w-[210mm] min-h-[297mm] bg-white text-black p-[20mm]">
+      <div className="hidden print:block print-area w-[210mm] min-h-[297mm] bg-[#ffffff] text-zinc-900 p-[20mm]">
         <PrintableReceituario
           tipo={tipo}
           patient={selectedPatient}
