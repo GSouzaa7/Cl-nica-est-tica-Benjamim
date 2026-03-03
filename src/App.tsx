@@ -62,6 +62,7 @@ import {
 } from 'lucide-react';
 
 import { ReceituarioView } from './ReceituarioView';
+import videoBg from '../Flow_delpmaspu_.mp4';
 
 const Toggle = ({ checked, onChange, disabled, isDarkMode = true }: { checked: boolean, onChange: (checked: boolean) => void, disabled: boolean, isDarkMode?: boolean }) => {
   return (
@@ -141,50 +142,71 @@ const LoginScreen = ({ onLogin, isDarkMode = true }: { onLogin: (email: string) 
   };
 
   return (
-    <div className={`min-h-screen bg-[#050505] flex flex-col justify-center items-center p-4 selection:bg-orange-500/30 transition-colors duration-300 relative`}>
+    <div className={`min-h-screen bg-[#050505] flex items-center justify-end px-6 md:px-24 lg:px-40 relative overflow-hidden transition-colors duration-300`}>
+      {/* Cinematic Video Background (Unmounted automatically when not rendered) */}
+      <video src={videoBg} autoPlay loop muted playsInline className="absolute inset-0 w-full h-full object-cover opacity-40 z-0 pointer-events-none" />
+
+      {/* Luminous Layers */}
       <div className="absolute inset-0 z-0 pointer-events-none">
         <div className="stars absolute inset-0"></div>
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[500px] bg-orange-900/10 blur-[120px] rounded-full"></div>
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[1200px] h-[800px] bg-orange-900/10 blur-[120px] rounded-full"></div>
       </div>
-      <div className={`w-full max-w-md bg-[#0a0a0a] border-white/10 electric-card relative z-10 border rounded-2xl p-8 shadow-2xl transition-colors duration-300`}>
-        <div className="flex items-center justify-center gap-3 mb-8">
-          <div className="w-10 h-10 bg-orange-500 rounded-lg flex items-center justify-center">
-            <Asterisk className={`${isDarkMode ? "text-white" : "text-zinc-900"}`} size={24} />
+
+      {/* Electric Card Container */}
+      <div className="relative z-10 w-full max-w-md bg-neutral-900/50 p-[1.5px] rounded-[32px] overflow-hidden shadow-[0_0_80px_-15px_rgba(249,115,22,0.3)] transition-all duration-300 group">
+
+        {/* Luminous Animated Border */}
+        <div className="absolute inset-0 bg-gradient-to-br from-yellow-300 via-orange-500 to-transparent opacity-80 pointer-events-none transition-all duration-700 group-hover:via-orange-400 group-hover:opacity-100"></div>
+
+        {/* Inner Glass Box */}
+        <div className="bg-[#0A0A0A]/80 backdrop-blur-3xl rounded-[30px] p-10 relative flex flex-col items-center">
+
+          <div className="flex flex-col items-center text-center">
+            <div className={`w-12 h-12 bg-orange-500 rounded-xl flex items-center justify-center mb-6 shadow-[0_0_30px_rgba(249,115,22,0.4)]`}>
+              <Asterisk className="text-white" size={28} />
+            </div>
+            <h1 className="text-white font-bricolage text-4xl font-light tracking-tight mb-2">
+              Estética<span className="font-semibold text-orange-500">Pro</span>
+            </h1>
+            <span className="font-bricolage text-sm font-light tracking-wide text-zinc-400 mt-2 block mb-8">
+              A excelência que sua clínica merece,<br className="hidden md:block" />a gestão que você precisa.
+            </span>
           </div>
-          <span className={`text-white font-semibold text-2xl tracking-tight`}>EstéticaPro</span>
-        </div>
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <div>
-            <label className="block text-sm font-medium text-zinc-400 mb-1.5">E-mail</label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className={`w-full bg-[#050505] border border-white/10 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-white/20 transition-colors`}
-              placeholder="seu@email.com"
-              required
-            />
+
+          <form onSubmit={handleSubmit} className="flex flex-col gap-5 w-full font-sans">
+            <div className="w-full">
+              <label className="block text-xs font-semibold text-zinc-400 mb-2 uppercase tracking-wider">E-mail Corporativo</label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className={`w-full bg-black/50 border border-white/10 rounded-xl px-5 py-3.5 text-white focus:outline-none focus:border-orange-500/50 transition-colors font-sans text-sm`}
+                placeholder="clinica@esteticapro.com"
+                required
+              />
+            </div>
+            <div className="w-full">
+              <label className="block text-xs font-semibold text-zinc-400 mb-2 uppercase tracking-wider">Senha de Acesso</label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className={`w-full bg-black/50 border border-white/10 rounded-xl px-5 py-3.5 text-white focus:outline-none focus:border-orange-500/50 transition-colors font-sans text-sm`}
+                placeholder="••••••••"
+                required
+              />
+            </div>
+            <button
+              type="submit"
+              className={`w-full bg-gradient-to-r from-orange-400 to-orange-600 text-[#2c1306] shadow-[0_0_20px_rgba(249,115,22,0.4)] hover:shadow-[0_0_40px_rgba(249,115,22,0.7)] hover:scale-[1.02] border-none font-bold py-3.5 rounded-xl transition-all duration-300 mt-4 font-sans`}
+            >
+              Entrar no Sistema
+            </button>
+          </form>
+
+          <div className="mt-8 text-center text-xs text-zinc-500 font-sans border-t border-white/5 pt-6 w-full">
+            Dica de Navegação: Use <strong className="text-zinc-300 font-semibold">admin</strong> no email para privilégios totais ou entre como <strong className="text-zinc-300 font-semibold">Profissional</strong>.
           </div>
-          <div>
-            <label className="block text-sm font-medium text-zinc-400 mb-1.5">Senha</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className={`w-full bg-[#050505] border border-white/10 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-white/20 transition-colors`}
-              placeholder="••••••••"
-              required
-            />
-          </div>
-          <button
-            type="submit"
-            className={`w-full bg-gradient-to-t from-yellow-200 via-orange-400 to-orange-500 text-[#2c1306] shadow-[0_0_40px_-5px_rgba(249,115,22,0.6)] hover:scale-105 hover:shadow-[0_0_60px_-5px_rgba(249,115,22,0.8)] border-none font-medium py-2.5 rounded-lg transition-colors mt-2`}
-          >
-            Entrar
-          </button>
-        </form>
-        <div className="mt-6 text-center text-sm text-zinc-500">
-          Dica: Use um email com a palavra <strong className={`${isDarkMode ? "text-zinc-300" : "text-zinc-900"}`}>admin</strong> para entrar como Admin. Qualquer outro email entrará como <strong className={`${isDarkMode ? "text-zinc-300" : "text-zinc-900"}`}>Profissional</strong>.
         </div>
       </div>
     </div>
