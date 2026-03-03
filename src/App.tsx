@@ -142,7 +142,7 @@ const LoginScreen = ({ onLogin, isDarkMode = true }: { onLogin: (email: string) 
   };
 
   return (
-    <div className={`grid grid-cols-1 lg:grid-cols-12 min-h-screen w-full relative z-10 bg-[#050505] overflow-hidden transition-colors duration-300`}>
+    <div className="dark !bg-[#050505] !text-white grid grid-cols-1 lg:grid-cols-12 min-h-screen w-full relative z-10 overflow-hidden">
       {/* Cinematic Video Background (Unmounted automatically when not rendered) */}
       <video src={videoBg} autoPlay loop muted playsInline className="absolute inset-0 w-full h-full object-cover opacity-40 z-0 pointer-events-none" />
 
@@ -153,7 +153,7 @@ const LoginScreen = ({ onLogin, isDarkMode = true }: { onLogin: (email: string) 
       </div>
 
       {/* LADO ESQUERDO (lg:col-span-7) */}
-      <div className="lg:col-span-7 font-bricolage text-5xl lg:text-7xl font-light tracking-tight text-white leading-[1.05] p-10 lg:p-24 flex items-center animate-entry uppercase relative z-20">
+      <div className="lg:col-span-7 font-bricolage text-5xl lg:text-7xl font-light tracking-tight !text-white leading-[1.05] p-10 lg:p-24 flex items-center animate-entry uppercase relative z-20">
         <h1>
           A EXCELÊNCIA QUE SUA CLÍNICA MERECE E A GESTÃO QUE VOCÊ PRECISA.
         </h1>
@@ -169,36 +169,36 @@ const LoginScreen = ({ onLogin, isDarkMode = true }: { onLogin: (email: string) 
           <div className="absolute inset-0 bg-gradient-to-b from-yellow-300 via-orange-500 to-transparent opacity-80 z-0 pointer-events-none transition-all duration-700 group-hover:via-orange-400 group-hover:opacity-100"></div>
 
           {/* Inner Glass Box */}
-          <div className="relative z-10 bg-[#0A0A0A]/90 backdrop-blur-2xl rounded-[30px] p-8 lg:p-10 w-full flex flex-col items-center">
+          <div className="relative z-10 !bg-[#0A0A0A]/90 backdrop-blur-3xl rounded-[30px] p-8 lg:p-10 w-full flex flex-col items-center">
 
             <div className="flex flex-col items-center text-center mb-8">
-              <div className={`w-12 h-12 bg-orange-500 rounded-xl flex items-center justify-center mb-6 shadow-[0_0_30px_rgba(249,115,22,0.4)]`}>
-                <Asterisk className="text-white" size={28} />
+              <div className={`w-12 h-12 !bg-orange-500 rounded-xl flex items-center justify-center mb-6 shadow-[0_0_30px_rgba(249,115,22,0.4)]`}>
+                <Asterisk className="!text-white" size={28} />
               </div>
-              <h1 className="text-white font-bricolage text-4xl font-light tracking-tight mb-2">
-                Estética<span className="font-semibold text-orange-500">Pro</span>
+              <h1 className="!text-white font-bricolage text-4xl font-light tracking-tight mb-2">
+                Estética<span className="font-semibold !text-orange-500">Pro</span>
               </h1>
             </div>
 
             <form onSubmit={handleSubmit} className="flex flex-col gap-5 w-full font-sans">
               <div className="w-full">
-                <label className="block text-xs font-semibold text-zinc-400 mb-2 uppercase tracking-wider">E-mail Corporativo</label>
+                <label className="block text-xs font-semibold !text-neutral-400 mb-2 uppercase tracking-wider">E-mail Corporativo</label>
                 <input
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className={`w-full bg-black/50 border border-white/10 rounded-xl px-5 py-3.5 text-white focus:outline-none focus:border-orange-500/50 transition-colors font-sans text-sm`}
+                  className="w-full !bg-black/40 border !border-white/10 rounded-xl px-5 py-3.5 !text-white placeholder-neutral-500 focus:outline-none focus:border-orange-500 transition-colors font-sans text-sm"
                   placeholder="clinica@esteticapro.com"
                   required
                 />
               </div>
               <div className="w-full">
-                <label className="block text-xs font-semibold text-zinc-400 mb-2 uppercase tracking-wider">Senha de Acesso</label>
+                <label className="block text-xs font-semibold !text-neutral-400 mb-2 uppercase tracking-wider">Senha de Acesso</label>
                 <input
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className={`w-full bg-black/50 border border-white/10 rounded-xl px-5 py-3.5 text-white focus:outline-none focus:border-orange-500/50 transition-colors font-sans text-sm`}
+                  className="w-full !bg-black/40 border !border-white/10 rounded-xl px-5 py-3.5 !text-white placeholder-neutral-500 focus:outline-none focus:border-orange-500 transition-colors font-sans text-sm"
                   placeholder="••••••••"
                   required
                 />
@@ -211,8 +211,8 @@ const LoginScreen = ({ onLogin, isDarkMode = true }: { onLogin: (email: string) 
               </button>
             </form>
 
-            <div className="mt-8 text-center text-xs text-zinc-500 font-sans border-t border-white/5 pt-6 w-full">
-              Dica de Navegação: Use <strong className="text-zinc-300 font-semibold">admin</strong> no email para privilégios totais ou entre como <strong className="text-zinc-300 font-semibold">Profissional</strong>.
+            <div className="mt-8 text-center text-xs !text-neutral-500 font-sans border-t !border-white/5 pt-6 w-full">
+              Dica de Navegação: Use <strong className="!text-white font-semibold">admin</strong> no email para privilégios totais ou entre como <strong className="!text-white font-semibold">Profissional</strong>.
             </div>
           </div>
         </div>
