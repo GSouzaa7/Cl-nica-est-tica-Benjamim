@@ -271,8 +271,20 @@ const DeniedScreen = ({ onLogout, isDarkMode = true }: { onLogout: () => void, i
 
 type AccessStatus = 'pending' | 'approved' | 'denied';
 
-const DashboardView = ({ isDarkMode = true }: { isDarkMode?: boolean }) => {
+const DashboardView = ({
+  inventory,
+  setActiveMenu,
+  isDarkMode = true
+}: {
+  inventory: any[],
+  setActiveMenu: (tab: string) => void,
+  isDarkMode?: boolean
+}) => {
   const [faqs, setFaqs] = useState([{ q: 'Dói fazer botox?', a: 'Utilizamos pomada anestésica de alta eficácia para garantir o máximo de conforto.' }]);
+
+  // Agrupamento para Laranjas e Críticos
+  const lowStockItems = inventory.filter((item: any) => item.stock <= item.minStock && item.stock > 0);
+  const criticalStockItems = inventory.filter((item: any) => item.stock === 0);
 
   const [finCategories, setFinCategories] = useState([
     { id: '1', name: 'Procedimentos Injetáveis', type: 'Receita' },
@@ -361,22 +373,32 @@ const DashboardView = ({ isDarkMode = true }: { isDarkMode?: boolean }) => {
 
           {/* Alerts Row */}
           <div className="grid grid-cols-2 gap-6">
-            <div className={` ${isDarkMode ? "bg-[#1c0d0d] border-red-900/30" : "bg-red-50 border-red-100"} border rounded-2xl p-5 flex items-center gap-4 transition-colors duration-300 `}>
+            <div
+              onClick={() => setActiveMenu('Estoque')}
+              className={` ${isDarkMode ? "bg-[#1c0d0d] border-red-900/30 hover:border-red-500/50 cursor-pointer" : "bg-red-50 border-red-100 hover:border-red-300 cursor-pointer"} border rounded-2xl p-5 flex items-center gap-4 transition-colors duration-300 `}
+            >
               <div className="w-10 h-10 rounded-lg border border-red-900/50 flex items-center justify-center text-red-500 shrink-0">
                 <AlertTriangle size={20} />
               </div>
               <div>
                 <h4 className="text-red-400 font-medium text-sm">Estoque Crítico</h4>
-                <p className="text-zinc-500 text-xs">Nenhum item em estado crítico</p>
+                <p className={`text-xs ${criticalStockItems.length > 0 ? "text-red-300 font-semibold" : "text-zinc-500"}`}>
+                  {criticalStockItems.length > 0 ? `${criticalStockItems.length} item(s) zerado(s)` : "Nenhum item em estado crítico"}
+                </p>
               </div>
             </div>
-            <div className={` ${isDarkMode ? "bg-[#1c140d] border-orange-900/30" : "bg-orange-50 border-orange-100"} border rounded-2xl p-5 flex items-center gap-4 transition-colors duration-300 `}>
+            <div
+              onClick={() => setActiveMenu('Estoque')}
+              className={` ${isDarkMode ? "bg-[#1c140d] border-orange-900/30 hover:border-orange-500/50 cursor-pointer" : "bg-orange-50 border-orange-100 hover:border-orange-300 cursor-pointer"} border rounded-2xl p-5 flex items-center gap-4 transition-colors duration-300 `}
+            >
               <div className="w-10 h-10 rounded-lg border border-orange-900/50 flex items-center justify-center text-orange-500 shrink-0">
                 <AlertTriangle size={20} />
               </div>
               <div>
                 <h4 className="text-orange-400 font-medium text-sm">Estoque Baixo</h4>
-                <p className="text-zinc-500 text-xs">Nenhum item com estoque baixo</p>
+                <p className={`text-xs ${lowStockItems.length > 0 ? "text-orange-300 font-semibold" : "text-zinc-500"}`}>
+                  {lowStockItems.length > 0 ? `${lowStockItems.length} item(s) com estoque baixo` : "Nenhum item com estoque baixo"}
+                </p>
               </div>
             </div>
           </div>
@@ -527,6 +549,55 @@ const AgendaView = ({ professionals, services = [], onCompleteService, isDarkMod
   const [selectedAppDetails, setSelectedAppDetails] = useState<any | null>(null);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
 
+  // Estados e Logica do Mini Calendário Nativo (Blindado)
+  const [viewDate, setViewDate] = useState(new Date());
+  const [selectedCalendarDate, setSelectedCalendarDate] = useState(new Date());
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+  const calendarRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (calendarRef.current && !calendarRef.current.contains(event.target as Node)) {
+        setIsCalendarOpen(false);
+      }
+    };
+    if (isCalendarOpen) document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isCalendarOpen]);
+
+  // Helpers Matematicos Date
+  const getDaysInMonth = (year: number, month: number) => new Date(year, month + 1, 0).getDate();
+  const getFirstDayOfMonth = (year: number, month: number) => new Date(year, month, 1).getDay();
+
+  const currentMonthDays = getDaysInMonth(viewDate.getFullYear(), viewDate.getMonth());
+  const firstDay = getFirstDayOfMonth(viewDate.getFullYear(), viewDate.getMonth());
+
+  const handlePrevMonth = () => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() - 1, 1));
+  const handleNextMonth = () => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 1));
+  const handlePrevDay = () => {
+    const newDate = new Date(selectedCalendarDate);
+    newDate.setDate(selectedCalendarDate.getDate() - 1);
+    setSelectedCalendarDate(newDate);
+    setViewDate(new Date(newDate));
+  };
+  const handleNextDay = () => {
+    const newDate = new Date(selectedCalendarDate);
+    newDate.setDate(selectedCalendarDate.getDate() + 1);
+    setSelectedCalendarDate(newDate);
+    setViewDate(new Date(newDate));
+  };
+
+  const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+  const monthNames = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+  const weekDaysShort = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
+
+  // Formatar a data atual selecionada (ex: domingo, 22 fev)
+  const formatHeaderDate = (d: Date) => {
+    const weekNames = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'];
+    const monthShorts = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+    return `${weekNames[d.getDay()]}, ${d.getDate()} ${monthShorts[d.getMonth()]}`;
+  };
+
   // Indexador para performance O(1) no render da grade
   const appointmentsMap = useMemo(() => {
     const map: Record<string, any> = {};
@@ -566,17 +637,78 @@ const AgendaView = ({ professionals, services = [], onCompleteService, isDarkMod
 
 
       {/* Header */}
-      <header className="pt-12 px-12 pb-8 z-10 shrink-0 flex items-center justify-between">
+      <header className="pt-12 px-12 pb-8 z-50 relative shrink-0 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Calendar className={`${isDarkMode ? "text-white" : "text-zinc-900"}`} size={32} />
           <h1 className={`text-3xl font-bold ${isDarkMode ? "text-white" : "text-zinc-900"} tracking-tight`}>Agenda</h1>
         </div>
 
         <div className="flex items-center gap-6">
-          <div className={`flex items-center gap-4 ${isDarkMode ? "text-white" : "text-zinc-900"} font-medium`}>
-            <button className="hover:text-orange-500 transition-colors"><ChevronLeft size={20} /></button>
-            <span>domingo, 22 fev</span>
-            <button className="hover:text-orange-500 transition-colors"><ChevronRight size={20} /></button>
+          <div className={`flex items-center gap-4 ${isDarkMode ? "text-white" : "text-zinc-900"} font-medium relative`}>
+            <button onClick={handlePrevDay} className="hover:text-orange-500 hover:scale-110 transition-all"><ChevronLeft size={20} /></button>
+            <div className="relative" ref={calendarRef}>
+              <button
+                onClick={() => setIsCalendarOpen(!isCalendarOpen)}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-colors ${isCalendarOpen ? (isDarkMode ? 'bg-orange-500/10 text-orange-500' : 'bg-orange-50 text-orange-600') : (isDarkMode ? 'hover:bg-zinc-800' : 'hover:bg-zinc-100')}`}
+              >
+                <span>{formatHeaderDate(selectedCalendarDate)}</span>
+                <ChevronDown size={14} className={`shrink-0 transition-transform ${isCalendarOpen ? 'rotate-180 text-orange-500' : 'text-zinc-500'}`} />
+              </button>
+
+              {/* Calendário Luminous Popover */}
+              {isCalendarOpen && (
+                <div className={`absolute top-full mt-3 right-0 md:left-1/2 md:-translate-x-1/2 w-72 z-[9999] rounded-2xl border shadow-2xl overflow-hidden ${isDarkMode ? "bg-[#121214] border-zinc-800" : "bg-white border-zinc-200"}`}>
+                  <div className={`p-4 flex items-center justify-between border-b ${isDarkMode ? "border-zinc-800/80" : "border-zinc-200"}`}>
+                    <button onClick={handlePrevMonth} className={`p-1 rounded opacity-70 hover:opacity-100 transition-colors ${isDarkMode ? "hover:bg-zinc-800" : "hover:bg-zinc-100"}`}><ChevronLeft size={18} /></button>
+                    <div className="font-semibold text-sm">
+                      {monthNames[viewDate.getMonth()]} {viewDate.getFullYear()}
+                    </div>
+                    <button onClick={handleNextMonth} className={`p-1 rounded opacity-70 hover:opacity-100 transition-colors ${isDarkMode ? "hover:bg-zinc-800" : "hover:bg-zinc-100"}`}><ChevronRight size={18} /></button>
+                  </div>
+
+                  <div className="p-4">
+                    <div className="grid grid-cols-7 gap-1 mb-2 text-center">
+                      {weekDaysShort.map((day, i) => (
+                        <div key={i} className={`text-[10px] font-bold tracking-wider ${isDarkMode ? "text-zinc-500" : "text-zinc-400"}`}>{day}</div>
+                      ))}
+                    </div>
+
+                    <div className="grid grid-cols-7 gap-1">
+                      {Array.from({ length: firstDay }).map((_, i) => (
+                        <div key={`empty-${i}`} className="w-8 h-8" />
+                      ))}
+
+                      {Array.from({ length: currentMonthDays }).map((_, i) => {
+                        const day = i + 1;
+                        const isCurrentDay = day === new Date().getDate() && viewDate.getMonth() === new Date().getMonth() && viewDate.getFullYear() === new Date().getFullYear();
+                        const isSelected = day === selectedCalendarDate.getDate() && viewDate.getMonth() === selectedCalendarDate.getMonth() && viewDate.getFullYear() === selectedCalendarDate.getFullYear();
+
+                        return (
+                          <button
+                            key={day}
+                            onClick={() => {
+                              setSelectedCalendarDate(new Date(viewDate.getFullYear(), viewDate.getMonth(), day));
+                              setIsCalendarOpen(false);
+                            }}
+                            className={`w-8 h-8 rounded-full flex items-center justify-center text-sm transition-all
+                              ${isSelected
+                                ? "bg-orange-500 text-white font-bold shadow-[0_0_10px_rgba(249,115,22,0.4)]"
+                                : isCurrentDay
+                                  ? (isDarkMode ? "bg-zinc-800 text-orange-400 font-semibold" : "bg-orange-50 text-orange-600 font-semibold")
+                                  : (isDarkMode ? "text-zinc-300 hover:bg-zinc-800" : "text-zinc-700 hover:bg-zinc-100")
+                              }
+                            `}
+                          >
+                            {day}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+            <button onClick={handleNextDay} className="hover:text-orange-500 hover:scale-110 transition-all"><ChevronRight size={20} /></button>
           </div>
           <button
             onClick={() => setIsModalOpen(true)}
@@ -1303,6 +1435,7 @@ const CrmView = ({ patients, setPatients, columns, setColumns, onGenerateReceitu
 const ClientesView = ({ patients, setPatients, onGenerateReceituario, isDarkMode = true }: any) => {
   const [isNewPatientModalOpen, setIsNewPatientModalOpen] = useState(false);
   const [activePatientId, setActivePatientId] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
 
   const activePatient = patients.find((p: any) => p.id === activePatientId) || null;
   const isCreating = isNewPatientModalOpen && !activePatientId;
@@ -1318,6 +1451,7 @@ const ClientesView = ({ patients, setPatients, onGenerateReceituario, isDarkMode
   const [editEmail, setEditEmail] = useState('');
   const [editNotes, setEditNotes] = useState('');
   const [clientCPF, setClientCPF] = useState('');
+  const [isSaved, setIsSaved] = useState(false);
 
   const formatCPF = (value: string) => {
     return value
@@ -1464,7 +1598,20 @@ const ClientesView = ({ patients, setPatients, onGenerateReceituario, isDarkMode
       };
       setPatients(patients.map((p: any) => p.id === currentPatient.id ? updatedPatient : p));
     }
+
+    setIsSaved(true);
+    setTimeout(() => {
+      setIsSaved(false);
+    }, 2000);
   };
+
+  const filteredPatients = patients.filter((p: any) => {
+    const term = searchTerm.toLowerCase();
+    const nameMatch = (p.name || '').toLowerCase().includes(term);
+    const cpfMatch = (p.cpf || '').replace(/\D/g, '').includes(term.replace(/\D/g, ''));
+    const phoneMatch = (p.phone || '').replace(/\D/g, '').includes(term.replace(/\D/g, ''));
+    return nameMatch || cpfMatch || phoneMatch;
+  });
 
   return (
     <div className="flex-1 flex flex-col relative overflow-hidden">
@@ -1482,6 +1629,19 @@ const ClientesView = ({ patients, setPatients, onGenerateReceituario, isDarkMode
         </div>
 
         <div className="flex items-center gap-4">
+          <div className="relative">
+            <Search className={`absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 ${isDarkMode ? 'text-zinc-500' : 'text-zinc-400'}`} />
+            <input
+              type="text"
+              placeholder="Buscar por Nome, CPF ou Tel..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className={`w-64 md:w-80 pl-11 pr-4 py-2.5 text-sm rounded-full border focus:outline-none focus:ring-1 focus:ring-orange-500 transition-all ${isDarkMode
+                ? 'bg-[#121214] border-zinc-800 text-white placeholder-zinc-500'
+                : 'bg-white border-zinc-200 text-zinc-900 placeholder-zinc-400'
+                }`}
+            />
+          </div>
           <button className={`w-10 h-10 rounded-full border border-zinc-800 flex items-center justify-center text-zinc-400 hover:${isDarkMode ? "text-white" : "text-zinc-900"} hover:border-zinc-600 transition-colors`}>
             <Upload size={18} />
           </button>
@@ -1498,7 +1658,7 @@ const ClientesView = ({ patients, setPatients, onGenerateReceituario, isDarkMode
       {/* Patient List */}
       <div className="flex-1 overflow-y-auto px-12 pb-10 z-10 custom-scrollbar">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {patients.map(patient => (
+          {filteredPatients.map((patient: any) => (
             <div key={patient.id} className={`bg-[#0a0a0a] border ${isDarkMode ? "border-zinc-800/80" : "border-zinc-200/80"} rounded-2xl p-6 hover:border-orange-500/30 transition-colors group`}>
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-center gap-4">
@@ -1615,9 +1775,13 @@ const ClientesView = ({ patients, setPatients, onGenerateReceituario, isDarkMode
 
                 <button
                   onClick={handleSavePatient}
-                  className={`w-full bg-[#0a0a0a] hover:bg-zinc-900 border border-zinc-800 ${isDarkMode ? "text-white" : "text-zinc-900"} font-semibold py-3 rounded-xl transition-colors mt-4 text-sm`}
+                  disabled={isSaved}
+                  className={`w-full ${isSaved
+                    ? "bg-green-500/20 text-green-500 border-green-500/30 font-bold"
+                    : `bg-[#0a0a0a] hover:bg-zinc-900 border-zinc-800 ${isDarkMode ? "text-white" : "text-zinc-900"} font-semibold`
+                    } border py-3 rounded-xl transition-all duration-300 mt-4 text-sm`}
                 >
-                  Salvar Cadastro
+                  {isSaved ? "Salvo com sucesso ✓" : "Salvar Cadastro"}
                 </button>
               </div>
             </div>
@@ -2593,16 +2757,7 @@ const EstoqueView = ({ inventory, setInventory, isDarkMode = true }: any) => {
             </div>
             <p className={`text-sm ${isDarkMode ? "text-zinc-400" : "text-zinc-500"}`}>Gerencie o inventário e tabela de preços</p>
           </div>
-
           <div className="flex items-center gap-4">
-            <button className={`bg-transparent border border-zinc-800 hover:bg-zinc-900 ${isDarkMode ? "text-white" : "text-zinc-900"} font-semibold px-6 py-2.5 rounded-full flex items-center gap-2 transition-colors`}>
-              <Filter size={18} />
-              Filtros
-            </button>
-            <button className={`bg-transparent border border-zinc-800 hover:bg-zinc-900 ${isDarkMode ? "text-white" : "text-zinc-900"} font-semibold px-6 py-2.5 rounded-full flex items-center gap-2 transition-colors`}>
-              <Download size={18} />
-              Exportar
-            </button>
             <button
               onClick={() => handleOpenModal()}
               className="bg-gradient-to-r from-orange-400 to-orange-500 hover:from-orange-500 hover:to-orange-600 text-black font-semibold px-6 py-2.5 rounded-full flex items-center gap-2 transition-all shadow-[0_0_15px_rgba(249,115,22,0.3)]"
@@ -5346,7 +5501,7 @@ export default function App() {
             isDarkMode={isDarkMode}
           />
         ) : activeMenu === 'Dashboard' ? (
-          <DashboardView isDarkMode={isDarkMode} />
+          <DashboardView inventory={inventory} setActiveMenu={setActiveMenu} isDarkMode={isDarkMode} />
         ) : activeMenu === 'Agenda' ? (
           <AgendaView professionals={professionals} services={services} onCompleteService={handleCompleteService} isDarkMode={isDarkMode} />
         ) : activeMenu === 'CRM' ? (

@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { FileSignature, Printer, Save } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { FileSignature, Printer, Save, Search, ChevronDown } from 'lucide-react';
 
 const compareDates = (d1: string, d2: string) => {
   if (!d1 || !d2) return false;
@@ -17,6 +17,27 @@ export const ReceituarioView = ({ patients, professionals, selectedPatientId, is
   const [conteudo, setConteudo] = useState('');
   const [historyLookupDate, setHistoryLookupDate] = useState(new Date().toISOString().split('T')[0]);
   const [patientSearch, setPatientSearch] = useState('');
+  const [comboboxSearch, setComboboxSearch] = useState('');
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsDropdownOpen(false);
+      }
+    };
+    if (isDropdownOpen) document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isDropdownOpen]);
+
+  const filteredPatientsForDropdown = patients?.filter((p: any) => {
+    const term = comboboxSearch.toLowerCase();
+    const nameMatch = (p.name || '').toLowerCase().includes(term);
+    const cpfMatch = (p.cpf || '').replace(/\D/g, '').includes(term.replace(/\D/g, ''));
+    const phoneMatch = (p.phone || '').replace(/\D/g, '').includes(term.replace(/\D/g, ''));
+    return nameMatch || cpfMatch || phoneMatch;
+  });
 
   const selectedPatientData = patients?.find((p: any) => p.id === patientId);
   const selectedProfessional = professionals?.find((p: any) => p.id === professionalId);
@@ -133,22 +154,98 @@ export const ReceituarioView = ({ patients, professionals, selectedPatientId, is
               </select>
             </div>
 
-            <div>
+            <div className="relative" ref={dropdownRef}>
               <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Paciente</label>
-              <select
-                value={patientId}
-                onChange={(e) => {
-                  setPatientId(e.target.value);
-                  const pt = patients.find((p: any) => String(p.id) === String(e.target.value));
-                  if (pt) setPatientSearch(pt.name);
-                }}
-                className={`w-full ${isDarkMode ? 'bg-zinc-900 border-zinc-700 text-white' : 'bg-white border-zinc-200 text-zinc-900'} border rounded-xl px-4 py-3 focus:outline-none focus:border-orange-500 transition-colors`}
+              <button
+                type="button"
+                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                className={`w-full flex items-center justify-between ${isDarkMode ? 'bg-zinc-900 border-zinc-700 text-white' : 'bg-white border-zinc-200 text-zinc-900'} border rounded-xl px-4 py-3 focus:outline-none focus:border-orange-500 transition-colors text-left shadow-sm`}
               >
-                <option value="">Selecione um paciente</option>
-                {patients.map((p: any) => (
-                  <option key={p.id} value={p.id}>{p.name} - ID/CPF: {p.cpf || p.id}</option>
-                ))}
-              </select>
+                <span className="truncate pr-4">
+                  {patientId
+                    ? (() => {
+                      const p = patients.find((pt: any) => String(pt.id) === String(patientId));
+                      return p ? `${p.name} - ID/CPF: ${p.cpf || p.id}` : 'Selecione um paciente';
+                    })()
+                    : 'Selecione um paciente'}
+                </span>
+                <ChevronDown size={18} className={`shrink-0 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
+              </button>
+
+              {isDropdownOpen && (
+                <div className={`absolute z-50 mt-2 w-full rounded-xl border ${isDarkMode ? 'bg-[#121214] border-zinc-800' : 'bg-white border-zinc-200'} shadow-2xl overflow-hidden`}>
+                  <div className={`p-3 border-b ${isDarkMode ? 'border-zinc-800/80' : 'border-zinc-200/80'} relative`}>
+                    <Search className={`absolute left-6 top-1/2 -translate-y-1/2 w-4 h-4 ${isDarkMode ? 'text-zinc-500' : 'text-zinc-400'}`} />
+                    <input
+                      type="text"
+                      autoFocus
+                      placeholder="Buscar Nome, CPF ou Tel..."
+                      value={comboboxSearch}
+                      onChange={(e) => setComboboxSearch(e.target.value)}
+                      className={`w-full pl-10 pr-4 py-2.5 text-sm rounded-lg border focus:outline-none focus:ring-1 focus:ring-orange-500 transition-all ${isDarkMode
+                        ? 'bg-zinc-900/50 border-zinc-800 text-white placeholder-zinc-500'
+                        : 'bg-zinc-50 border-zinc-200 text-zinc-900 placeholder-zinc-400'
+                        }`}
+                    />
+                  </div>
+
+                  <div className="max-h-64 overflow-y-auto custom-scrollbar p-2">
+                    {comboboxSearch.length === 0 ? (
+                      <p className={`text-center py-6 text-sm ${isDarkMode ? 'text-zinc-500' : 'text-zinc-500'}`}>
+                        Digite nome, CPF ou Telefone para buscar.
+                      </p>
+                    ) : filteredPatientsForDropdown?.length === 0 ? (
+                      <p className={`text-center py-6 text-sm ${isDarkMode ? 'text-zinc-500' : 'text-zinc-500'}`}>
+                        Nenhum paciente encontrado com "{comboboxSearch}".
+                      </p>
+                    ) : (
+                      <div className="flex flex-col gap-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setPatientId('');
+                            setPatientSearch('');
+                            setIsDropdownOpen(false);
+                            setComboboxSearch('');
+                          }}
+                          className={`w-full text-left px-4 py-2.5 rounded-lg text-sm transition-colors ${!patientId
+                            ? (isDarkMode ? 'bg-orange-500/10 text-orange-500' : 'bg-orange-50 text-orange-600')
+                            : (isDarkMode ? 'text-zinc-400 hover:bg-zinc-800/50 hover:text-white' : 'text-zinc-600 hover:bg-zinc-100/80 hover:text-zinc-900')
+                            }`}
+                        >
+                          Selecione um paciente
+                        </button>
+
+                        {filteredPatientsForDropdown?.map((p: any) => {
+                          const isSelected = String(p.id) === String(patientId);
+                          return (
+                            <button
+                              key={p.id}
+                              type="button"
+                              onClick={() => {
+                                setPatientId(p.id);
+                                setPatientSearch(p.name);
+                                setIsDropdownOpen(false);
+                                setComboboxSearch('');
+                              }}
+                              className={`w-full text-left px-4 py-2.5 rounded-lg text-sm transition-colors flex flex-col justify-between items-start gap-1 ${isSelected
+                                ? (isDarkMode ? 'bg-orange-500/10 text-orange-500' : 'bg-orange-50 text-orange-600')
+                                : (isDarkMode ? 'text-zinc-300 hover:bg-zinc-800/50 hover:text-white' : 'text-zinc-700 hover:bg-zinc-100/80 hover:text-zinc-900')
+                                }`}
+                            >
+                              <span className="font-semibold">{p.name}</span>
+                              <div className="flex items-center gap-2 text-[10px] opacity-70 w-full justify-between font-mono">
+                                <span>CPF: {p.cpf || p.id}</span>
+                                <span>{p.phone || 'Sem tel'}</span>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="flex-1 flex flex-col">
