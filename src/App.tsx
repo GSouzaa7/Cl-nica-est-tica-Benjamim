@@ -202,16 +202,36 @@ const LoginScreen = ({ onLogin, isDarkMode = true }: { onLogin: (email: string) 
                   placeholder="••••••••"
                   required
                 />
+                <div className="flex justify-end mt-2">
+                  <button type="button" onClick={() => alert('Função de recuperação de senha será enviada por e-mail.')} className="text-xs font-medium !text-orange-500 hover:!text-orange-400 transition-colors">
+                    Esqueceu a senha?
+                  </button>
+                </div>
               </div>
+
               <button
                 type="submit"
-                className={`w-full bg-gradient-to-r from-orange-400 to-orange-600 text-[#2c1306] shadow-[0_0_20px_rgba(249,115,22,0.4)] hover:shadow-[0_0_40px_rgba(249,115,22,0.7)] hover:scale-[1.02] border-none font-bold py-3.5 rounded-xl transition-all duration-300 mt-4 font-sans`}
+                className={`w-full bg-gradient-to-r from-orange-400 to-orange-600 text-[#2c1306] shadow-[0_0_20px_rgba(249,115,22,0.4)] hover:shadow-[0_0_40px_rgba(249,115,22,0.7)] hover:scale-[1.02] border-none font-bold py-3.5 rounded-xl transition-all duration-300 mt-2 font-sans`}
               >
                 Entrar no Sistema
               </button>
+
+              <div className="flex items-center gap-4 my-2">
+                <div className="flex-1 h-px bg-white/5 bg-gradient-to-r from-transparent to-white/10"></div>
+                <span className="text-xs !text-neutral-500">ou</span>
+                <div className="flex-1 h-px bg-white/5 bg-gradient-to-l from-transparent to-white/10"></div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => alert('O painel de Auto-Cadastro de Profissionais será carregado em uma nova janela.')}
+                className="text-sm font-medium !text-neutral-400 hover:!text-white transition-colors"
+              >
+                <span className="font-bold underline decoration-orange-500/50 underline-offset-4">Criar uma conta</span>
+              </button>
             </form>
 
-            <div className="mt-8 text-center text-xs !text-neutral-500 font-sans border-t !border-white/5 pt-6 w-full">
+            <div className="mt-8 text-center text-[11px] !text-neutral-500 font-sans border-t !border-white/5 pt-6 w-full">
               Dica de Navegação: Use <strong className="!text-white font-semibold">admin</strong> no email para privilégios totais ou entre como <strong className="!text-white font-semibold">Profissional</strong>.
             </div>
           </div>
@@ -465,7 +485,7 @@ const DashboardView = ({
             <div className={`col-span-1 ${isDarkMode ? "bg-[#0c0c0e] border-zinc-800/80 shadow-black/50" : "bg-white border-zinc-200 shadow-zinc-200/50"} border rounded-2xl p-6 shadow-xl transition-colors duration-300 flex flex-col`}>
               <div className="flex justify-between items-start mb-6">
                 <h3 className={`text-lg font-semibold ${isDarkMode ? "text-white" : "text-zinc-900"} leading-tight`}>Próximos<br />Agendamentos</h3>
-                <span className="text-[10px] font-bold px-2 py-1 rounded bg-red-900/30 text-red-400 border border-red-900/50 tracking-wider">HOJE</span>
+                <span className={`text-[10px] font-bold px-2 py-1 rounded tracking-wider border ${isDarkMode ? 'bg-red-900/30 text-red-400 border-red-900/50' : 'bg-red-50 text-red-600 border-red-200'}`}>HOJE</span>
               </div>
 
               <div className="flex-1 flex flex-col items-center justify-center text-center">
@@ -1642,9 +1662,6 @@ const ClientesView = ({ patients, setPatients, onGenerateReceituario, isDarkMode
                 }`}
             />
           </div>
-          <button className={`w-10 h-10 rounded-full border border-zinc-800 flex items-center justify-center text-zinc-400 hover:${isDarkMode ? "text-white" : "text-zinc-900"} hover:border-zinc-600 transition-colors`}>
-            <Upload size={18} />
-          </button>
           <button
             onClick={() => { setIsNewPatientModalOpen(true); setActivePatientId(null); }}
             className="bg-gradient-to-r from-orange-400 to-orange-500 hover:from-orange-500 hover:to-orange-600 text-black font-semibold px-6 py-2.5 rounded-full flex items-center gap-2 transition-all shadow-[0_0_15px_rgba(249,115,22,0.3)]"
