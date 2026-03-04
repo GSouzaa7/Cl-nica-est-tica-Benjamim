@@ -406,3 +406,67 @@ body {
     background: var(--text-secondary);
   }
 }
+
+/* ─── QUILL EDITOR SVG FIX FOR TAILWIND ──────── */
+.ql-editor svg,
+.ql-toolbar svg {
+  max-width: initial !important;
+  height: initial !important;
+}
+
+.ql-picker-label svg {
+  width: 18px !important;
+  height: 18px !important;
+}
+
+.ql-picker-options {
+  z-index: 50 !important;
+}
+
+/* ─── WORD-STYLE SEAMLESS EDITOR ─────────────── */
+.word-editor-seamless {
+  flex: 1;
+  width: 100%;
+}
+
+.word-editor-seamless .ql-toolbar.ql-snow {
+  display: none !important;
+}
+
+.word-editor-seamless .ql-container.ql-snow {
+  border: none !important;
+  background: transparent !important;
+  font-size: 1rem !important;
+  font-family: 'Inter', sans-serif !important;
+  color: #0a0a0a !important;
+}
+
+.word-editor-seamless .ql-editor {
+  padding: 0 !important;
+  min-height: 400px;
+  outline: none !important;
+  cursor: text;
+}
+
+.word-editor-seamless .ql-editor:focus {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.word-editor-seamless .ql-editor ul {
+  list-style-type: disc;
+  padding-left: 1.5em;
+}
+
+.word-editor-seamless .ql-editor ol {
+  list-style-type: decimal;
+  padding-left: 1.5em;
+}
+
+.word-editor-seamless .ql-editor li {
+  margin-bottom: 0.25em;
+}
+
+.word-editor-seamless .ql-editor strong {
+  font-weight: 700;
+}

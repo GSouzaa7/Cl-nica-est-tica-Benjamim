@@ -1046,7 +1046,7 @@ const CrmView = ({ patients, setPatients, columns, setColumns, onGenerateReceitu
 
   const handleCreateCard = () => {
     if (newCardName.trim() && activeColumnId) {
-      const newPatient = { id: Date.now().toString(), name: newCardName, phone: '', email: '', notes: '', history: [] };
+      const newPatient = { id: Date.now().toString(), name: newCardName, phone: '', email: '', cpf: '', notes: '', history: [] };
       setPatients([newPatient, ...patients]);
       setColumns(columns.map((col: any) => {
         if (col.id === activeColumnId) {
@@ -1570,6 +1570,7 @@ const ClientesView = ({ patients, setPatients, onGenerateReceituario, isDarkMode
         phone: editPhone,
         email: editEmail,
         notes: editNotes,
+        cpf: clientCPF.replace(/\D/g, ''),
         history: [newRecord]
       };
       setPatients([updatedPatient, ...patients]);
@@ -1626,10 +1627,13 @@ const ClientesView = ({ patients, setPatients, onGenerateReceituario, isDarkMode
   };
 
   const filteredPatients = patients.filter((p: any) => {
-    const term = searchTerm.toLowerCase();
+    const term = searchTerm.toLowerCase().trim();
+    if (!term) return true;
     const nameMatch = (p.name || '').toLowerCase().includes(term);
-    const cpfMatch = (p.cpf || '').replace(/\D/g, '').includes(term.replace(/\D/g, ''));
-    const phoneMatch = (p.phone || '').replace(/\D/g, '').includes(term.replace(/\D/g, ''));
+    const cpfRaw = (p.cpf || '');
+    const cpfMatch = cpfRaw ? (cpfRaw.includes(term) || cpfRaw.replace(/\D/g, '').includes(term.replace(/\D/g, ''))) : false;
+    const phoneRaw = (p.phone || '');
+    const phoneMatch = phoneRaw ? (phoneRaw.includes(term) || phoneRaw.replace(/\D/g, '').includes(term.replace(/\D/g, ''))) : false;
     return nameMatch || cpfMatch || phoneMatch;
   });
 

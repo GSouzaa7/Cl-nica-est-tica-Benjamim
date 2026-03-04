@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { FileSignature, Printer, Save, Search, ChevronDown } from 'lucide-react';
+import { WordEditor } from './components/Receituario/WordEditor';
 
 const compareDates = (d1: string, d2: string) => {
   if (!d1 || !d2) return false;
@@ -14,7 +15,7 @@ export const ReceituarioView = ({ patients, professionals, selectedPatientId, is
   const [tipo, setTipo] = useState('simples');
   const [patientId, setPatientId] = useState(selectedPatientId || '');
   const [professionalId, setProfessionalId] = useState(professionals[0]?.id || '');
-  const [conteudo, setConteudo] = useState('');
+  const [prescricao, setPrescricao] = useState("");
   const [historyLookupDate, setHistoryLookupDate] = useState(new Date().toISOString().split('T')[0]);
   const [patientSearch, setPatientSearch] = useState('');
   const [comboboxSearch, setComboboxSearch] = useState('');
@@ -32,15 +33,90 @@ export const ReceituarioView = ({ patients, professionals, selectedPatientId, is
   }, [isDropdownOpen]);
 
   const filteredPatientsForDropdown = patients?.filter((p: any) => {
-    const term = comboboxSearch.toLowerCase();
+    const term = comboboxSearch.toLowerCase().trim();
+    if (!term) return true;
+    // Match by name (text)
     const nameMatch = (p.name || '').toLowerCase().includes(term);
-    const cpfMatch = (p.cpf || '').replace(/\D/g, '').includes(term.replace(/\D/g, ''));
-    const phoneMatch = (p.phone || '').replace(/\D/g, '').includes(term.replace(/\D/g, ''));
+    // Match by CPF (both formatted and digits-only)
+    const cpfRaw = (p.cpf || '');
+    const cpfMatch = cpfRaw ? (cpfRaw.includes(term) || cpfRaw.replace(/\D/g, '').includes(term.replace(/\D/g, ''))) : false;
+    // Match by phone (both formatted and digits-only)
+    const phoneRaw = (p.phone || '');
+    const phoneMatch = phoneRaw ? (phoneRaw.includes(term) || phoneRaw.replace(/\D/g, '').includes(term.replace(/\D/g, ''))) : false;
     return nameMatch || cpfMatch || phoneMatch;
   });
 
   const selectedPatientData = patients?.find((p: any) => p.id === patientId);
   const selectedProfessional = professionals?.find((p: any) => p.id === professionalId);
+
+  const generateTemplate = () => {
+    const profName = selectedProfessional?.name || 'Nome do Profissional';
+    const profSpec = selectedProfessional?.specialty || 'Especialidade';
+    const patName = selectedPatientData?.name || '________________________________________________';
+    const dataAtual = new Date().toLocaleDateString('pt-BR');
+
+    const header = `<h2 style="text-align:center; font-size:1.5rem; font-weight:700; text-transform:uppercase; margin:0 0 4px 0;">${profName}</h2>` +
+      `<p style="text-align:center; font-size:0.875rem; margin:4px 0;">${profSpec} - CRM/CRO: 123456-UF</p>` +
+      `<p style="text-align:center; font-size:0.75rem; margin:4px 0;">Av. Exemplo, 1000 - Bairro, Cidade - UF | (00) 0000-0000</p>` +
+      `<p style="border-bottom:2px solid #000; padding-bottom:16px; margin-bottom:32px;"><br></p>`;
+
+    const footer = `<p style="text-align:center; margin-top:64px;">_________________________________</p>` +
+      `<p style="text-align:center; font-size:0.875rem; font-weight:700;">${profName}</p>` +
+      `<p style="text-align:center; font-size:0.75rem;">Data: ${dataAtual}</p>`;
+
+    if (tipo === 'simples') {
+      return header +
+        `<p style="font-size:0.875rem;"><strong>Paciente:</strong> ${patName}</p>` +
+        `<p><br></p><p><br></p><p><br></p><p><br></p>` +
+        `<p><br></p><p><br></p><p><br></p><p><br></p>` +
+        `<p><br></p><p><br></p>` +
+        footer;
+    }
+
+    if (tipo === 'controlado') {
+      return `<h2 style="text-align:center; font-size:1.25rem; font-weight:700; text-transform:uppercase;">RECEITUÁRIO DE CONTROLE ESPECIAL</h2>` +
+        `<p style="text-align:center; font-size:0.875rem;">1ª Via - Retenção da Farmácia | 2ª Via - Paciente</p>` +
+        `<p><br></p>` +
+        `<p style="font-size:0.875rem; font-weight:700;">IDENTIFICAÇÃO DO EMITENTE</p>` +
+        `<p style="font-size:0.875rem;">${profName} - CRM/CRO: 123456-UF</p>` +
+        `<p style="font-size:0.875rem;">Av. Exemplo, 1000 - Bairro, Cidade - UF</p>` +
+        `<p><br></p>` +
+        `<p style="font-size:0.875rem;"><strong>Paciente:</strong> ${patName}</p>` +
+        `<p style="font-size:0.875rem;"><strong>Endereço:</strong> ________________________________________________</p>` +
+        `<p><br></p>` +
+        `<p style="font-weight:700;">PRESCRIÇÃO:</p>` +
+        `<p><br></p><p><br></p><p><br></p><p><br></p>` +
+        `<p><br></p><p><br></p>` +
+        footer;
+    }
+
+    // antibiotico
+    return `<h2 style="text-align:center; font-size:1.25rem; font-weight:700; text-transform:uppercase;">RECEITUÁRIO DE ANTIMICROBIANOS</h2>` +
+      `<p style="text-align:center; font-size:0.875rem;">1ª Via - Retenção da Farmácia | 2ª Via - Paciente</p>` +
+      `<p><br></p>` +
+      `<p style="font-size:0.875rem; font-weight:700;">IDENTIFICAÇÃO DO EMITENTE</p>` +
+      `<p style="font-size:0.875rem;">${profName} - CRM/CRO: 123456-UF</p>` +
+      `<p style="font-size:0.875rem;">Av. Exemplo, 1000 - Bairro, Cidade - UF</p>` +
+      `<p><br></p>` +
+      `<p style="font-size:0.875rem;"><strong>Paciente:</strong> ${patName}</p>` +
+      `<p style="font-size:0.875rem;"><strong>Idade/Sexo:</strong> ________________________________________________</p>` +
+      `<p><br></p>` +
+      `<p style="font-weight:700;">PRESCRIÇÃO:</p>` +
+      `<p><br></p><p><br></p><p><br></p><p><br></p>` +
+      `<p><br></p><p><br></p>` +
+      footer;
+  };
+
+  // Auto-generate template on first load or when tipo changes
+  useEffect(() => {
+    if (!prescricao || prescricao === '<p><br></p>' || prescricao === '') {
+      setPrescricao(generateTemplate());
+    }
+  }, []);
+
+  const handleRegenerate = () => {
+    setPrescricao(generateTemplate());
+  };
 
   const handlePrint = () => {
     window.print();
@@ -124,7 +200,7 @@ export const ReceituarioView = ({ patients, professionals, selectedPatientId, is
                       <div className="space-y-2">
                         <p className="text-xs text-zinc-300 leading-relaxed font-medium">{contentToShow}</p>
                         <button
-                          onClick={() => setConteudo(prev => prev + "\n\nNotas da sessão anterior: " + contentToShow)}
+                          onClick={() => setPrescricao(prev => prev + "\n\nNotas da sessão anterior: " + contentToShow)}
                           className="text-[9px] font-bold text-orange-500 uppercase hover:underline block mt-2"
                         >
                           + Importar para a receita
@@ -165,7 +241,9 @@ export const ReceituarioView = ({ patients, professionals, selectedPatientId, is
                   {patientId
                     ? (() => {
                       const p = patients.find((pt: any) => String(pt.id) === String(patientId));
-                      return p ? `${p.name} - ID/CPF: ${p.cpf || p.id}` : 'Selecione um paciente';
+                      if (!p) return 'Selecione um paciente';
+                      const cpfFormatted = p.cpf ? p.cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4') : '';
+                      return `${p.name}${cpfFormatted ? ` - CPF: ${cpfFormatted}` : ''}`;
                     })()
                     : 'Selecione um paciente'}
                 </span>
@@ -235,8 +313,8 @@ export const ReceituarioView = ({ patients, professionals, selectedPatientId, is
                             >
                               <span className="font-semibold">{p.name}</span>
                               <div className="flex items-center gap-2 text-[10px] opacity-70 w-full justify-between font-mono">
-                                <span>CPF: {p.cpf || p.id}</span>
-                                <span>{p.phone || 'Sem tel'}</span>
+                                <span>{p.cpf ? `CPF: ${p.cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')}` : 'CPF: Não cadastrado'}</span>
+                                <span>{p.phone || 'Tel: Não cadastrado'}</span>
                               </div>
                             </button>
                           );
@@ -247,31 +325,43 @@ export const ReceituarioView = ({ patients, professionals, selectedPatientId, is
                 </div>
               )}
             </div>
-
-            <div className="flex-1 flex flex-col">
-              <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Prescrição (Medicamentos/Exames)</label>
-              <textarea
-                value={conteudo}
-                onChange={(e) => setConteudo(e.target.value)}
-                placeholder="Ex: Dipirona 500mg - Tomar 1 comprimido de 8/8h se dor..."
-                className={`flex-1 w-full ${isDarkMode ? 'bg-zinc-900 border-zinc-700 text-white' : 'bg-white border-zinc-200 text-zinc-900'} border rounded-xl px-4 py-3 focus:outline-none focus:border-orange-500 transition-colors resize-none`}
-              />
-            </div>
           </div>
 
           {/* Preview Area */}
-          <div className="flex-1 bg-zinc-200 rounded-2xl p-8 overflow-y-auto flex justify-center shadow-inner">
-            <div className="bg-[#ffffff] w-[210mm] min-h-[297mm] shadow-2xl p-[20mm] text-zinc-900 font-sans relative">
-              {/* This is the printable area */}
-              <PrintableReceituario
-                tipo={tipo}
-                patient={selectedPatientData}
-                professional={selectedProfessional}
-                conteudo={conteudo}
-              />
+          <div className="flex-1 bg-zinc-200 rounded-2xl overflow-hidden shadow-inner flex flex-col relative">
+
+            {/* WORD TOOLBAR FIXA NO TOPO */}
+            <div className="w-full bg-white border-b border-zinc-300 shadow-sm p-3 z-10 print:hidden sticky top-0 flex justify-center">
+              <div id="word-toolbar" className="ql-toolbar ql-snow flex items-center flex-wrap gap-2 border-none !bg-transparent p-0 m-0">
+                <span className="ql-formats !mr-4 border border-zinc-200 rounded-md bg-zinc-50">
+                  <select className="ql-header !text-sm" defaultValue="">
+                    <option value="1">Título 1</option>
+                    <option value="2">Título 2</option>
+                    <option value="3">Título 3</option>
+                    <option value="">Normal</option>
+                  </select>
+                </span>
+                <span className="ql-formats !mr-4 border border-zinc-200 rounded-md bg-zinc-50 p-1">
+                  <button className="ql-bold"></button>
+                  <button className="ql-italic"></button>
+                  <button className="ql-underline"></button>
+                </span>
+                <span className="ql-formats !mr-4 border border-zinc-200 rounded-md bg-zinc-50 p-1">
+                  <button className="ql-list" value="ordered"></button>
+                  <button className="ql-list" value="bullet"></button>
+                </span>
+                <span className="ql-formats border border-zinc-200 rounded-md bg-zinc-50 p-1">
+                  <button className="ql-clean"></button>
+                </span>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-8 flex justify-center">
+              <div className="bg-[#ffffff] w-[210mm] min-h-[297mm] shadow-2xl p-[20mm] text-zinc-900 font-sans relative">
+                <WordEditor value={prescricao} onChange={setPrescricao} />
+              </div>
             </div>
           </div>
-
         </div>
       </div>
 
@@ -299,132 +389,11 @@ export const ReceituarioView = ({ patients, professionals, selectedPatientId, is
 
       {/* Hidden Print Container */}
       <div className="hidden print:block print-area w-[210mm] min-h-[297mm] bg-[#ffffff] text-zinc-900 p-[20mm]">
-        <PrintableReceituario
-          tipo={tipo}
-          patient={selectedPatientData}
-          professional={selectedProfessional}
-          conteudo={conteudo}
-        />
+        <div dangerouslySetInnerHTML={{ __html: prescricao }} />
       </div>
     </div>
   );
 };
 
-const PrintableReceituario = ({ tipo, patient, professional, conteudo }: any) => {
-  const dataAtual = new Date().toLocaleDateString('pt-BR');
+export default ReceituarioView;
 
-  const Header = () => (
-    <div className="text-center border-b-2 border-black pb-4 mb-8">
-      <h2 className="text-2xl font-bold uppercase">{professional?.name || 'Nome do Profissional'}</h2>
-      <p className="text-sm mt-1">{professional?.specialty || 'Especialidade'} - CRM/CRO: 123456-UF</p>
-      <p className="text-xs mt-1">Av. Exemplo, 1000 - Bairro, Cidade - UF | (00) 0000-0000</p>
-    </div>
-  );
-
-  const Footer = () => (
-    <div className="mt-16 pt-8 flex flex-col items-center">
-      <div className="w-64 border-t border-black mb-2"></div>
-      <p className="text-sm font-bold">{professional?.name || 'Assinatura do Profissional'}</p>
-      <p className="text-xs">Data: {dataAtual}</p>
-    </div>
-  );
-
-  if (tipo === 'simples') {
-    return (
-      <div className="h-full flex flex-col">
-        <Header />
-        <div className="mb-8">
-          <p className="text-sm font-bold">Paciente: <span className="font-normal">{patient?.name || '________________________________________________'}</span></p>
-        </div>
-        <div className="flex-1 whitespace-pre-wrap text-sm leading-relaxed">
-          {conteudo || 'Prescrição...'}
-        </div>
-        <Footer />
-      </div>
-    );
-  }
-
-  if (tipo === 'controlado') {
-    return (
-      <div className="h-full flex flex-col relative">
-        <div className="absolute top-0 right-0 border border-black p-2 text-[10px] w-48">
-          <p className="font-bold text-center mb-1">IDENTIFICAÇÃO DO COMPRADOR</p>
-          <p>Nome: _______________________</p>
-          <p>RG: _________________________</p>
-          <p>End: ________________________</p>
-          <p>Cidade: _________ UF: _______</p>
-          <p>Telefone: ____________________</p>
-        </div>
-        <div className="absolute top-0 left-0 border border-black p-2 text-[10px] w-48">
-          <p className="font-bold text-center mb-1">IDENTIFICAÇÃO DO FORNECEDOR</p>
-          <p>Data: ___/___/___</p>
-          <p className="mt-4 text-center">_________________________</p>
-          <p className="text-center">Assinatura do Farmacêutico</p>
-        </div>
-
-        <div className="text-center mt-32 mb-8">
-          <h1 className="text-xl font-bold uppercase">Receituário de Controle Especial</h1>
-          <p className="text-sm">1ª Via - Retenção da Farmácia | 2ª Via - Paciente</p>
-        </div>
-
-        <div className="border border-black p-4 mb-6">
-          <p className="text-sm font-bold mb-2">IDENTIFICAÇÃO DO EMITENTE</p>
-          <p className="text-sm">{professional?.name || 'Nome do Profissional'} - CRM/CRO: 123456-UF</p>
-          <p className="text-sm">Av. Exemplo, 1000 - Bairro, Cidade - UF</p>
-        </div>
-
-        <div className="mb-6">
-          <p className="text-sm font-bold">Paciente: <span className="font-normal">{patient?.name || '________________________________________________'}</span></p>
-          <p className="text-sm font-bold mt-2">Endereço: <span className="font-normal">________________________________________________</span></p>
-        </div>
-
-        <div className="flex-1 border border-black p-4 whitespace-pre-wrap text-sm leading-relaxed">
-          <p className="font-bold mb-2">PRESCRIÇÃO:</p>
-          {conteudo || '...'}
-        </div>
-
-        <Footer />
-      </div>
-    );
-  }
-
-  if (tipo === 'antibiotico') {
-    return (
-      <div className="h-full flex flex-col relative">
-        <div className="absolute top-0 right-0 border border-black p-2 text-[10px] w-48">
-          <p className="font-bold text-center mb-1">IDENTIFICAÇÃO DO COMPRADOR</p>
-          <p>Nome: _______________________</p>
-          <p>RG: _________________________</p>
-          <p>End: ________________________</p>
-          <p>Cidade: _________ UF: _______</p>
-          <p>Telefone: ____________________</p>
-        </div>
-
-        <div className="text-center mt-16 mb-8">
-          <h1 className="text-xl font-bold uppercase">Receituário de Antimicrobianos</h1>
-          <p className="text-sm">1ª Via - Retenção da Farmácia | 2ª Via - Paciente</p>
-        </div>
-
-        <div className="border border-black p-4 mb-6">
-          <p className="text-sm font-bold mb-2">IDENTIFICAÇÃO DO EMITENTE</p>
-          <p className="text-sm">{professional?.name || 'Nome do Profissional'} - CRM/CRO: 123456-UF</p>
-          <p className="text-sm">Av. Exemplo, 1000 - Bairro, Cidade - UF</p>
-        </div>
-
-        <div className="mb-6">
-          <p className="text-sm font-bold">Paciente: <span className="font-normal">{patient?.name || '________________________________________________'}</span></p>
-          <p className="text-sm font-bold mt-2">Idade/Sexo: <span className="font-normal">________________________________________________</span></p>
-        </div>
-
-        <div className="flex-1 border border-black p-4 whitespace-pre-wrap text-sm leading-relaxed">
-          <p className="font-bold mb-2">PRESCRIÇÃO:</p>
-          {conteudo || '...'}
-        </div>
-
-        <Footer />
-      </div>
-    );
-  }
-
-  return null;
-};
