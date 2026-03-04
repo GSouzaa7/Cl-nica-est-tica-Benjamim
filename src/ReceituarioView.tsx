@@ -12,7 +12,7 @@ const compareDates = (d1: string, d2: string) => {
 };
 
 export const ReceituarioView = ({ patients, professionals, selectedPatientId, isDarkMode = true }: any) => {
-  const [tipo, setTipo] = useState('simples');
+  const [tipoReceituario, setTipoReceituario] = useState('simples');
   const [patientId, setPatientId] = useState(selectedPatientId || '');
   const [professionalId, setProfessionalId] = useState(professionals[0]?.id || '');
   const [prescricao, setPrescricao] = useState("");
@@ -64,16 +64,13 @@ export const ReceituarioView = ({ patients, professionals, selectedPatientId, is
       `<p style="text-align:center; font-size:0.875rem; font-weight:700;">${profName}</p>` +
       `<p style="text-align:center; font-size:0.75rem;">Data: ${dataAtual}</p>`;
 
-    if (tipo === 'simples') {
-      return header +
-        `<p style="font-size:0.875rem;"><strong>Paciente:</strong> ${patName}</p>` +
+    if (tipoReceituario === 'simples') {
+      return `<p><br></p><p><br></p><p><br></p><p><br></p>` +
         `<p><br></p><p><br></p><p><br></p><p><br></p>` +
-        `<p><br></p><p><br></p><p><br></p><p><br></p>` +
-        `<p><br></p><p><br></p>` +
-        footer;
+        `<p><br></p><p><br></p>`;
     }
 
-    if (tipo === 'controlado') {
+    if (tipoReceituario === 'controle_especial') {
       return `<h2 style="text-align:center; font-size:1.25rem; font-weight:700; text-transform:uppercase;">RECEITUÁRIO DE CONTROLE ESPECIAL</h2>` +
         `<p style="text-align:center; font-size:0.875rem;">1ª Via - Retenção da Farmácia | 2ª Via - Paciente</p>` +
         `<p><br></p>` +
@@ -109,10 +106,8 @@ export const ReceituarioView = ({ patients, professionals, selectedPatientId, is
 
   // Auto-generate template on first load or when tipo changes
   useEffect(() => {
-    if (!prescricao || prescricao === '<p><br></p>' || prescricao === '') {
-      setPrescricao(generateTemplate());
-    }
-  }, []);
+    setPrescricao(generateTemplate());
+  }, [tipoReceituario]);
 
   const handleRegenerate = () => {
     setPrescricao(generateTemplate());
@@ -214,10 +209,9 @@ export const ReceituarioView = ({ patients, professionals, selectedPatientId, is
 
             <div>
               <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Tipo de Receituário</label>
-              <select value={tipo} onChange={(e) => setTipo(e.target.value)} className={`w-full ${isDarkMode ? 'bg-zinc-900 border-zinc-700 text-white' : 'bg-white border-zinc-200 text-zinc-900'} border rounded-xl px-4 py-3 focus:outline-none focus:border-orange-500 transition-colors`}>
+              <select value={tipoReceituario} onChange={(e) => setTipoReceituario(e.target.value)} className={`w-full ${isDarkMode ? 'bg-zinc-900 border-zinc-700 text-white' : 'bg-white border-zinc-200 text-zinc-900'} border rounded-xl px-4 py-3 focus:outline-none focus:border-orange-500 transition-colors`}>
                 <option value="simples">Receituário Simples</option>
-                <option value="controlado">Controle Especial (2 vias)</option>
-                <option value="antibiotico">Antibiótico (2 vias)</option>
+                <option value="controle_especial">Receituário de Controle Especial</option>
               </select>
             </div>
 
@@ -357,9 +351,76 @@ export const ReceituarioView = ({ patients, professionals, selectedPatientId, is
             </div>
 
             <div className="flex-1 overflow-y-auto p-8 flex justify-center">
-              <div className="bg-[#ffffff] w-[210mm] min-h-[297mm] shadow-2xl p-[20mm] text-zinc-900 font-sans relative">
-                <WordEditor value={prescricao} onChange={setPrescricao} />
-              </div>
+              {tipoReceituario === "simples" && (
+                <div className="w-full max-w-[21cm] min-h-[29.7cm] bg-[#ffffff] text-[#000000] shadow-2xl mx-auto p-12 flex flex-col relative font-sans" style={{ backgroundColor: '#ffffff', color: '#000000' }}>
+
+                  {/* ═══ CABEÇALHO ═══ */}
+                  <div className="flex justify-between items-start w-full mb-8">
+                    {/* Esquerda: Logo + Identificação */}
+                    <div className="flex flex-col w-1/2">
+                      <div className="w-32 h-16 border border-dashed border-neutral-300 flex items-center justify-center text-neutral-400 text-xs mb-4 rounded">LOGOTIPO</div>
+                      <h2 className="text-2xl font-serif text-neutral-800 outline-none italic">{selectedProfessional?.name || 'Selecione um profissional'}</h2>
+                      <p className="text-sm text-pink-600 font-medium outline-none">{selectedProfessional?.specialty || 'Especialidade'}</p>
+                    </div>
+
+                    {/* Direita: Caixa de Validação ITI / Via Digital */}
+                    <div className="flex flex-col items-end">
+                      <div className="border border-neutral-400 rounded-sm w-56">
+                        {/* Topo da caixa: DATA + VIA DIGITAL */}
+                        <div className="flex border-b border-neutral-400">
+                          <div className="px-3 py-1.5 border-r border-neutral-400 text-[11px] font-bold text-neutral-700 whitespace-nowrap outline-none" contentEditable suppressContentEditableWarning>DATA:</div>
+                          <div className="px-3 py-1.5 text-[9px] text-neutral-500 leading-tight">
+                            <span className="font-bold block text-[10px] text-neutral-700">VIA DIGITAL</span>
+                            Validar em: https://validar.iti.gov.br/
+                          </div>
+                        </div>
+                        {/* Corpo: espaço QR Code */}
+                        <div className="h-24 flex items-center justify-center text-neutral-300 text-xs">
+                        </div>
+                        {/* Rodapé da caixa */}
+                        <div className="border-t border-neutral-400 text-center py-1.5">
+                          <span className="text-[10px] font-bold text-neutral-600 tracking-wide uppercase">Assinatura Digital</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* ═══ LINHA DO PACIENTE ═══ */}
+                  <div className="w-full mb-6 text-sm flex items-end">
+                    <span className="font-bold mr-2 whitespace-nowrap">Paciente:</span>
+                    <div className="flex-1 border-b border-neutral-400 outline-none pb-1" contentEditable suppressContentEditableWarning>
+                      {selectedPatientData?.name || 'Nome do Paciente'}
+                    </div>
+                  </div>
+
+                  {/* ═══ MIOLO: EDITOR DE TEXTO ═══ */}
+                  <div className="flex-1 w-full relative z-10">
+                    <WordEditor value={prescricao} onChange={setPrescricao} />
+                  </div>
+
+                  {/* ═══ RODAPÉ (Ancorado no fundo) ═══ */}
+                  <div className="mt-auto pt-8 flex justify-between items-end w-full text-[11px] text-neutral-800">
+                    {/* Esquerda: Contatos */}
+                    <div className="flex flex-col gap-1 outline-none" contentEditable suppressContentEditableWarning>
+                      <span>📞 (00) 3300-0000</span>
+                      <span>📱 (00) 99900-0000</span>
+                      <span>✉️ atendimento@clinica.com</span>
+                      <span>📍 Rua Brasil, 123 - Centro - Cidade/BR</span>
+                    </div>
+                    {/* Direita: Assinatura Manual */}
+                    <div className="flex items-end mb-1">
+                      <span className="font-bold uppercase text-[10px] mr-1">Assinatura</span>
+                      <div className="w-48 border-b border-neutral-800"></div>
+                    </div>
+                  </div>
+
+                </div>
+              )}
+              {tipoReceituario === "controle_especial" && (
+                <div className="bg-[#ffffff] w-[210mm] min-h-[297mm] shadow-2xl p-[20mm] text-zinc-900 font-sans relative">
+                  <WordEditor value={prescricao} onChange={setPrescricao} />
+                </div>
+              )}
             </div>
           </div>
         </div>
