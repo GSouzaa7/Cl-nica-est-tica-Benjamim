@@ -22,7 +22,12 @@ import {
   Mail,
   MapPin,
   ChevronLeft,
-  Calendar as CalendarIcon
+  Calendar as CalendarIcon,
+  Bold,
+  Italic,
+  Underline,
+  List,
+  ListOrdered
 } from 'lucide-react';
 
 interface Professional {
@@ -68,7 +73,7 @@ const compareDates = (d1: string, d2: string) => {
   } catch { return false; }
 };
 
-const WordEditor = ({ value, onChange }: { value: string; onChange: (val: string) => void }) => {
+const NativeRichTextEditor = ({ value, onChange }: { value: string; onChange: (val: string) => void }) => {
   const editorRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -83,14 +88,34 @@ const WordEditor = ({ value, onChange }: { value: string; onChange: (val: string
     }
   };
 
+
   return (
-    <div
-      ref={editorRef}
-      className="w-full min-h-[500px] outline-none text-neutral-800 text-base leading-relaxed"
-      contentEditable
-      onInput={handleInput}
-      suppressContentEditableWarning
-    />
+    <>
+      <style>{`
+        .custom-editor-content ul {
+          list-style-type: disc !important;
+          padding-left: 1.5rem !important;
+          margin-top: 0.5rem !important;
+          margin-bottom: 0.5rem !important;
+        }
+        .custom-editor-content ol {
+          list-style-type: decimal !important;
+          padding-left: 1.5rem !important;
+          margin-top: 0.5rem !important;
+          margin-bottom: 0.5rem !important;
+        }
+        .custom-editor-content li {
+          margin-bottom: 0.25rem !important;
+        }
+      `}</style>
+      <div
+        ref={editorRef}
+        className="w-full min-h-[400px] outline-none text-neutral-800 text-base leading-relaxed custom-editor-content"
+        contentEditable
+        onInput={handleInput}
+        suppressContentEditableWarning
+      />
+    </>
   );
 };
 
@@ -209,9 +234,12 @@ export const ReceituarioView = ({
             </div>
           </td>
           <td style="vertical-align: top; text-align: right; width: 130px;">
-            <div style="width: 120px; height: 60px; border: 1px dashed #d4d4d4; background: #fafafa; border-radius: 4px; display: inline-flex; align-items: center; justify-content: center; font-size: 10px; color: #a3a3a3; font-weight: bold; text-transform: uppercase;">
+            ${clinicConfig?.logoUrl
+        ? `<img src="${clinicConfig.logoUrl}" style="max-height: 80px; max-width: 160px; object-fit: contain;" alt="Logotipo da Clínica" />`
+        : `<div style="width: 120px; height: 60px; border: 1px dashed #d4d4d4; background: #fafafa; border-radius: 4px; display: inline-flex; align-items: center; justify-content: center; font-size: 10px; color: #a3a3a3; font-weight: bold; text-transform: uppercase;">
               LOGOTIPO
-            </div>
+            </div>`
+      }
           </td>
         </tr>
       </table>
@@ -337,6 +365,102 @@ export const ReceituarioView = ({
         {/* BARRA LATERAL RESTAURADA DO COMMIT "edição word 1.1" */}
         <div className={`w-80 shrink-0 ${isDarkMode ? 'bg-[#0a0a0a] border-white/5' : 'bg-white border-zinc-200'} border-r flex flex-col overflow-y-auto`}>
           <div className="p-6 space-y-8">
+            <div className="relative" ref={dropdownRef}>
+              <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Paciente</label>
+              <button
+                type="button"
+                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                className={`w-full flex items-center justify-between ${isDarkMode ? 'bg-zinc-900 border-zinc-700 text-white' : 'bg-white border-zinc-200 text-zinc-900'} border rounded-xl px-4 py-3 focus:outline-none focus:border-orange-500 transition-colors text-left shadow-sm`}
+              >
+                <span className="truncate pr-4">
+                  {patientId
+                    ? (() => {
+                      const p = patients?.find((pt: any) => String(pt.id) === String(patientId));
+                      if (!p) return 'Selecione um paciente';
+                      const cpfFormatted = p.cpf ? p.cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4') : '';
+                      return `${p.name}${cpfFormatted ? ` - CPF: ${cpfFormatted}` : ''}`;
+                    })()
+                    : 'Selecione um paciente'}
+                </span>
+                <ChevronDown size={18} className={`shrink-0 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
+              </button>
+
+              {isDropdownOpen && (
+                <div className={`absolute z-50 mt-2 w-full rounded-xl border ${isDarkMode ? 'bg-[#121214] border-zinc-800' : 'bg-white border-zinc-200'} shadow-2xl overflow-hidden`}>
+                  <div className={`p-3 border-b ${isDarkMode ? 'border-zinc-800/80' : 'border-zinc-200/80'} relative`}>
+                    <Search className={`absolute left-6 top-1/2 -translate-y-1/2 w-4 h-4 ${isDarkMode ? 'text-zinc-500' : 'text-zinc-400'}`} />
+                    <input
+                      type="text"
+                      autoFocus
+                      placeholder="Buscar Nome, CPF ou Tel..."
+                      value={comboboxSearch}
+                      onChange={(e) => setComboboxSearch(e.target.value)}
+                      className={`w-full pl-10 pr-4 py-2.5 text-sm rounded-lg border focus:outline-none focus:ring-1 focus:ring-orange-500 transition-all ${isDarkMode
+                        ? 'bg-zinc-900/50 border-zinc-800 text-white placeholder-zinc-500'
+                        : 'bg-zinc-50 border-zinc-200 text-zinc-900 placeholder-zinc-400'
+                        }`}
+                    />
+                  </div>
+
+                  <div className="max-h-64 overflow-y-auto custom-scrollbar p-2">
+                    {comboboxSearch.length === 0 ? (
+                      <p className={`text-center py-6 text-sm ${isDarkMode ? 'text-zinc-500' : 'text-zinc-500'}`}>
+                        Digite nome, CPF ou Telefone para buscar.
+                      </p>
+                    ) : filteredPatientsForDropdown?.length === 0 ? (
+                      <p className={`text-center py-6 text-sm ${isDarkMode ? 'text-zinc-500' : 'text-zinc-500'}`}>
+                        Nenhum paciente encontrado com "{comboboxSearch}".
+                      </p>
+                    ) : (
+                      <div className="flex flex-col gap-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setPatientId('');
+                            setPatientSearch('');
+                            setIsDropdownOpen(false);
+                            setComboboxSearch('');
+                          }}
+                          className={`w-full text-left px-4 py-2.5 rounded-lg text-sm transition-colors ${!patientId
+                            ? (isDarkMode ? 'bg-orange-500/10 text-orange-500' : 'bg-orange-50 text-orange-600')
+                            : (isDarkMode ? 'text-zinc-400 hover:bg-zinc-800/50 hover:text-white' : 'text-zinc-600 hover:bg-zinc-100/80 hover:text-zinc-900')
+                            }`}
+                        >
+                          Selecione um paciente
+                        </button>
+
+                        {filteredPatientsForDropdown?.map((p: any) => {
+                          const isSelected = String(p.id) === String(patientId);
+                          return (
+                            <button
+                              key={p.id}
+                              type="button"
+                              onClick={() => {
+                                setPatientId(p.id);
+                                setPatientSearch(p.name);
+                                setIsDropdownOpen(false);
+                                setComboboxSearch('');
+                              }}
+                              className={`w-full text-left px-4 py-2.5 rounded-lg text-sm transition-colors flex flex-col justify-between items-start gap-1 ${isSelected
+                                ? (isDarkMode ? 'bg-orange-500/10 text-orange-500' : 'bg-orange-50 text-orange-600')
+                                : (isDarkMode ? 'text-zinc-300 hover:bg-zinc-800/50 hover:text-white' : 'text-zinc-700 hover:bg-zinc-100/80 hover:text-zinc-900')
+                                }`}
+                            >
+                              <span className="font-semibold">{p.name}</span>
+                              <div className="flex items-center gap-2 text-[10px] opacity-70 w-full justify-between font-mono">
+                                <span>{p.cpf ? `CPF: ${p.cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')}` : 'CPF: Não cadastrado'}</span>
+                                <span>{p.phone || 'Tel: Não cadastrado'}</span>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
             <div className="space-y-3">
               <div className="p-4 rounded-2xl bg-orange-500/5 border border-orange-500/10">
                 <label className="block text-[10px] font-bold text-orange-600 mb-2 uppercase tracking-widest">
@@ -458,122 +582,31 @@ export const ReceituarioView = ({
                 ))}
               </select>
             </div>
-
-            <div className="relative" ref={dropdownRef}>
-              <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Paciente</label>
-              <button
-                type="button"
-                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                className={`w-full flex items-center justify-between ${isDarkMode ? 'bg-zinc-900 border-zinc-700 text-white' : 'bg-white border-zinc-200 text-zinc-900'} border rounded-xl px-4 py-3 focus:outline-none focus:border-orange-500 transition-colors text-left shadow-sm`}
-              >
-                <span className="truncate pr-4">
-                  {patientId
-                    ? (() => {
-                      const p = patients?.find((pt: any) => String(pt.id) === String(patientId));
-                      if (!p) return 'Selecione um paciente';
-                      const cpfFormatted = p.cpf ? p.cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4') : '';
-                      return `${p.name}${cpfFormatted ? ` - CPF: ${cpfFormatted}` : ''}`;
-                    })()
-                    : 'Selecione um paciente'}
-                </span>
-                <ChevronDown size={18} className={`shrink-0 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
-              </button>
-
-              {isDropdownOpen && (
-                <div className={`absolute z-50 mt-2 w-full rounded-xl border ${isDarkMode ? 'bg-[#121214] border-zinc-800' : 'bg-white border-zinc-200'} shadow-2xl overflow-hidden`}>
-                  <div className={`p-3 border-b ${isDarkMode ? 'border-zinc-800/80' : 'border-zinc-200/80'} relative`}>
-                    <Search className={`absolute left-6 top-1/2 -translate-y-1/2 w-4 h-4 ${isDarkMode ? 'text-zinc-500' : 'text-zinc-400'}`} />
-                    <input
-                      type="text"
-                      autoFocus
-                      placeholder="Buscar Nome, CPF ou Tel..."
-                      value={comboboxSearch}
-                      onChange={(e) => setComboboxSearch(e.target.value)}
-                      className={`w-full pl-10 pr-4 py-2.5 text-sm rounded-lg border focus:outline-none focus:ring-1 focus:ring-orange-500 transition-all ${isDarkMode
-                        ? 'bg-zinc-900/50 border-zinc-800 text-white placeholder-zinc-500'
-                        : 'bg-zinc-50 border-zinc-200 text-zinc-900 placeholder-zinc-400'
-                        }`}
-                    />
-                  </div>
-
-                  <div className="max-h-64 overflow-y-auto custom-scrollbar p-2">
-                    {comboboxSearch.length === 0 ? (
-                      <p className={`text-center py-6 text-sm ${isDarkMode ? 'text-zinc-500' : 'text-zinc-500'}`}>
-                        Digite nome, CPF ou Telefone para buscar.
-                      </p>
-                    ) : filteredPatientsForDropdown?.length === 0 ? (
-                      <p className={`text-center py-6 text-sm ${isDarkMode ? 'text-zinc-500' : 'text-zinc-500'}`}>
-                        Nenhum paciente encontrado com "{comboboxSearch}".
-                      </p>
-                    ) : (
-                      <div className="flex flex-col gap-1">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setPatientId('');
-                            setPatientSearch('');
-                            setIsDropdownOpen(false);
-                            setComboboxSearch('');
-                          }}
-                          className={`w-full text-left px-4 py-2.5 rounded-lg text-sm transition-colors ${!patientId
-                            ? (isDarkMode ? 'bg-orange-500/10 text-orange-500' : 'bg-orange-50 text-orange-600')
-                            : (isDarkMode ? 'text-zinc-400 hover:bg-zinc-800/50 hover:text-white' : 'text-zinc-600 hover:bg-zinc-100/80 hover:text-zinc-900')
-                            }`}
-                        >
-                          Selecione um paciente
-                        </button>
-
-                        {filteredPatientsForDropdown?.map((p: any) => {
-                          const isSelected = String(p.id) === String(patientId);
-                          return (
-                            <button
-                              key={p.id}
-                              type="button"
-                              onClick={() => {
-                                setPatientId(p.id);
-                                setPatientSearch(p.name);
-                                setIsDropdownOpen(false);
-                                setComboboxSearch('');
-                              }}
-                              className={`w-full text-left px-4 py-2.5 rounded-lg text-sm transition-colors flex flex-col justify-between items-start gap-1 ${isSelected
-                                ? (isDarkMode ? 'bg-orange-500/10 text-orange-500' : 'bg-orange-50 text-orange-600')
-                                : (isDarkMode ? 'text-zinc-300 hover:bg-zinc-800/50 hover:text-white' : 'text-zinc-700 hover:bg-zinc-100/80 hover:text-zinc-900')
-                                }`}
-                            >
-                              <span className="font-semibold">{p.name}</span>
-                              <div className="flex items-center gap-2 text-[10px] opacity-70 w-full justify-between font-mono">
-                                <span>{p.cpf ? `CPF: ${p.cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')}` : 'CPF: Não cadastrado'}</span>
-                                <span>{p.phone || 'Tel: Não cadastrado'}</span>
-                              </div>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
           </div>
         </div>
 
         <div className="flex-1 flex flex-col bg-neutral-100 overflow-hidden relative">
-          <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-white/80 backdrop-blur-md px-6 py-2 rounded-2xl shadow-xl border border-white z-50 flex items-center gap-6">
-            <div className="flex items-center gap-4 border-r border-neutral-200 pr-6 uppercase tracking-[0.2em] font-black text-[10px] text-neutral-800">
-              Formatação
-            </div>
-            <div className="flex items-center gap-4 text-neutral-400">
-              <span className="cursor-pointer hover:text-neutral-900 transition-colors font-bold">B</span>
-              <span className="cursor-pointer hover:text-neutral-900 transition-colors italic">I</span>
-              <span className="cursor-pointer hover:text-neutral-900 transition-colors underline underline-offset-4">U</span>
-              <div className="w-px h-4 bg-neutral-200 mx-1"></div>
-              <span className="cursor-pointer hover:text-neutral-900 transition-colors flex items-center gap-1 text-[10px] font-black tracking-tighter">
-                F <History className="w-3 h-3" />
-              </span>
-            </div>
+          {/* WORD STYLE TOOLBAR - FIXA NO TOPO DO PAINEL DIREITO */}
+          <div id="custom-toolbar" className="flex items-center justify-center gap-2 p-3 bg-[#050505] border-b border-white/5 w-full sticky top-0 z-50 print:hidden shadow-[0_4px_20px_rgba(0,0,0,0.4)]">
+            <button type="button" onMouseDown={(e) => { e.preventDefault(); document.execCommand('bold', false, undefined); }} className="text-neutral-400 hover:text-orange-500 hover:bg-white/5 transition-colors p-1.5 rounded" title="Negrito">
+              <Bold className="w-[18px] h-[18px]" strokeWidth={2.5} />
+            </button>
+            <button type="button" onMouseDown={(e) => { e.preventDefault(); document.execCommand('italic', false, undefined); }} className="text-neutral-400 hover:text-orange-500 hover:bg-white/5 transition-colors p-1.5 rounded" title="Itálico">
+              <Italic className="w-[18px] h-[18px]" strokeWidth={2.5} />
+            </button>
+            <button type="button" onMouseDown={(e) => { e.preventDefault(); document.execCommand('underline', false, undefined); }} className="text-neutral-400 hover:text-orange-500 hover:bg-white/5 transition-colors p-1.5 rounded" title="Sublinhado">
+              <Underline className="w-[18px] h-[18px]" strokeWidth={2.5} />
+            </button>
+            <span className="w-px h-5 bg-white/10 mx-2"></span>
+            <button type="button" onMouseDown={(e) => { e.preventDefault(); document.execCommand('insertOrderedList', false, undefined); }} className="text-neutral-400 hover:text-orange-500 hover:bg-white/5 transition-colors p-1.5 rounded" title="Lista Numerada">
+              <ListOrdered className="w-[18px] h-[18px]" strokeWidth={2.5} />
+            </button>
+            <button type="button" onMouseDown={(e) => { e.preventDefault(); document.execCommand('insertUnorderedList', false, undefined); }} className="text-neutral-400 hover:text-orange-500 hover:bg-white/5 transition-colors p-1.5 rounded" title="Lista em Tópicos">
+              <List className="w-[18px] h-[18px]" strokeWidth={2.5} />
+            </button>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-8 flex justify-center">
+          <div className="flex-1 w-full overflow-y-auto bg-neutral-100 dark:bg-[#0a0a0a] py-10 flex justify-center">
             {tipoReceituario === "simples" && (
               <div className="w-full max-w-[21cm] min-h-[29.7cm] bg-[#ffffff] text-[#000000] shadow-2xl mx-auto p-12 flex flex-col relative font-sans" style={{ backgroundColor: '#ffffff', color: '#000000' }}>
                 <div className="flex justify-between items-start w-full mb-8">
@@ -595,7 +628,11 @@ export const ReceituarioView = ({
                     </div>
                   </div>
                   <div className="flex flex-col items-end">
-                    <div className="w-32 h-16 border border-dashed border-neutral-300 flex items-center justify-center text-neutral-400 text-[10px] rounded uppercase tracking-tighter bg-neutral-50/50 font-bold">LOGOTIPO</div>
+                    {clinicConfig?.logoUrl ? (
+                      <img src={clinicConfig.logoUrl} alt="Logo da Clínica" className="max-h-20 max-w-[160px] object-contain" />
+                    ) : (
+                      <div className="w-32 h-16 border border-dashed border-neutral-300 flex items-center justify-center text-neutral-400 text-[10px] rounded uppercase tracking-tighter bg-neutral-50/50 font-bold">LOGOTIPO</div>
+                    )}
                   </div>
                 </div>
 
@@ -607,7 +644,7 @@ export const ReceituarioView = ({
                 </div>
 
                 <div className="flex-1 w-full relative z-10 text-base">
-                  <WordEditor value={prescricao} onChange={setPrescricao} />
+                  <NativeRichTextEditor value={prescricao} onChange={setPrescricao} />
                 </div>
 
                 <div className="mt-auto pt-8 flex justify-between items-end w-full text-[11px] text-neutral-800">

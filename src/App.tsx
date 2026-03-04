@@ -4501,12 +4501,16 @@ const SettingsView = ({
 
               <div className="flex flex-col gap-6">
                 <div className="flex items-center gap-6">
-                  <div onClick={() => alert('Abrindo galeria de mídia para seleção de imagem...')} className={`w-24 h-24 rounded-2xl bg-zinc-900 border ${isDarkMode ? "border-zinc-800" : "border-zinc-200"} flex items-center justify-center relative group cursor-pointer overflow-hidden`}>
+                  <div onClick={() => document.getElementById('logo-upload')?.click()} className={`w-24 h-24 rounded-2xl bg-zinc-900 border ${isDarkMode ? "border-zinc-800" : "border-zinc-200"} flex items-center justify-center relative group cursor-pointer overflow-hidden`}>
+                    {clinicConfig.logoUrl ? (
+                      <img src={clinicConfig.logoUrl} alt="Logo da Clínica" className="w-full h-full object-cover" />
+                    ) : (
+                      <Building2 size={32} className="text-zinc-600 group-hover:opacity-0 transition-opacity" />
+                    )}
                     <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                       <Upload size={20} className={`${isDarkMode ? "text-white" : "text-zinc-900"} mb-1`} />
                       <span className={`text-[10px] font-medium ${isDarkMode ? "text-white" : "text-zinc-900"}`}>Alterar Logo</span>
                     </div>
-                    <Building2 size={32} className="text-zinc-600 group-hover:opacity-0 transition-opacity" />
                   </div>
                   <div>
                     <h4 className={`text-sm font-medium ${isDarkMode ? "text-white" : "text-zinc-900"} mb-1`}>Logo da Clínica</h4>
@@ -4514,11 +4518,20 @@ const SettingsView = ({
                     <label className={`px-4 py-2 rounded-lg ${isDarkMode ? "bg-zinc-900 border-zinc-800 hover:bg-zinc-800" : "bg-white border-[var(--border-default)] hover:bg-zinc-50 shadow-sm"} border text-sm font-medium ${isDarkMode ? "text-white" : "text-zinc-900"} transition-colors cursor-pointer inline-block text-center`}>
                       Fazer Upload
                       <input
+                        id="logo-upload"
                         type="file"
                         accept="image/png, image/jpeg"
                         className="hidden"
                         onChange={(e) => {
-                          if (e.target.files && e.target.files.length > 0) alert('Nova logo selecionada com sucesso!');
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            const reader = new FileReader();
+                            reader.onloadend = () => {
+                              setClinicConfig({ ...clinicConfig, logoUrl: reader.result as string });
+                              alert('Nova logo selecionada com sucesso!');
+                            };
+                            reader.readAsDataURL(file);
+                          }
                         }}
                       />
                     </label>
@@ -5359,6 +5372,7 @@ export default function App() {
     { role: 'assistant', text: 'Olá! Sou o Estetix AI. Como posso ajudar com a gestão da sua clínica hoje?' }
   ]);
   const [clinicConfig, setClinicConfig] = useState({
+    logoUrl: null as string | null,
     nomeFantasia: 'EstéticaPro',
     razaoSocial: 'EstéticaPro Clínica LTDA',
     cnpj: '00.000.000/0001-00',

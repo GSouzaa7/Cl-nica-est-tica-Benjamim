@@ -9,13 +9,13 @@ interface WordEditorProps {
 
 const quillModules = {
     toolbar: {
-        container: '#word-toolbar'
+        container: '#custom-toolbar'
     }
 };
 
 export const WordEditor: React.FC<WordEditorProps> = ({ value, onChange }) => {
     return (
-        <div className="flex-1 w-full word-editor-seamless">
+        <div className="flex-1 w-full border-none bg-transparent">
             <ReactQuill
                 theme="snow"
                 value={value || ""}
