@@ -1,6 +1,57 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { FileSignature, Printer, Save, Search, ChevronDown } from 'lucide-react';
-import { WordEditor } from './components/Receituario/WordEditor';
+import {
+  FileText,
+  Download,
+  Printer,
+  Share2,
+  User,
+  Calendar,
+  Clipboard,
+  Clock,
+  History,
+  Plus,
+  Search,
+  ChevronRight,
+  Stethoscope,
+  PenTool,
+  Save,
+  Trash2,
+  FileDown,
+  ChevronDown
+} from 'lucide-react';
+
+interface Professional {
+  id: string;
+  name: string;
+  specialty: string;
+  doc: {
+    type: string;
+    uf: string;
+    number: string;
+  };
+  rqe?: {
+    numero: string;
+    uf: string;
+  };
+  phone?: string;
+  email?: string;
+}
+
+interface Patient {
+  id: string;
+  name: string;
+  cpf?: string;
+  phone?: string;
+  history?: any[];
+  notes?: string;
+}
+
+interface ReceituarioViewProps {
+  professionals: Professional[];
+  patients?: Patient[];
+  selectedPatientId?: string;
+  isDarkMode?: boolean;
+}
 
 const compareDates = (d1: string, d2: string) => {
   if (!d1 || !d2) return false;
@@ -11,11 +62,38 @@ const compareDates = (d1: string, d2: string) => {
   } catch { return false; }
 };
 
-export const ReceituarioView = ({ patients, professionals, selectedPatientId, isDarkMode = true }: any) => {
-  const [tipoReceituario, setTipoReceituario] = useState('simples');
+const WordEditor = ({ value, onChange }: { value: string; onChange: (val: string) => void }) => {
+  const editorRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (editorRef.current && editorRef.current.innerHTML !== value) {
+      editorRef.current.innerHTML = value;
+    }
+  }, [value]);
+
+  const handleInput = () => {
+    if (editorRef.current) {
+      onChange(editorRef.current.innerHTML);
+    }
+  };
+
+  return (
+    <div
+      ref={editorRef}
+      className="w-full min-h-[500px] outline-none text-neutral-800 text-base leading-relaxed"
+      contentEditable
+      onInput={handleInput}
+      suppressContentEditableWarning
+    />
+  );
+};
+
+export const ReceituarioView = ({ professionals, patients = [], selectedPatientId, isDarkMode = true }: ReceituarioViewProps) => {
+  const [tipoReceituario, setTipoReceituario] = useState<"simples" | "controle_especial">("simples");
   const [patientId, setPatientId] = useState(selectedPatientId || '');
   const [professionalId, setProfessionalId] = useState(professionals[0]?.id || '');
-  const [prescricao, setPrescricao] = useState("");
+  const [prescricao, setPrescricao] = useState('<p style="font-size: 1.125rem; font-weight: 500; margin-bottom: 1.5rem;">Uso Oral</p><p><strong>1. Medicamento Exemplo 500mg</strong> ........... 1 caixa</p><p style="margin-left: 2rem; color: #4b5563; font-size: 0.875rem; margin-bottom: 1.5rem;">Tomar 01 comprimido de 12 em 12 horas por 05 dias.</p><p><strong>2. Outro Medicamento Exemplo</strong> ........... 2 frascos</p><p style="margin-left: 2rem; color: #4b5563; font-size: 0.875rem;">Aplicar nas áreas afetadas 02 vezes ao dia.</p>');
+
   const [historyLookupDate, setHistoryLookupDate] = useState(new Date().toISOString().split('T')[0]);
   const [patientSearch, setPatientSearch] = useState('');
   const [comboboxSearch, setComboboxSearch] = useState('');
@@ -35,122 +113,153 @@ export const ReceituarioView = ({ patients, professionals, selectedPatientId, is
   const filteredPatientsForDropdown = patients?.filter((p: any) => {
     const term = comboboxSearch.toLowerCase().trim();
     if (!term) return true;
-    // Match by name (text)
     const nameMatch = (p.name || '').toLowerCase().includes(term);
-    // Match by CPF (both formatted and digits-only)
     const cpfRaw = (p.cpf || '');
     const cpfMatch = cpfRaw ? (cpfRaw.includes(term) || cpfRaw.replace(/\D/g, '').includes(term.replace(/\D/g, ''))) : false;
-    // Match by phone (both formatted and digits-only)
     const phoneRaw = (p.phone || '');
     const phoneMatch = phoneRaw ? (phoneRaw.includes(term) || phoneRaw.replace(/\D/g, '').includes(term.replace(/\D/g, ''))) : false;
     return nameMatch || cpfMatch || phoneMatch;
   });
 
-  const selectedPatientData = patients?.find((p: any) => p.id === patientId);
-  const selectedProfessional = professionals?.find((p: any) => p.id === professionalId);
+  const selectedPatientData = patients?.find((p: any) => String(p.id) === String(patientId)) || (patientId ? { name: patientSearch || "Paciente Exemplo Select" } : null);
+  const selectedProfessional = professionals.find(p => String(p.id) === String(professionalId)) || professionals[0];
 
   const generateTemplate = () => {
-    const profName = selectedProfessional?.name || 'Nome do Profissional';
-    const profSpec = selectedProfessional?.specialty || 'Especialidade';
-    const patName = selectedPatientData?.name || '________________________________________________';
+    const profName = selectedProfessional?.name || 'Dr. Rafael Costa';
+    const profSpec = selectedProfessional?.specialty || 'DERMATOLOGISTA';
+    const patName = selectedPatientData?.name || 'Nome do Paciente';
     const dataAtual = new Date().toLocaleDateString('pt-BR');
 
-    const header = `<h2 style="text-align:center; font-size:1.5rem; font-weight:700; text-transform:uppercase; margin:0 0 4px 0;">${profName}</h2>` +
-      `<p style="text-align:center; font-size:0.875rem; margin:4px 0;">${profSpec} - CRM/CRO: 123456-UF</p>` +
-      `<p style="text-align:center; font-size:0.75rem; margin:4px 0;">Av. Exemplo, 1000 - Bairro, Cidade - UF | (00) 0000-0000</p>` +
-      `<p style="border-bottom:2px solid #000; padding-bottom:16px; margin-bottom:32px;"><br></p>`;
+    const header = `
+      <table style="width: 100%; border-collapse: collapse; margin-bottom: 32px;">
+        <tr>
+          <td style="vertical-align: top; text-align: left;">
+            <h2 style="font-family: 'Times New Roman', serif; font-style: italic; font-size: 26px; color: #262626; margin: 0 0 4px 0;">${profName}</h2>
+            <div style="font-family: Arial, sans-serif; font-size: 10px; font-weight: bold; color: #737373; text-transform: uppercase; letter-spacing: 0.05em;">
+              <div style="margin-bottom: 2px;">${profSpec}</div>
+              <div style="margin-bottom: 2px;">${selectedProfessional?.doc?.type || 'CRM'} ${selectedProfessional?.doc?.uf || 'SP'} ${selectedProfessional?.doc?.number || '11111'}</div>
+              ${selectedProfessional?.rqe?.numero ? `<div style="margin-bottom: 2px;">RQE ${selectedProfessional.rqe.numero}</div>` : '<div>RQE 222222</div>'}
+              <div style="margin-top: 4px; font-weight: 500; color: #a3a3a3; text-transform: lowercase;">
+                ${selectedProfessional?.phone || '11999999999'} • ${selectedProfessional?.email || 'rafael@ig.com'}
+              </div>
+            </div>
+          </td>
+          <td style="vertical-align: top; text-align: right; width: 130px;">
+            <div style="width: 120px; height: 60px; border: 1px dashed #d4d4d4; background: #fafafa; border-radius: 4px; display: inline-flex; align-items: center; justify-content: center; font-size: 10px; color: #a3a3a3; font-weight: bold; text-transform: uppercase;">
+              LOGOTIPO
+            </div>
+          </td>
+        </tr>
+      </table>
+    `;
 
-    const footer = `<p style="text-align:center; margin-top:64px;">_________________________________</p>` +
-      `<p style="text-align:center; font-size:0.875rem; font-weight:700;">${profName}</p>` +
-      `<p style="text-align:center; font-size:0.75rem;">Data: ${dataAtual}</p>`;
+    const footer = `
+      <div style="margin-top: auto; padding-top: 32px; border-top: 1px solid #e5e5e5; display: flex; justify-content: space-between; align-items: flex-end;">
+        <div style="font-family: Arial, sans-serif; font-size: 9px; color: #a3a3a3; line-height: 1.5;">
+          <div>📞 ${selectedProfessional?.phone || '(11) 99999-9999'} • ✉️ ${selectedProfessional?.email || 'contato@clinica.com'}</div>
+          <div>📍 Rua Brasil, 123 - Centro - Cidade/BR</div>
+        </div>
+        <div style="text-align: right;">
+          <div style="border: 1px solid #a3a3a3; border-radius: 2px; width: 300px; height: 150px; margin-bottom: 16px; overflow: hidden; display: flex; flex-direction: column;">
+            <div style="display: flex; border-bottom: 1px solid #a3a3a3;">
+              <div style="width: 30%; border-right: 1px solid #a3a3a3; padding: 6px; font-size: 10px; font-weight: bold; color: #404040;">DATA:</div>
+              <div style="flex: 1; padding: 6px; font-size: 10px; font-weight: bold; color: #404040; background: #f9f9f9;">CARIMBO/ASSINATURA</div>
+            </div>
+          </div>
+          <div style="display: flex; align-items: flex-end; font-family: Arial, sans-serif;">
+            <span style="font-size: 10px; font-weight: bold; text-transform: uppercase; margin-right: 4px;">Assinatura</span>
+            <div style="width: 200px; border-bottom: 1px solid #000;"></div>
+          </div>
+        </div>
+      </div>
+    `;
 
-    if (tipoReceituario === 'simples') {
-      return `<p><br></p><p><br></p><p><br></p><p><br></p>` +
-        `<p><br></p><p><br></p><p><br></p><p><br></p>` +
-        `<p><br></p><p><br></p>`;
-    }
+    const patientLine = `
+      <div style="margin-bottom: 24px; font-family: Arial, sans-serif; font-size: 14px; display: flex; align-items: flex-end;">
+        <span style="font-weight: bold; margin-right: 8px;">Paciente:</span>
+        <div style="flex: 1; border-bottom: 1px solid #a3a3a3; padding-bottom: 4px;">${patName}</div>
+      </div>
+    `;
 
-    if (tipoReceituario === 'controle_especial') {
-      return `<h2 style="text-align:center; font-size:1.25rem; font-weight:700; text-transform:uppercase;">RECEITUÁRIO DE CONTROLE ESPECIAL</h2>` +
-        `<p style="text-align:center; font-size:0.875rem;">1ª Via - Retenção da Farmácia | 2ª Via - Paciente</p>` +
-        `<p><br></p>` +
-        `<p style="font-size:0.875rem; font-weight:700;">IDENTIFICAÇÃO DO EMITENTE</p>` +
-        `<p style="font-size:0.875rem;">${profName} - CRM/CRO: 123456-UF</p>` +
-        `<p style="font-size:0.875rem;">Av. Exemplo, 1000 - Bairro, Cidade - UF</p>` +
-        `<p><br></p>` +
-        `<p style="font-size:0.875rem;"><strong>Paciente:</strong> ${patName}</p>` +
-        `<p style="font-size:0.875rem;"><strong>Endereço:</strong> ________________________________________________</p>` +
-        `<p><br></p>` +
-        `<p style="font-weight:700;">PRESCRIÇÃO:</p>` +
-        `<p><br></p><p><br></p><p><br></p><p><br></p>` +
-        `<p><br></p><p><br></p>` +
-        footer;
-    }
-
-    // antibiotico
-    return `<h2 style="text-align:center; font-size:1.25rem; font-weight:700; text-transform:uppercase;">RECEITUÁRIO DE ANTIMICROBIANOS</h2>` +
-      `<p style="text-align:center; font-size:0.875rem;">1ª Via - Retenção da Farmácia | 2ª Via - Paciente</p>` +
-      `<p><br></p>` +
-      `<p style="font-size:0.875rem; font-weight:700;">IDENTIFICAÇÃO DO EMITENTE</p>` +
-      `<p style="font-size:0.875rem;">${profName} - CRM/CRO: 123456-UF</p>` +
-      `<p style="font-size:0.875rem;">Av. Exemplo, 1000 - Bairro, Cidade - UF</p>` +
-      `<p><br></p>` +
-      `<p style="font-size:0.875rem;"><strong>Paciente:</strong> ${patName}</p>` +
-      `<p style="font-size:0.875rem;"><strong>Idade/Sexo:</strong> ________________________________________________</p>` +
-      `<p><br></p>` +
-      `<p style="font-weight:700;">PRESCRIÇÃO:</p>` +
-      `<p><br></p><p><br></p><p><br></p><p><br></p>` +
-      `<p><br></p><p><br></p>` +
-      footer;
-  };
-
-  // Auto-generate template on first load or when tipo changes
-  useEffect(() => {
-    setPrescricao(generateTemplate());
-  }, [tipoReceituario]);
-
-  const handleRegenerate = () => {
-    setPrescricao(generateTemplate());
+    return `
+      <div style="font-family: Arial, sans-serif; width: 210mm; min-height: 297mm; margin: 0 auto; padding: 40px; background: #fff; box-sizing: border-box; display: flex; flex-direction: column;">
+        ${header}
+        ${patientLine}
+        <div style="flex: 1; min-height: 400px; line-height: 1.6; font-size: 16px; color: #262626;">
+          ${prescricao}
+        </div>
+        ${footer}
+      </div>
+    `;
   };
 
   const handlePrint = () => {
     window.print();
   };
 
-  const handleSave = () => {
-    alert('Receituário salvo no histórico do paciente!');
+  const handleExportPDF = () => {
+    const template = generateTemplate();
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(`
+        <html>
+          <head>
+            <title>Receituário - ${selectedPatientData?.name || 'Paciente'}</title>
+            <style>
+              body { margin: 0; padding: 0; }
+              @page { size: A4; margin: 0; }
+              * { box-sizing: border-box; }
+            </style>
+          </head>
+          <body>
+            ${template}
+            <script>
+              window.onload = () => {
+                window.print();
+                window.close();
+              };
+            </script>
+          </body>
+        </html>
+      `);
+      printWindow.document.close();
+    }
   };
 
   return (
-    <div className="flex-1 flex flex-col relative overflow-hidden">
-      {/* Background stars/dots effect */}
-
-
-      {/* Header - Hidden in print */}
-      <header className="pt-12 px-12 pb-8 z-10 shrink-0 flex items-center justify-between print:hidden">
+    <div className="flex flex-col h-screen bg-[#f8f9fa]">
+      <div className="h-16 bg-[#0a0a0a] border-b border-white/5 flex items-center justify-between px-6 shrink-0">
         <div className="flex items-center gap-3">
-          <FileSignature className="text-[var(--text-primary)]" size={32} />
-          <h1 className="text-3xl font-bold text-[var(--text-primary)] tracking-tight">Receituário</h1>
+          <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center shadow-sm border border-white/10">
+            <FileText className="text-white w-5 h-5" />
+          </div>
+          <div>
+            <h1 className="text-lg font-bold text-white tracking-tight leading-none mb-1">Central de Receituários</h1>
+            <p className="text-[10px] text-white/40 uppercase font-bold tracking-[0.1em]">Gestão de Prescrições • Aura Medical</p>
+          </div>
         </div>
-        <div className="flex gap-4">
-          <button onClick={handleSave} className="flex items-center gap-2 px-6 py-2.5 rounded-full bg-[var(--bg-surface)] border border-[var(--border-default)] hover:bg-zinc-800 hover:text-white text-[var(--text-primary)] font-semibold transition-all shadow-[var(--card-shadow)]">
-            <Save size={18} />
-            Salvar no Prontuário
+        <div className="flex items-center gap-3">
+          <button
+            onClick={handleExportPDF}
+            className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-neutral-400 hover:text-white transition-colors bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg"
+          >
+            <FileDown className="w-4 h-4" />
+            PDF
           </button>
-          <button onClick={handlePrint} className="flex items-center gap-2 px-6 py-2.5 rounded-full bg-gradient-to-r from-orange-400 to-orange-500 hover:from-orange-500 hover:to-orange-600 text-black font-semibold transition-all shadow-[0_0_15px_rgba(249,115,22,0.3)]">
-            <Printer size={18} />
-            Imprimir
+          <button
+            onClick={handlePrint}
+            className="flex items-center gap-2 px-5 py-2.5 text-sm font-bold text-white bg-white/10 hover:bg-white/20 border border-white/20 transition-all rounded-xl shadow-lg active:scale-95"
+          >
+            <Printer className="w-4 h-4" />
+            Imprimir A4
           </button>
         </div>
-      </header>
+      </div>
 
-      {/* Content Grid - Hidden in print */}
-      <div className="flex-1 overflow-y-auto px-12 pb-10 z-10 custom-scrollbar print:hidden">
-        <div className="flex gap-8 max-w-7xl mx-auto">
-
-          {/* Controls */}
-          <div className={`w-80 shrink-0 ${isDarkMode ? 'bg-[#0a0a0a] border-zinc-800' : 'bg-white border-zinc-200'} border rounded-2xl p-6 shadow-xl flex flex-col gap-6 print:hidden`}>
-
+      <div className="flex flex-1 overflow-hidden">
+        {/* BARRA LATERAL RESTAURADA DO COMMIT "edição word 1.1" */}
+        <div className={`w-80 shrink-0 ${isDarkMode ? 'bg-[#0a0a0a] border-white/5' : 'bg-white border-zinc-200'} border-r flex flex-col overflow-y-auto`}>
+          <div className="p-6 space-y-8">
             <div className="space-y-3">
               <div className="p-4 rounded-2xl bg-orange-500/5 border border-orange-500/10">
                 <label className="block text-[10px] font-bold text-orange-600 mb-2 uppercase tracking-widest">
@@ -179,12 +288,8 @@ export const ReceituarioView = ({ patients, professionals, selectedPatientId, is
                       return <p className="text-xs text-zinc-600 italic text-center mt-8">Selecione um paciente para carregar o histórico clínico.</p>;
                     }
 
-                    // Busca exata pela data selecionada
                     const exactEntry = client?.history?.find((h: any) => compareDates(h.date, historyLookupDate));
-
-                    // Fallback: Se não houver na data, pega o registro mais recente (último)
                     const latestEntry = client?.history?.[client.history.length - 1];
-
                     const contentToShow = exactEntry?.content || latestEntry?.content || client?.notes;
 
                     if (!contentToShow) {
@@ -209,7 +314,7 @@ export const ReceituarioView = ({ patients, professionals, selectedPatientId, is
 
             <div>
               <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Tipo de Receituário</label>
-              <select value={tipoReceituario} onChange={(e) => setTipoReceituario(e.target.value)} className={`w-full ${isDarkMode ? 'bg-zinc-900 border-zinc-700 text-white' : 'bg-white border-zinc-200 text-zinc-900'} border rounded-xl px-4 py-3 focus:outline-none focus:border-orange-500 transition-colors`}>
+              <select value={tipoReceituario} onChange={(e) => setTipoReceituario(e.target.value as any)} className={`w-full ${isDarkMode ? 'bg-zinc-900 border-zinc-700 text-white' : 'bg-white border-zinc-200 text-zinc-900'} border rounded-xl px-4 py-3 focus:outline-none focus:border-orange-500 transition-colors`}>
                 <option value="simples">Receituário Simples</option>
                 <option value="controle_especial">Receituário de Controle Especial</option>
               </select>
@@ -234,7 +339,7 @@ export const ReceituarioView = ({ patients, professionals, selectedPatientId, is
                 <span className="truncate pr-4">
                   {patientId
                     ? (() => {
-                      const p = patients.find((pt: any) => String(pt.id) === String(patientId));
+                      const p = patients?.find((pt: any) => String(pt.id) === String(patientId));
                       if (!p) return 'Selecione um paciente';
                       const cpfFormatted = p.cpf ? p.cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4') : '';
                       return `${p.name}${cpfFormatted ? ` - CPF: ${cpfFormatted}` : ''}`;
@@ -320,113 +425,99 @@ export const ReceituarioView = ({ patients, professionals, selectedPatientId, is
               )}
             </div>
           </div>
+        </div>
 
-          {/* Preview Area */}
-          <div className="flex-1 bg-zinc-200 rounded-2xl overflow-hidden shadow-inner flex flex-col relative">
-
-            {/* WORD TOOLBAR FIXA NO TOPO */}
-            <div className="w-full bg-white border-b border-zinc-300 shadow-sm p-3 z-10 print:hidden sticky top-0 flex justify-center">
-              <div id="word-toolbar" className="ql-toolbar ql-snow flex items-center flex-wrap gap-2 border-none !bg-transparent p-0 m-0">
-                <span className="ql-formats !mr-4 border border-zinc-200 rounded-md bg-zinc-50">
-                  <select className="ql-header !text-sm" defaultValue="">
-                    <option value="1">Título 1</option>
-                    <option value="2">Título 2</option>
-                    <option value="3">Título 3</option>
-                    <option value="">Normal</option>
-                  </select>
-                </span>
-                <span className="ql-formats !mr-4 border border-zinc-200 rounded-md bg-zinc-50 p-1">
-                  <button className="ql-bold"></button>
-                  <button className="ql-italic"></button>
-                  <button className="ql-underline"></button>
-                </span>
-                <span className="ql-formats !mr-4 border border-zinc-200 rounded-md bg-zinc-50 p-1">
-                  <button className="ql-list" value="ordered"></button>
-                  <button className="ql-list" value="bullet"></button>
-                </span>
-                <span className="ql-formats border border-zinc-200 rounded-md bg-zinc-50 p-1">
-                  <button className="ql-clean"></button>
-                </span>
-              </div>
+        <div className="flex-1 flex flex-col bg-neutral-100 overflow-hidden relative">
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-white/80 backdrop-blur-md px-6 py-2 rounded-2xl shadow-xl border border-white z-50 flex items-center gap-6">
+            <div className="flex items-center gap-4 border-r border-neutral-200 pr-6 uppercase tracking-[0.2em] font-black text-[10px] text-neutral-800">
+              Formatação
             </div>
+            <div className="flex items-center gap-4 text-neutral-400">
+              <span className="cursor-pointer hover:text-neutral-900 transition-colors font-bold">B</span>
+              <span className="cursor-pointer hover:text-neutral-900 transition-colors italic">I</span>
+              <span className="cursor-pointer hover:text-neutral-900 transition-colors underline underline-offset-4">U</span>
+              <div className="w-px h-4 bg-neutral-200 mx-1"></div>
+              <span className="cursor-pointer hover:text-neutral-900 transition-colors flex items-center gap-1 text-[10px] font-black tracking-tighter">
+                F <History className="w-3 h-3" />
+              </span>
+            </div>
+          </div>
 
-            <div className="flex-1 overflow-y-auto p-8 flex justify-center">
-              {tipoReceituario === "simples" && (
-                <div className="w-full max-w-[21cm] min-h-[29.7cm] bg-[#ffffff] text-[#000000] shadow-2xl mx-auto p-12 flex flex-col relative font-sans" style={{ backgroundColor: '#ffffff', color: '#000000' }}>
-
-                  {/* ═══ CABEÇALHO ═══ */}
-                  <div className="flex justify-between items-start w-full mb-8">
-                    {/* Esquerda: Logo + Identificação */}
-                    <div className="flex flex-col w-1/2">
-                      <div className="w-32 h-16 border border-dashed border-neutral-300 flex items-center justify-center text-neutral-400 text-xs mb-4 rounded">LOGOTIPO</div>
-                      <h2 className="text-2xl font-serif text-neutral-800 outline-none italic">{selectedProfessional?.name || 'Selecione um profissional'}</h2>
-                      <p className="text-sm text-pink-600 font-medium outline-none">{selectedProfessional?.specialty || 'Especialidade'}</p>
-                    </div>
-
-                    {/* Direita: Caixa de Validação ITI / Via Digital */}
-                    <div className="flex flex-col items-end">
-                      <div className="border border-neutral-400 rounded-sm w-56">
-                        {/* Topo da caixa: DATA + VIA DIGITAL */}
-                        <div className="flex border-b border-neutral-400">
-                          <div className="px-3 py-1.5 border-r border-neutral-400 text-[11px] font-bold text-neutral-700 whitespace-nowrap outline-none" contentEditable suppressContentEditableWarning>DATA:</div>
-                          <div className="px-3 py-1.5 text-[9px] text-neutral-500 leading-tight">
-                            <span className="font-bold block text-[10px] text-neutral-700">VIA DIGITAL</span>
-                            Validar em: https://validar.iti.gov.br/
-                          </div>
-                        </div>
-                        {/* Corpo: espaço QR Code */}
-                        <div className="h-24 flex items-center justify-center text-neutral-300 text-xs">
-                        </div>
-                        {/* Rodapé da caixa */}
-                        <div className="border-t border-neutral-400 text-center py-1.5">
-                          <span className="text-[10px] font-bold text-neutral-600 tracking-wide uppercase">Assinatura Digital</span>
-                        </div>
+          <div className="flex-1 overflow-y-auto p-8 flex justify-center">
+            {tipoReceituario === "simples" && (
+              <div className="w-full max-w-[21cm] min-h-[29.7cm] bg-[#ffffff] text-[#000000] shadow-2xl mx-auto p-12 flex flex-col relative font-sans" style={{ backgroundColor: '#ffffff', color: '#000000' }}>
+                <div className="flex justify-between items-start w-full mb-8">
+                  <div className="flex flex-col">
+                    <h2 className="text-[26px] font-serif text-neutral-800 outline-none italic leading-tight mb-1">{selectedProfessional?.name || 'Dr. Rafael Costa'}</h2>
+                    <div className="flex flex-col text-[10px] text-neutral-500 font-bold uppercase tracking-wider">
+                      <span className="mb-0.5">{selectedProfessional?.specialty || 'DERMATOLOGISTA'}</span>
+                      <span className="mb-0.5">
+                        {selectedProfessional?.doc?.type || 'CRM'} {selectedProfessional?.doc?.uf || 'SP'} {selectedProfessional?.doc?.number || '11111'}
+                      </span>
+                      <span className="mb-0.5">
+                        {selectedProfessional?.rqe?.numero ? `RQE ${selectedProfessional.rqe.numero}` : 'RQE 222222'}
+                      </span>
+                      <div className="flex gap-2 mt-1 lowercase font-medium text-neutral-400">
+                        <span>{selectedProfessional?.phone || '11999999999'}</span>
+                        <span>•</span>
+                        <span>{selectedProfessional?.email || 'rafael@ig.com'}</span>
                       </div>
                     </div>
                   </div>
-
-                  {/* ═══ LINHA DO PACIENTE ═══ */}
-                  <div className="w-full mb-6 text-sm flex items-end">
-                    <span className="font-bold mr-2 whitespace-nowrap">Paciente:</span>
-                    <div className="flex-1 border-b border-neutral-400 outline-none pb-1" contentEditable suppressContentEditableWarning>
-                      {selectedPatientData?.name || 'Nome do Paciente'}
-                    </div>
+                  <div className="flex flex-col items-end">
+                    <div className="w-32 h-16 border border-dashed border-neutral-300 flex items-center justify-center text-neutral-400 text-[10px] rounded uppercase tracking-tighter bg-neutral-50/50 font-bold">LOGOTIPO</div>
                   </div>
+                </div>
 
-                  {/* ═══ MIOLO: EDITOR DE TEXTO ═══ */}
-                  <div className="flex-1 w-full relative z-10">
-                    <WordEditor value={prescricao} onChange={setPrescricao} />
+                <div className="w-full mb-6 text-sm flex items-end">
+                  <span className="font-bold mr-2 whitespace-nowrap">Paciente:</span>
+                  <div className="flex-1 border-b border-neutral-400 outline-none pb-1" contentEditable suppressContentEditableWarning>
+                    {selectedPatientData?.name || 'Nome do Paciente'}
                   </div>
+                </div>
 
-                  {/* ═══ RODAPÉ (Ancorado no fundo) ═══ */}
-                  <div className="mt-auto pt-8 flex justify-between items-end w-full text-[11px] text-neutral-800">
-                    {/* Esquerda: Contatos */}
-                    <div className="flex flex-col gap-1 outline-none" contentEditable suppressContentEditableWarning>
-                      <span>📞 (00) 3300-0000</span>
-                      <span>📱 (00) 99900-0000</span>
-                      <span>✉️ atendimento@clinica.com</span>
-                      <span>📍 Rua Brasil, 123 - Centro - Cidade/BR</span>
+                <div className="flex-1 w-full relative z-10 text-base">
+                  <WordEditor value={prescricao} onChange={setPrescricao} />
+                </div>
+
+                <div className="mt-auto pt-8 flex justify-between items-end w-full text-[11px] text-neutral-800">
+                  <div className="flex flex-col gap-1 outline-none text-neutral-400 text-[9px]" contentEditable suppressContentEditableWarning>
+                    <div className="flex items-center gap-2">
+                      <span>📞 {selectedProfessional?.phone || '(11) 99999-9999'}</span>
+                      <span>•</span>
+                      <span>✉️ {selectedProfessional?.email || 'contato@clinica.com'}</span>
                     </div>
-                    {/* Direita: Assinatura Manual */}
+                    <span>📍 Rua Brasil, 123 - Centro - Cidade/BR</span>
+                  </div>
+                  <div className="flex flex-col items-end gap-4">
+                    <div className="border border-neutral-400 rounded-sm w-[8cm] h-[4cm] overflow-hidden flex flex-col">
+                      <div className="flex border-b border-neutral-400 shrink-0">
+                        <div className="w-[30%] px-2 py-1.5 border-r border-neutral-400 text-[10px] font-bold text-neutral-700 outline-none flex flex-col justify-center" contentEditable suppressContentEditableWarning>
+                          <span>DATA:</span>
+                        </div>
+                        <div className="flex-1 px-2 py-1.5 text-[10px] font-bold text-neutral-700 leading-tight outline-none flex items-center bg-gray-50/50" contentEditable suppressContentEditableWarning>
+                          CARIMBO/ASSINATURA
+                        </div>
+                      </div>
+                      <div className="flex-1 flex items-center justify-center text-neutral-300 text-[9px]"></div>
+                    </div>
                     <div className="flex items-end mb-1">
                       <span className="font-bold uppercase text-[10px] mr-1">Assinatura</span>
                       <div className="w-48 border-b border-neutral-800"></div>
                     </div>
                   </div>
-
                 </div>
-              )}
-              {tipoReceituario === "controle_especial" && (
-                <div className="bg-[#ffffff] w-[210mm] min-h-[297mm] shadow-2xl p-[20mm] text-zinc-900 font-sans relative">
-                  <WordEditor value={prescricao} onChange={setPrescricao} />
-                </div>
-              )}
-            </div>
+              </div>
+            )}
+            {tipoReceituario === "controle_especial" && (
+              <div className="bg-[#ffffff] w-[210mm] min-h-[297mm] shadow-2xl p-[20mm] text-zinc-900 font-sans relative">
+                <WordEditor value={prescricao} onChange={setPrescricao} />
+              </div>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Print Styles */}
       <style>{`
         @media print {
           body * {
@@ -448,7 +539,6 @@ export const ReceituarioView = ({ patients, professionals, selectedPatientId, is
         }
       `}</style>
 
-      {/* Hidden Print Container */}
       <div className="hidden print:block print-area w-[210mm] min-h-[297mm] bg-[#ffffff] text-zinc-900 p-[20mm]">
         <div dangerouslySetInnerHTML={{ __html: prescricao }} />
       </div>
@@ -456,5 +546,4 @@ export const ReceituarioView = ({ patients, professionals, selectedPatientId, is
   );
 };
 
-export default ReceituarioView;
 

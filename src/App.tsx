@@ -1898,6 +1898,10 @@ const ProfissionaisView = ({ professionals, setProfessionals, isDarkMode = true 
   const [docType, setDocType] = useState('CRM');
   const [docNumber, setDocNumber] = useState('');
   const [docUF, setDocUF] = useState('');
+  const [telefone, setTelefone] = useState("");
+  const [email, setEmail] = useState("");
+  const [rqeNumero, setRqeNumero] = useState("");
+  const [rqeUf, setRqeUf] = useState("");
 
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [tempColor, setTempColor] = useState('#f97316');
@@ -1912,6 +1916,10 @@ const ProfissionaisView = ({ professionals, setProfessionals, isDarkMode = true 
       setDocType(prof.doc?.type || 'CRM');
       setDocNumber(prof.doc?.number || '');
       setDocUF(prof.doc?.uf || '');
+      setTelefone(prof.phone || "");
+      setEmail(prof.email || "");
+      setRqeNumero(prof.rqe?.numero || "");
+      setRqeUf(prof.rqe?.uf || "");
     } else {
       setEditingId(null);
       setName('');
@@ -1921,6 +1929,10 @@ const ProfissionaisView = ({ professionals, setProfessionals, isDarkMode = true 
       setDocType('CRM');
       setDocNumber('');
       setDocUF('');
+      setTelefone("");
+      setEmail("");
+      setRqeNumero("");
+      setRqeUf("");
     }
     setIsModalOpen(true);
     setShowColorPicker(false);
@@ -1931,7 +1943,7 @@ const ProfissionaisView = ({ professionals, setProfessionals, isDarkMode = true 
 
     if (editingId) {
       setProfessionals(professionals.map((p: any) =>
-        p.id === editingId ? { ...p, name, specialty, color, doc: { type: docType, number: docNumber, uf: docUF } } : p
+        p.id === editingId ? { ...p, name, specialty, color, phone: telefone, email, rqe: { numero: rqeNumero, uf: rqeUf }, doc: { type: docType, number: docNumber, uf: docUF } } : p
       ));
     } else {
       setProfessionals([...professionals, {
@@ -1939,6 +1951,9 @@ const ProfissionaisView = ({ professionals, setProfessionals, isDarkMode = true 
         name,
         specialty,
         color,
+        phone: telefone,
+        email,
+        rqe: { numero: rqeNumero, uf: rqeUf },
         active: true,
         doc: { type: docType, number: docNumber, uf: docUF }
       }]);
@@ -2072,6 +2087,33 @@ const ProfissionaisView = ({ professionals, setProfessionals, isDarkMode = true 
                 </div>
               </div>
 
+              {/* BLOCO DE RQE */}
+              <div className="mt-4 mb-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="flex flex-col gap-1.5 md:col-span-2">
+                    <label className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">Número do RQE (Opcional)</label>
+                    <input
+                      type="text"
+                      value={rqeNumero}
+                      onChange={(e) => setRqeNumero(e.target.value)}
+                      placeholder="00000"
+                      className="bg-[#050505] border border-zinc-800 rounded-xl px-4 py-3 text-white placeholder-neutral-600 focus:border-orange-500 outline-none text-sm transition-all"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1.5 md:col-span-1">
+                    <label className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">UF do RQE</label>
+                    <input
+                      type="text"
+                      value={rqeUf}
+                      onChange={(e) => setRqeUf(e.target.value.toUpperCase().replace(/[^A-Z]/g, ''))}
+                      placeholder="SP"
+                      maxLength={2}
+                      className="bg-[#050505] border border-zinc-800 rounded-xl px-4 py-3 text-white placeholder-neutral-600 focus:border-orange-500 outline-none text-sm transition-all uppercase text-center"
+                    />
+                  </div>
+                </div>
+              </div>
+
               <div>
                 <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Especialidade (Opcional)</label>
                 <input
@@ -2081,6 +2123,32 @@ const ProfissionaisView = ({ professionals, setProfessionals, isDarkMode = true 
                   placeholder="Ex: Dermatologista"
                   className={`w-full bg-[#050505] border border-zinc-800 rounded-xl px-4 py-3 ${isDarkMode ? "text-white" : "text-zinc-900"} focus:outline-none focus:border-orange-500 transition-colors`}
                 />
+              </div>
+
+              {/* BLOCO DE CONTATO (RECEITUÁRIO) */}
+              <div className="mt-4 mb-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">Telefone / Celular</label>
+                    <input
+                      type="text"
+                      value={telefone}
+                      onChange={(e) => setTelefone(e.target.value)}
+                      placeholder="(00) 00000-0000"
+                      className="bg-[#050505] border border-zinc-800 rounded-xl px-4 py-3 text-white placeholder-neutral-600 focus:border-orange-500 outline-none text-sm transition-all"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">E-mail Profissional</label>
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="dr@clinica.com"
+                      className="bg-[#050505] border border-zinc-800 rounded-xl px-4 py-3 text-white placeholder-neutral-600 focus:border-orange-500 outline-none text-sm transition-all"
+                    />
+                  </div>
+                </div>
               </div>
 
               <div className="relative">
