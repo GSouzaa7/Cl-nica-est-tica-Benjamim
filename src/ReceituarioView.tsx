@@ -17,7 +17,12 @@ import {
   Save,
   Trash2,
   FileDown,
-  ChevronDown
+  ChevronDown,
+  Phone,
+  Mail,
+  MapPin,
+  ChevronLeft,
+  Calendar as CalendarIcon
 } from 'lucide-react';
 
 interface Professional {
@@ -51,6 +56,7 @@ interface ReceituarioViewProps {
   patients?: Patient[];
   selectedPatientId?: string;
   isDarkMode?: boolean;
+  clinicConfig?: any;
 }
 
 const compareDates = (d1: string, d2: string) => {
@@ -88,17 +94,75 @@ const WordEditor = ({ value, onChange }: { value: string; onChange: (val: string
   );
 };
 
-export const ReceituarioView = ({ professionals, patients = [], selectedPatientId, isDarkMode = true }: ReceituarioViewProps) => {
+export const ReceituarioView = ({
+  professionals,
+  patients = [],
+  selectedPatientId,
+  isDarkMode = true,
+  clinicConfig = {
+    nomeFantasia: "EstéticaPro",
+    telefone: "(11) 99999-9999",
+    email: "contato@esteticapro.com",
+    logradouro: "Av. Paulista",
+    numero: "1000",
+    complemento: "Sala 101",
+    bairro: "Bela Vista",
+    cidade: "São Paulo",
+    estado: "SP",
+    cep: "00000-000"
+  }
+}: ReceituarioViewProps) => {
   const [tipoReceituario, setTipoReceituario] = useState<"simples" | "controle_especial">("simples");
   const [patientId, setPatientId] = useState(selectedPatientId || '');
   const [professionalId, setProfessionalId] = useState(professionals[0]?.id || '');
-  const [prescricao, setPrescricao] = useState('<p style="font-size: 1.125rem; font-weight: 500; margin-bottom: 1.5rem;">Uso Oral</p><p><strong>1. Medicamento Exemplo 500mg</strong> ........... 1 caixa</p><p style="margin-left: 2rem; color: #4b5563; font-size: 0.875rem; margin-bottom: 1.5rem;">Tomar 01 comprimido de 12 em 12 horas por 05 dias.</p><p><strong>2. Outro Medicamento Exemplo</strong> ........... 2 frascos</p><p style="margin-left: 2rem; color: #4b5563; font-size: 0.875rem;">Aplicar nas áreas afetadas 02 vezes ao dia.</p>');
+  const [prescricao, setPrescricao] = useState('');
 
   const [historyLookupDate, setHistoryLookupDate] = useState(new Date().toISOString().split('T')[0]);
   const [patientSearch, setPatientSearch] = useState('');
   const [comboboxSearch, setComboboxSearch] = useState('');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Estados e Logica do Mini Calendário Popover
+  const [viewDate, setViewDate] = useState(new Date());
+  const [selectedCalendarDate, setSelectedCalendarDate] = useState(new Date());
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+  const calendarRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutsideCalendar = (event: MouseEvent) => {
+      if (calendarRef.current && !calendarRef.current.contains(event.target as Node)) {
+        setIsCalendarOpen(false);
+      }
+    };
+    if (isCalendarOpen) document.addEventListener('mousedown', handleClickOutsideCalendar);
+    return () => document.removeEventListener('mousedown', handleClickOutsideCalendar);
+  }, [isCalendarOpen]);
+
+  // Helpers Matematicos Date
+  const getDaysInMonth = (year: number, month: number) => new Date(year, month + 1, 0).getDate();
+  const getFirstDayOfMonth = (year: number, month: number) => new Date(year, month, 1).getDay();
+
+  const currentMonthDays = getDaysInMonth(viewDate.getFullYear(), viewDate.getMonth());
+  const firstDay = getFirstDayOfMonth(viewDate.getFullYear(), viewDate.getMonth());
+
+  const handlePrevMonth = () => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() - 1, 1));
+  const handleNextMonth = () => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 1));
+
+  const monthNames = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+  const weekDaysShort = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
+
+  // Formatar a data atual selecionada para o display do botão
+  const formatHeaderDate = (d: Date) => d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+
+  const handleDateSelect = (day: number) => {
+    const newDate = new Date(viewDate.getFullYear(), viewDate.getMonth(), day);
+    setSelectedCalendarDate(newDate);
+    // Format to YYYY-MM-DD for historyLookupDate
+    const formattedDate = newDate.toLocaleDateString('en-CA'); // en-CA gives YYYY-MM-DD
+    setHistoryLookupDate(formattedDate);
+    setIsCalendarOpen(false);
+  };
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -155,9 +219,22 @@ export const ReceituarioView = ({ professionals, patients = [], selectedPatientI
 
     const footer = `
       <div style="margin-top: auto; padding-top: 32px; border-top: 1px solid #e5e5e5; display: flex; justify-content: space-between; align-items: flex-end;">
-        <div style="font-family: Arial, sans-serif; font-size: 9px; color: #a3a3a3; line-height: 1.5;">
-          <div>📞 ${selectedProfessional?.phone || '(11) 99999-9999'} • ✉️ ${selectedProfessional?.email || 'contato@clinica.com'}</div>
-          <div>📍 Rua Brasil, 123 - Centro - Cidade/BR</div>
+        <div style="font-family: Arial, sans-serif; font-size: 10px; color: #a3a3a3; line-height: 1.6;">
+          <div style="color: #737373; font-weight: 600; margin-bottom: 2px;">${clinicConfig.nomeFantasia}</div>
+          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 2px;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#262626" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 2px; vertical-align: middle;"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
+            <span style="color: #737373; font-weight: 500;">${clinicConfig.telefone}</span>
+            <span style="color: #d4d4d4; margin: 0 4px;">•</span>
+            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#262626" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 2px; vertical-align: middle;"><rect width="20" height="16" x="2" y="4" rx="2"></rect><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"></path></svg>
+            <span style="color: #737373; font-weight: 500;">${clinicConfig.email}</span>
+          </div>
+          <div style="display: flex; align-items: flex-start; gap: 8px;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#262626" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 2px; margin-top: 2px; vertical-align: middle; flex-shrink: 0;"><path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"></path><circle cx="12" cy="10" r="3"></circle></svg>
+            <div style="color: #737373; font-weight: 500; display: flex; flex-direction: column;">
+              <span>${clinicConfig.logradouro}, ${clinicConfig.numero}${clinicConfig.complemento ? ` - ${clinicConfig.complemento}` : ''} - ${clinicConfig.bairro}</span>
+              <span>${clinicConfig.cidade}/${clinicConfig.estado} - CEP: ${clinicConfig.cep}</span>
+            </div>
+          </div>
         </div>
         <div style="text-align: right;">
           <div style="border: 1px solid #a3a3a3; border-radius: 2px; width: 300px; height: 150px; margin-bottom: 16px; overflow: hidden; display: flex; flex-direction: column;">
@@ -166,9 +243,9 @@ export const ReceituarioView = ({ professionals, patients = [], selectedPatientI
               <div style="flex: 1; padding: 6px; font-size: 10px; font-weight: bold; color: #404040; background: #f9f9f9;">CARIMBO/ASSINATURA</div>
             </div>
           </div>
-          <div style="display: flex; align-items: flex-end; font-family: Arial, sans-serif;">
-            <span style="font-size: 10px; font-weight: bold; text-transform: uppercase; margin-right: 4px;">Assinatura</span>
-            <div style="width: 200px; border-bottom: 1px solid #000;"></div>
+          <div style="display: flex; align-items: flex-end; font-family: Arial, sans-serif; width: 300px;">
+            <span style="font-size: 10px; font-weight: bold; text-transform: uppercase; margin-right: 8px; line-height: 1;">ASSINATURA</span>
+            <div style="flex: 1; border-bottom: 1px solid #000; height: 1px; margin-bottom: 2px;"></div>
           </div>
         </div>
       </div>
@@ -265,13 +342,66 @@ export const ReceituarioView = ({ professionals, patients = [], selectedPatientI
                 <label className="block text-[10px] font-bold text-orange-600 mb-2 uppercase tracking-widest">
                   Data da Sessão Anterior
                 </label>
-                <input
-                  type="date"
-                  max={new Date().toISOString().split('T')[0]}
-                  value={historyLookupDate}
-                  onChange={(e) => setHistoryLookupDate(e.target.value)}
-                  className="w-full bg-[#050505] border border-zinc-800 rounded-xl px-4 py-3 text-sm text-white focus:border-orange-500 outline-none transition-all"
-                />
+                <div className="relative" ref={calendarRef}>
+                  <button
+                    onClick={() => setIsCalendarOpen(!isCalendarOpen)}
+                    className="w-full bg-[#050505] border border-zinc-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-orange-500 transition-all flex items-center justify-between"
+                  >
+                    <span className="font-medium tracking-wide">{formatHeaderDate(selectedCalendarDate)}</span>
+                    <CalendarIcon size={16} className={`transition-transform duration-300 ${isCalendarOpen ? 'text-orange-500 scale-110' : 'text-zinc-500'}`} />
+                  </button>
+
+                  {/* Calendário Luminous Popover */}
+                  {isCalendarOpen && (
+                    <div className="absolute top-full mt-3 left-0 w-[280px] z-[9999] rounded-2xl border shadow-[0_10px_40px_-10px_rgba(0,0,0,0.5)] overflow-hidden bg-[#121214] border-zinc-800 animate-in fade-in slide-in-from-top-2 duration-200">
+                      <div className="p-4 flex items-center justify-between border-b border-zinc-800/80 bg-zinc-900/30">
+                        <button onClick={handlePrevMonth} className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"><ChevronLeft size={16} strokeWidth={2.5} /></button>
+                        <div className="font-bold text-sm text-white tracking-wide uppercase text-[11px]">
+                          {monthNames[viewDate.getMonth()]} {viewDate.getFullYear()}
+                        </div>
+                        <button onClick={handleNextMonth} className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"><ChevronRight size={16} strokeWidth={2.5} /></button>
+                      </div>
+
+                      <div className="p-4 bg-[#0a0a0a]">
+                        <div className="grid grid-cols-7 gap-1 mb-2 text-center border-b border-zinc-800/50 pb-2">
+                          {weekDaysShort.map((day, i) => (
+                            <div key={i} className="text-[10px] font-bold tracking-wider text-zinc-500">{day}</div>
+                          ))}
+                        </div>
+
+                        <div className="grid grid-cols-7 gap-1 pt-1">
+                          {Array.from({ length: firstDay }).map((_, i) => (
+                            <div key={`empty-${i}`} className="w-8 h-8" />
+                          ))}
+
+                          {Array.from({ length: currentMonthDays }).map((_, i) => {
+                            const day = i + 1;
+                            const isCurrentDay = day === new Date().getDate() && viewDate.getMonth() === new Date().getMonth() && viewDate.getFullYear() === new Date().getFullYear();
+                            const isSelected = day === selectedCalendarDate.getDate() && viewDate.getMonth() === selectedCalendarDate.getMonth() && viewDate.getFullYear() === selectedCalendarDate.getFullYear();
+
+                            return (
+                              <button
+                                key={day}
+                                onClick={() => handleDateSelect(day)}
+                                className={`w-8 h-8 rounded-full flex items-center justify-center text-[13px] font-medium transition-all duration-200 relative group
+                                  ${isSelected
+                                    ? "bg-gradient-to-br from-orange-400 to-orange-600 text-white font-bold shadow-[0_0_15px_rgba(249,115,22,0.4)] scale-105"
+                                    : isCurrentDay
+                                      ? "bg-zinc-800 text-orange-400 border border-orange-500/20"
+                                      : "text-zinc-300 hover:bg-zinc-800 hover:text-white"
+                                  }
+                                `}
+                              >
+                                {day}
+                                {!isSelected && !isCurrentDay && <span className="absolute inset-0 rounded-full border border-white/0 group-hover:border-white/5 transition-colors"></span>}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div className={`mt-4 p-5 rounded-2xl border ${patientId ? "border-orange-500/20 bg-orange-500/5" : "border-zinc-800 bg-zinc-900/30"} h-[220px] flex flex-col print:hidden`}>
@@ -481,15 +611,32 @@ export const ReceituarioView = ({ professionals, patients = [], selectedPatientI
                 </div>
 
                 <div className="mt-auto pt-8 flex justify-between items-end w-full text-[11px] text-neutral-800">
-                  <div className="flex flex-col gap-1 outline-none text-neutral-400 text-[9px]" contentEditable suppressContentEditableWarning>
+                  <div className="flex flex-col gap-1.5 outline-none text-neutral-500 text-[10px] font-medium mb-1" contentEditable suppressContentEditableWarning>
+                    <div className="font-bold text-neutral-700">{clinicConfig.nomeFantasia}</div>
                     <div className="flex items-center gap-2">
-                      <span>📞 {selectedProfessional?.phone || '(11) 99999-9999'}</span>
-                      <span>•</span>
-                      <span>✉️ {selectedProfessional?.email || 'contato@clinica.com'}</span>
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <Phone size={11} className="text-neutral-800 shrink-0 stroke-[2.5]" />
+                        <span className="truncate">{clinicConfig.telefone}</span>
+                      </div>
+                      <span className="text-neutral-300">•</span>
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <Mail size={11} className="text-neutral-800 shrink-0 stroke-[2.5]" />
+                        <span className="truncate">{clinicConfig.email}</span>
+                      </div>
                     </div>
-                    <span>📍 Rua Brasil, 123 - Centro - Cidade/BR</span>
+                    <div className="flex items-start gap-1.5 min-w-0">
+                      <MapPin size={11} className="text-neutral-800 shrink-0 stroke-[2.5] mt-0.5" />
+                      <div className="flex flex-col">
+                        <span className="truncate">
+                          {clinicConfig.logradouro}, {clinicConfig.numero}{clinicConfig.complemento ? ` - ${clinicConfig.complemento}` : ''} - {clinicConfig.bairro}
+                        </span>
+                        <span className="truncate">
+                          {clinicConfig.cidade}/{clinicConfig.estado} - CEP: {clinicConfig.cep}
+                        </span>
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex flex-col items-end gap-4">
+                  <div className="flex flex-col items-end gap-4 shrink-0 ml-4">
                     <div className="border border-neutral-400 rounded-sm w-[8cm] h-[4cm] overflow-hidden flex flex-col">
                       <div className="flex border-b border-neutral-400 shrink-0">
                         <div className="w-[30%] px-2 py-1.5 border-r border-neutral-400 text-[10px] font-bold text-neutral-700 outline-none flex flex-col justify-center" contentEditable suppressContentEditableWarning>
@@ -501,9 +648,9 @@ export const ReceituarioView = ({ professionals, patients = [], selectedPatientI
                       </div>
                       <div className="flex-1 flex items-center justify-center text-neutral-300 text-[9px]"></div>
                     </div>
-                    <div className="flex items-end mb-1">
-                      <span className="font-bold uppercase text-[10px] mr-1">Assinatura</span>
-                      <div className="w-48 border-b border-neutral-800"></div>
+                    <div className="flex items-end mb-1 w-[8cm]">
+                      <span className="font-bold uppercase text-[10px] mr-2 leading-none">ASSINATURA</span>
+                      <div className="flex-1 border-b border-neutral-800 mb-[1px]"></div>
                     </div>
                   </div>
                 </div>
