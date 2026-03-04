@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { WordEditor } from './components/Receituario/WordEditor';
 import {
   FileText,
   Download,
@@ -611,8 +612,8 @@ export const ReceituarioView = ({
               <div className="w-full max-w-[21cm] min-h-[29.7cm] bg-[#ffffff] text-[#000000] shadow-2xl mx-auto p-12 flex flex-col relative font-sans" style={{ backgroundColor: '#ffffff', color: '#000000' }}>
                 <div className="flex justify-between items-start w-full mb-8">
                   <div className="flex flex-col">
-                    <h2 className="text-[26px] font-serif text-neutral-800 outline-none italic leading-tight mb-1">{selectedProfessional?.name || 'Dr. Rafael Costa'}</h2>
-                    <div className="flex flex-col text-[10px] text-neutral-500 font-bold uppercase tracking-wider">
+                    <h2 className="text-[26px] font-serif text-black outline-none italic leading-tight mb-1">{selectedProfessional?.name || 'Dr. Rafael Costa'}</h2>
+                    <div className="flex flex-col text-[10px] text-black font-bold uppercase tracking-wider">
                       <span className="mb-0.5">{selectedProfessional?.specialty || 'DERMATOLOGISTA'}</span>
                       <span className="mb-0.5">
                         {selectedProfessional?.doc?.type || 'CRM'} {selectedProfessional?.doc?.uf || 'SP'} {selectedProfessional?.doc?.number || '11111'}
@@ -620,7 +621,7 @@ export const ReceituarioView = ({
                       <span className="mb-0.5">
                         {selectedProfessional?.rqe?.numero ? `RQE ${selectedProfessional.rqe.numero}` : 'RQE 222222'}
                       </span>
-                      <div className="flex gap-2 mt-1 lowercase font-medium text-neutral-400">
+                      <div className="flex gap-2 mt-1 lowercase font-medium text-black">
                         <span>{selectedProfessional?.phone || '11999999999'}</span>
                         <span>•</span>
                         <span>{selectedProfessional?.email || 'rafael@ig.com'}</span>
@@ -647,22 +648,22 @@ export const ReceituarioView = ({
                   <NativeRichTextEditor value={prescricao} onChange={setPrescricao} />
                 </div>
 
-                <div className="mt-auto pt-8 flex justify-between items-end w-full text-[11px] text-neutral-800">
-                  <div className="flex flex-col gap-1.5 outline-none text-neutral-500 text-[10px] font-medium mb-1" contentEditable suppressContentEditableWarning>
-                    <div className="font-bold text-neutral-700">{clinicConfig.nomeFantasia}</div>
+                <div className="mt-auto pt-8 flex justify-between items-end w-full text-[11px] text-black">
+                  <div className="flex flex-col gap-1.5 outline-none text-black text-[10px] font-medium mb-1" contentEditable suppressContentEditableWarning>
+                    <div className="font-bold text-black">{clinicConfig.nomeFantasia}</div>
                     <div className="flex items-center gap-2">
                       <div className="flex items-center gap-1.5 min-w-0">
-                        <Phone size={11} className="text-neutral-800 shrink-0 stroke-[2.5]" />
+                        <Phone size={11} className="text-black shrink-0 stroke-[2.5]" />
                         <span className="truncate">{clinicConfig.telefone}</span>
                       </div>
-                      <span className="text-neutral-300">•</span>
+                      <span className="text-black">•</span>
                       <div className="flex items-center gap-1.5 min-w-0">
-                        <Mail size={11} className="text-neutral-800 shrink-0 stroke-[2.5]" />
+                        <Mail size={11} className="text-black shrink-0 stroke-[2.5]" />
                         <span className="truncate">{clinicConfig.email}</span>
                       </div>
                     </div>
                     <div className="flex items-start gap-1.5 min-w-0">
-                      <MapPin size={11} className="text-neutral-800 shrink-0 stroke-[2.5] mt-0.5" />
+                      <MapPin size={11} className="text-black shrink-0 stroke-[2.5] mt-0.5" />
                       <div className="flex flex-col">
                         <span className="truncate">
                           {clinicConfig.logradouro}, {clinicConfig.numero}{clinicConfig.complemento ? ` - ${clinicConfig.complemento}` : ''} - {clinicConfig.bairro}
@@ -676,14 +677,14 @@ export const ReceituarioView = ({
                   <div className="flex flex-col items-end gap-4 shrink-0 ml-4">
                     <div className="border border-neutral-400 rounded-sm w-[8cm] h-[4cm] overflow-hidden flex flex-col">
                       <div className="flex border-b border-neutral-400 shrink-0">
-                        <div className="w-[30%] px-2 py-1.5 border-r border-neutral-400 text-[10px] font-bold text-neutral-700 outline-none flex flex-col justify-center" contentEditable suppressContentEditableWarning>
+                        <div className="w-[30%] px-2 py-1.5 border-r border-neutral-400 text-[10px] font-bold text-black outline-none flex flex-col justify-center" contentEditable suppressContentEditableWarning>
                           <span>DATA:</span>
                         </div>
-                        <div className="flex-1 px-2 py-1.5 text-[10px] font-bold text-neutral-700 leading-tight outline-none flex items-center bg-gray-50/50" contentEditable suppressContentEditableWarning>
+                        <div className="flex-1 px-2 py-1.5 text-[10px] font-bold text-black leading-tight outline-none flex items-center bg-gray-50/50" contentEditable suppressContentEditableWarning>
                           CARIMBO/ASSINATURA
                         </div>
                       </div>
-                      <div className="flex-1 flex items-center justify-center text-neutral-300 text-[9px]"></div>
+                      <div className="flex-1 flex items-center justify-center text-black text-[9px]"></div>
                     </div>
                     <div className="flex items-end mb-1 w-[8cm]">
                       <span className="font-bold uppercase text-[10px] mr-2 leading-none">ASSINATURA</span>
@@ -694,8 +695,151 @@ export const ReceituarioView = ({
               </div>
             )}
             {tipoReceituario === "controle_especial" && (
-              <div className="bg-[#ffffff] w-[210mm] min-h-[297mm] shadow-2xl p-[20mm] text-zinc-900 font-sans relative">
-                <WordEditor value={prescricao} onChange={setPrescricao} />
+              <div className="w-full max-w-[21cm] min-h-[29.7cm] bg-[#ffffff] text-[#000000] shadow-2xl mx-auto flex flex-col relative font-sans" style={{ backgroundColor: '#ffffff', color: '#000000', fontFamily: 'Arial, Helvetica, sans-serif' }}>
+                {/* === BORDA EXTERNA === */}
+                <div className="border-[2.5px] border-black m-4 p-6 flex flex-col flex-1" style={{ minHeight: 'calc(29.7cm - 32px)' }}>
+
+                  {/* === TÍTULO === */}
+                  <h1 className="text-center text-[22px] font-extrabold tracking-wide mb-5" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+                    RECEITUÁRIO DE CONTROLE ESPECIAL
+                  </h1>
+
+                  {/* === TOPO: EMITENTE + VIAS/ASSINATURA === */}
+                  <div className="flex gap-4 mb-6">
+                    {/* QUADRO ESQUERDO: IDENTIFICAÇÃO DO EMITENTE */}
+                    <div className="w-[55%] border-[1.5px] border-black flex flex-col">
+                      <div className="bg-gray-100 border-b-[1.5px] border-black text-center py-1.5 text-[13px] font-bold tracking-wide">
+                        IDENTIFICAÇÃO DO EMITENTE
+                      </div>
+                      <div className="p-3 text-[11px] leading-[2] space-y-0" contentEditable suppressContentEditableWarning>
+                        <div className="flex items-baseline">
+                          <span className="font-semibold mr-1">Nome Completo</span>
+                          <span className="flex-1 border-b border-black">{selectedProfessional?.name || 'Dr. Rafael Costa'}</span>
+                        </div>
+                        <div className="flex items-baseline gap-2">
+                          <span className="font-semibold mr-1">CRM</span>
+                          <span className="flex-1 border-b border-black">{selectedProfessional?.doc?.number || '11111'}</span>
+                          <span className="font-semibold mr-1">UF</span>
+                          <span className="w-10 border-b border-black text-center">{selectedProfessional?.doc?.uf || 'SP'}</span>
+                          <span className="font-semibold mr-1">No.</span>
+                          <span className="w-16 border-b border-black">&nbsp;</span>
+                        </div>
+                        <div className="flex items-baseline">
+                          <span className="font-semibold mr-1 whitespace-nowrap">Endereço Completo e Telefone</span>
+                          <span className="flex-1 border-b border-black">{clinicConfig?.logradouro || ''}, {clinicConfig?.numero || ''} - {clinicConfig?.telefone || ''}</span>
+                        </div>
+                        <div className="border-b border-black w-full">&nbsp;</div>
+                        <div className="flex items-baseline gap-2">
+                          <span className="font-semibold mr-1">Cidade:</span>
+                          <span className="flex-1 border-b border-black">{clinicConfig?.cidade || 'São Paulo'}</span>
+                          <span className="font-semibold mr-1">UF:</span>
+                          <span className="w-16 border-b border-black text-center">{clinicConfig?.estado || 'SP'}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* QUADRO DIREITO: VIAS + ASSINATURA */}
+                    <div className="w-[45%] flex flex-col justify-between py-2">
+                      <div className="text-[13px] font-bold leading-relaxed">
+                        <div>1a. VIA FARMÁCIA</div>
+                        <div>2a. VIA PACIENTE</div>
+                      </div>
+                      <div className="mt-auto pt-4">
+                        <div className="border-b border-black w-[85%] mx-auto mb-1"></div>
+                        <div className="text-[9px] font-bold text-center tracking-wide">
+                          ASSINATURA DO MÉDICO, DATA E CARIMBO
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* === CORPO: PACIENTE / ENDEREÇO / PRESCRIÇÃO === */}
+                  <div className="flex-1 flex flex-col">
+                    <div className="flex items-baseline mb-4 text-[12px]" contentEditable suppressContentEditableWarning>
+                      <span className="font-bold mr-1">Paciente:</span>
+                      <span className="flex-1 border-b border-black pb-0.5">{selectedPatientData?.name || ''}</span>
+                    </div>
+                    <div className="flex items-baseline mb-4 text-[12px]" contentEditable suppressContentEditableWarning>
+                      <span className="font-bold mr-1">Endereço:</span>
+                      <span className="flex-1 border-b border-black pb-0.5">&nbsp;</span>
+                    </div>
+
+                    {/* PRESCRIÇÃO COM LINHAS HORIZONTAIS */}
+                    <div className="flex items-baseline mb-2 text-[12px]">
+                      <span className="font-bold mr-1">Prescrição:</span>
+                      <span className="flex-1 border-b border-black pb-0.5">&nbsp;</span>
+                    </div>
+                    <div className="flex-1 relative">
+                      {/* Linhas horizontais de fundo */}
+                      <div className="absolute inset-0 pointer-events-none" style={{ backgroundImage: 'repeating-linear-gradient(to bottom, transparent, transparent 27px, #000 27px, #000 28px)', backgroundSize: '100% 28px' }}></div>
+                      <div className="relative z-10">
+                        <WordEditor value={prescricao} onChange={setPrescricao} />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* === RODAPÉ: COMPRADOR + FORNECEDOR === */}
+                  <div className="flex gap-0 mt-6">
+                    {/* QUADRO ESQUERDO: IDENTIFICAÇÃO DO COMPRADOR */}
+                    <div className="w-1/2 border-[1.5px] border-black flex flex-col">
+                      <div className="bg-gray-100 border-b-[1.5px] border-black text-center py-1.5 text-[12px] font-bold tracking-wide">
+                        IDENTIFICAÇÃO DO COMPRADOR
+                      </div>
+                      <div className="p-3 text-[10px] leading-[2.2] space-y-0" contentEditable suppressContentEditableWarning>
+                        <div className="flex items-baseline">
+                          <span className="font-semibold mr-1">Nome</span>
+                          <span className="flex-1 border-b border-black">&nbsp;</span>
+                        </div>
+                        <div className="border-b border-black w-full">&nbsp;</div>
+                        <div className="flex items-baseline gap-2">
+                          <span className="font-semibold mr-1">Ident.:</span>
+                          <span className="w-24 border-b border-black">&nbsp;</span>
+                          <span className="font-semibold mr-1">Órgão Emissor:</span>
+                          <span className="flex-1 border-b border-black">&nbsp;</span>
+                        </div>
+                        <div className="flex items-baseline">
+                          <span className="font-semibold mr-1">End.:</span>
+                          <span className="flex-1 border-b border-black">&nbsp;</span>
+                        </div>
+                        <div className="flex items-baseline gap-2">
+                          <span className="font-semibold mr-1">Cidade:</span>
+                          <span className="flex-1 border-b border-black">&nbsp;</span>
+                          <span className="font-semibold mr-1">UF:</span>
+                          <span className="w-10 border-b border-black">&nbsp;</span>
+                        </div>
+                        <div className="flex items-baseline">
+                          <span className="font-semibold mr-1">Telefone:</span>
+                          <span className="flex-1 border-b border-black">&nbsp;</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* QUADRO DIREITO: IDENTIFICAÇÃO DO FORNECEDOR */}
+                    <div className="w-1/2 border-[1.5px] border-black border-l-0 flex flex-col">
+                      <div className="bg-gray-100 border-b-[1.5px] border-black text-center py-1.5 text-[12px] font-bold tracking-wide">
+                        IDENTIFICAÇÃO DO FORNECEDOR
+                      </div>
+                      <div className="p-3 flex-1 flex flex-col justify-end text-[10px]">
+                        <div className="mt-auto">
+                          <div className="flex items-end gap-4">
+                            <div className="flex-1">
+                              <div className="border-b border-black w-full mb-1"></div>
+                              <div className="text-[9px] font-bold text-center tracking-wider">
+                                ASSINATURA DO FARMACÊUTICO
+                              </div>
+                            </div>
+                            <div className="shrink-0">
+                              <div className="text-[9px] font-bold">
+                                DATA ___/___/___
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
               </div>
             )}
           </div>
