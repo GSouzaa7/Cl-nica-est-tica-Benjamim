@@ -4134,7 +4134,9 @@ const SettingsView = ({
   setMatrixRole,
   isSaving,
   handleSave,
-  isDarkMode = true
+  isDarkMode = true,
+  clinicConfig,
+  setClinicConfig
 }: any) => {
   const [faqs, setFaqs] = useState([{ q: 'Dói fazer botox?', a: 'Utilizamos pomada anestésica de alta eficácia para garantir o máximo de conforto.' }]);
   const [workingDays, setWorkingDays] = useState([true, true, true, true, true, true, false]);
@@ -4526,26 +4528,26 @@ const SettingsView = ({
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Nome Fantasia</label>
-                    <input type="text" defaultValue="EstéticaPro" className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800 text-white" : "bg-white border-zinc-200 text-zinc-900"} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors`} />
+                    <input type="text" value={clinicConfig.nomeFantasia} onChange={e => setClinicConfig({ ...clinicConfig, nomeFantasia: e.target.value })} className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800 text-white" : "bg-white border-zinc-200 text-zinc-900"} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors`} />
                   </div>
                   <div>
                     <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Razão Social</label>
-                    <input type="text" defaultValue="EstéticaPro Clínica LTDA" className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800 text-white" : "bg-white border-zinc-200 text-zinc-900"} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors`} />
+                    <input type="text" value={clinicConfig.razaoSocial} onChange={e => setClinicConfig({ ...clinicConfig, razaoSocial: e.target.value })} className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800 text-white" : "bg-white border-zinc-200 text-zinc-900"} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors`} />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-3 gap-4">
                   <div>
                     <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">CNPJ / CPF</label>
-                    <input type="text" defaultValue="00.000.000/0001-00" className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800 text-white" : "bg-white border-zinc-200 text-zinc-900"} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors`} />
+                    <input type="text" value={clinicConfig.cnpj} onChange={e => setClinicConfig({ ...clinicConfig, cnpj: e.target.value })} className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800 text-white" : "bg-white border-zinc-200 text-zinc-900"} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors`} />
                   </div>
                   <div>
                     <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Inscrição Municipal</label>
-                    <input type="text" placeholder="Opcional" className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800 text-white" : "bg-white border-zinc-200 text-zinc-900"} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors`} />
+                    <input type="text" value={clinicConfig.inscricaoMunicipal} onChange={e => setClinicConfig({ ...clinicConfig, inscricaoMunicipal: e.target.value })} placeholder="Opcional" className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800 text-white" : "bg-white border-zinc-200 text-zinc-900"} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors`} />
                   </div>
                   <div>
                     <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Inscrição Estadual</label>
-                    <input type="text" placeholder="Opcional" className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800 text-white" : "bg-white border-zinc-200 text-zinc-900"} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors`} />
+                    <input type="text" value={clinicConfig.inscricaoEstadual} onChange={e => setClinicConfig({ ...clinicConfig, inscricaoEstadual: e.target.value })} placeholder="Opcional" className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800 text-white" : "bg-white border-zinc-200 text-zinc-900"} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors`} />
                   </div>
                 </div>
               </div>
@@ -4568,48 +4570,48 @@ const SettingsView = ({
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">E-mail Principal</label>
-                    <input type="email" defaultValue="contato@esteticapro.com" className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800 text-white" : "bg-white border-zinc-200 text-zinc-900"} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors`} />
+                    <input type="email" value={clinicConfig.email} onChange={e => setClinicConfig({ ...clinicConfig, email: e.target.value })} className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800 text-white" : "bg-white border-zinc-200 text-zinc-900"} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors`} />
                   </div>
                   <div>
                     <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Telefone / WhatsApp</label>
-                    <input type="text" defaultValue="(11) 99999-9999" className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800 text-white" : "bg-white border-zinc-200 text-zinc-900"} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors`} />
+                    <input type="text" value={clinicConfig.telefone} onChange={e => setClinicConfig({ ...clinicConfig, telefone: e.target.value })} className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800 text-white" : "bg-white border-zinc-200 text-zinc-900"} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors`} />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-4 gap-4">
                   <div className="col-span-1">
                     <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">CEP</label>
-                    <input type="text" defaultValue="00000-000" className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800 text-white" : "bg-white border-zinc-200 text-zinc-900"} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors`} />
+                    <input type="text" value={clinicConfig.cep} onChange={e => setClinicConfig({ ...clinicConfig, cep: e.target.value })} className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800 text-white" : "bg-white border-zinc-200 text-zinc-900"} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors`} />
                   </div>
                   <div className="col-span-3">
                     <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Logradouro</label>
-                    <input type="text" defaultValue="Av. Paulista" className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800 text-white" : "bg-white border-zinc-200 text-zinc-900"} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors`} />
+                    <input type="text" value={clinicConfig.logradouro} onChange={e => setClinicConfig({ ...clinicConfig, logradouro: e.target.value })} className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800 text-white" : "bg-white border-zinc-200 text-zinc-900"} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors`} />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-4 gap-4">
                   <div className="col-span-1">
                     <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Número</label>
-                    <input type="text" defaultValue="1000" className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800 text-white" : "bg-white border-zinc-200 text-zinc-900"} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors`} />
+                    <input type="text" value={clinicConfig.numero} onChange={e => setClinicConfig({ ...clinicConfig, numero: e.target.value })} className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800 text-white" : "bg-white border-zinc-200 text-zinc-900"} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors`} />
                   </div>
                   <div className="col-span-1">
                     <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Complemento</label>
-                    <input type="text" placeholder="Sala 101" className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800 text-white" : "bg-white border-zinc-200 text-zinc-900"} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors`} />
+                    <input type="text" value={clinicConfig.complemento} onChange={e => setClinicConfig({ ...clinicConfig, complemento: e.target.value })} placeholder="Sala 101" className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800 text-white" : "bg-white border-zinc-200 text-zinc-900"} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors`} />
                   </div>
                   <div className="col-span-2">
                     <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Bairro</label>
-                    <input type="text" defaultValue="Bela Vista" className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800 text-white" : "bg-white border-zinc-200 text-zinc-900"} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors`} />
+                    <input type="text" value={clinicConfig.bairro} onChange={e => setClinicConfig({ ...clinicConfig, bairro: e.target.value })} className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800 text-white" : "bg-white border-zinc-200 text-zinc-900"} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors`} />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-3 gap-4">
                   <div className="col-span-2">
                     <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Cidade</label>
-                    <input type="text" defaultValue="São Paulo" className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800 text-white" : "bg-white border-zinc-200 text-zinc-900"} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors`} />
+                    <input type="text" value={clinicConfig.cidade} onChange={e => setClinicConfig({ ...clinicConfig, cidade: e.target.value })} className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800 text-white" : "bg-white border-zinc-200 text-zinc-900"} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors`} />
                   </div>
                   <div className="col-span-1">
                     <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Estado</label>
-                    <select className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800 text-white" : "bg-white border-zinc-200 text-zinc-900"} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors`}>
+                    <select value={clinicConfig.estado} onChange={e => setClinicConfig({ ...clinicConfig, estado: e.target.value })} className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800 text-white" : "bg-white border-zinc-200 text-zinc-900"} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors`}>
                       <option value="SP">SP</option>
                       <option value="RJ">RJ</option>
                       <option value="MG">MG</option>
@@ -5356,6 +5358,22 @@ export default function App() {
   const [chatHistory, setChatHistory] = useState([
     { role: 'assistant', text: 'Olá! Sou o Estetix AI. Como posso ajudar com a gestão da sua clínica hoje?' }
   ]);
+  const [clinicConfig, setClinicConfig] = useState({
+    nomeFantasia: 'EstéticaPro',
+    razaoSocial: 'EstéticaPro Clínica LTDA',
+    cnpj: '00.000.000/0001-00',
+    inscricaoMunicipal: '',
+    inscricaoEstadual: '',
+    email: 'contato@esteticapro.com',
+    telefone: '(11) 99999-9999',
+    cep: '00000-000',
+    logradouro: 'Av. Paulista',
+    numero: '1000',
+    complemento: 'Sala 101',
+    bairro: 'Bela Vista',
+    cidade: 'São Paulo',
+    estado: 'SP'
+  });
 
   // Sync theme class on <html> element for CSS custom properties
   React.useEffect(() => {
@@ -5588,6 +5606,8 @@ export default function App() {
             isSaving={isSaving}
             handleSave={handleSave}
             isDarkMode={isDarkMode}
+            clinicConfig={clinicConfig}
+            setClinicConfig={setClinicConfig}
           />
         ) : activeMenu === 'Dashboard' ? (
           <DashboardView inventory={inventory} setActiveMenu={setActiveMenu} isDarkMode={isDarkMode} />
@@ -5598,7 +5618,7 @@ export default function App() {
         ) : activeMenu === 'Clientes' ? (
           <ClientesView patients={patients} setPatients={setPatients} onGenerateReceituario={handleGenerateReceituario} isDarkMode={isDarkMode} />
         ) : activeMenu === 'Receituário' ? (
-          <ReceituarioView patients={patients} professionals={professionals} selectedPatientId={selectedPatientForReceituario} isDarkMode={isDarkMode} />
+          <ReceituarioView patients={patients} professionals={professionals} selectedPatientId={selectedPatientForReceituario} isDarkMode={isDarkMode} clinicConfig={clinicConfig} />
         ) : activeMenu === 'Profissionais' ? (
           <ProfissionaisView professionals={professionals} setProfessionals={setProfessionals} isDarkMode={isDarkMode} />
         ) : activeMenu === 'Serviços' ? (
