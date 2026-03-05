@@ -560,9 +560,14 @@ const SERVICE_INVENTORY_MAP: Record<string, string> = {
 const AgendaView = ({ professionals, services = [], onCompleteService, isDarkMode = true }: any) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedTime, setSelectedTime] = useState('08:00');
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
+  const [datePickerMonth, setDatePickerMonth] = useState(new Date().getMonth());
+  const [datePickerYear, setDatePickerYear] = useState(new Date().getFullYear());
   const [selectedService, setSelectedService] = useState('');
   const [selectedProfessional, setSelectedProfessional] = useState('');
   const [isProfDropdownOpen, setIsProfDropdownOpen] = useState(false);
+  const [isTimeDropdownOpen, setIsTimeDropdownOpen] = useState(false);
   const [isServiceDropdownOpen, setIsServiceDropdownOpen] = useState(false);
   const [patientName, setPatientName] = useState('');
   const [appointments, setAppointments] = useState<any[]>([]);
@@ -829,24 +834,120 @@ const AgendaView = ({ professionals, services = [], onCompleteService, isDarkMod
               </div>
 
               <div className="grid grid-cols-2 gap-4">
-                <div>
+                <div className="relative">
                   <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Data</label>
-                  <input
-                    type="date"
-                    className={`w-full bg-[#050505] border border-zinc-800 rounded-xl px-4 py-3 ${isDarkMode ? "text-white" : "text-zinc-900"} focus:outline-none focus:border-orange-500 transition-colors`}
-                  />
+                  <button
+                    type="button"
+                    onClick={() => setIsDatePickerOpen(!isDatePickerOpen)}
+                    className={`w-full flex items-center justify-between ${isDarkMode ? 'bg-[#050505] border-zinc-800 text-white' : 'bg-white border-zinc-200 text-zinc-900'} border rounded-xl px-4 py-3 focus:outline-none focus:border-orange-500 transition-colors text-left text-sm`}
+                  >
+                    <span className={selectedDate ? '' : 'text-zinc-500'}>
+                      {selectedDate ? selectedDate.toLocaleDateString('pt-BR') : 'dd/mm/aaaa'}
+                    </span>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-zinc-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>
+                  </button>
+                  {isDatePickerOpen && (
+                    <>
+                      <div className="fixed inset-0 z-40" onClick={() => setIsDatePickerOpen(false)} />
+                      <div className={`absolute z-50 mt-2 left-0 rounded-xl border shadow-2xl p-4 w-[280px] ${isDarkMode ? 'border-zinc-700/50 bg-[#0a0a0a]' : 'border-zinc-200 bg-white'}`}>
+                        {/* Header */}
+                        <div className="flex items-center justify-between mb-4">
+                          <button type="button" onClick={() => { if (datePickerMonth === 0) { setDatePickerMonth(11); setDatePickerYear(datePickerYear - 1); } else { setDatePickerMonth(datePickerMonth - 1); } }} className={`p-1 rounded-lg ${isDarkMode ? 'hover:bg-white/10 text-zinc-400' : 'hover:bg-zinc-100 text-zinc-500'} transition-colors`}>
+                            <ChevronDown className="w-4 h-4 rotate-90" />
+                          </button>
+                          <span className={`text-sm font-medium ${isDarkMode ? 'text-white' : 'text-zinc-900'}`}>
+                            {new Date(datePickerYear, datePickerMonth).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }).replace(/^./, s => s.toUpperCase())}
+                          </span>
+                          <button type="button" onClick={() => { if (datePickerMonth === 11) { setDatePickerMonth(0); setDatePickerYear(datePickerYear + 1); } else { setDatePickerMonth(datePickerMonth + 1); } }} className={`p-1 rounded-lg ${isDarkMode ? 'hover:bg-white/10 text-zinc-400' : 'hover:bg-zinc-100 text-zinc-500'} transition-colors`}>
+                            <ChevronDown className="w-4 h-4 -rotate-90" />
+                          </button>
+                        </div>
+                        {/* Day headers */}
+                        <div className="grid grid-cols-7 gap-1 mb-2">
+                          {['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((d, i) => (
+                            <div key={i} className="text-center text-[10px] font-medium text-zinc-500 py-1">{d}</div>
+                          ))}
+                        </div>
+                        {/* Days grid */}
+                        <div className="grid grid-cols-7 gap-1">
+                          {(() => {
+                            const firstDay = new Date(datePickerYear, datePickerMonth, 1).getDay();
+                            const daysInMonth = new Date(datePickerYear, datePickerMonth + 1, 0).getDate();
+                            const today = new Date();
+                            const cells = [];
+                            for (let i = 0; i < firstDay; i++) {
+                              cells.push(<div key={`empty-${i}`} />);
+                            }
+                            for (let day = 1; day <= daysInMonth; day++) {
+                              const isToday = today.getDate() === day && today.getMonth() === datePickerMonth && today.getFullYear() === datePickerYear;
+                              const isSelected = selectedDate && selectedDate.getDate() === day && selectedDate.getMonth() === datePickerMonth && selectedDate.getFullYear() === datePickerYear;
+                              cells.push(
+                                <button
+                                  key={day}
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedDate(new Date(datePickerYear, datePickerMonth, day));
+                                    setIsDatePickerOpen(false);
+                                  }}
+                                  className={`w-8 h-8 rounded-full text-xs font-medium flex items-center justify-center transition-all ${isSelected
+                                    ? 'bg-orange-500 text-white shadow-[0_0_10px_rgba(249,115,22,0.4)]'
+                                    : isToday
+                                      ? 'bg-orange-500/20 text-orange-500 font-bold'
+                                      : isDarkMode ? 'text-zinc-300 hover:bg-white/10' : 'text-zinc-700 hover:bg-zinc-100'
+                                    }`}
+                                >
+                                  {day}
+                                </button>
+                              );
+                            }
+                            return cells;
+                          })()}
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </div>
                 <div>
                   <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Horário</label>
-                  <input
-                    type="time"
-                    value={selectedTime}
-                    onChange={(e) => setSelectedTime(e.target.value)}
-                    min="08:00"
-                    max="19:30"
-                    step="1800"
-                    className={`w-full bg-[#050505] border border-zinc-800 rounded-xl px-4 py-3 ${isDarkMode ? "text-white" : "text-zinc-900"} focus:outline-none focus:border-orange-500 transition-colors`}
-                  />
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setIsTimeDropdownOpen(!isTimeDropdownOpen)}
+                      className={`w-full flex items-center justify-between ${isDarkMode ? 'bg-[#050505] border-zinc-800 text-white' : 'bg-white border-zinc-200 text-zinc-900'} border rounded-xl px-4 py-3 focus:outline-none focus:border-orange-500 transition-colors text-left text-sm`}
+                    >
+                      <span className={selectedTime ? '' : 'text-zinc-500'}>
+                        {selectedTime || 'Selecione...'}
+                      </span>
+                      <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-zinc-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
+                    </button>
+                    {isTimeDropdownOpen && (
+                      <>
+                        <div className="fixed inset-0 z-40" onClick={() => setIsTimeDropdownOpen(false)} />
+                        <div className={`absolute z-50 mt-2 left-0 w-full rounded-xl border shadow-2xl max-h-48 overflow-y-auto custom-scrollbar ${isDarkMode ? 'border-zinc-700/50 bg-[#0a0a0a]' : 'border-zinc-200 bg-white'}`}>
+                          {(() => {
+                            const times = [];
+                            for (let h = 8; h <= 19; h++) {
+                              times.push(`${h.toString().padStart(2, '0')}:00`);
+                              if (h !== 19 || true) times.push(`${h.toString().padStart(2, '0')}:30`);
+                            }
+                            return times.map((t) => (
+                              <button
+                                key={t}
+                                type="button"
+                                onClick={() => { setSelectedTime(t); setIsTimeDropdownOpen(false); }}
+                                className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${selectedTime === t
+                                    ? 'bg-gradient-to-r from-orange-600/30 to-transparent text-orange-500 font-medium'
+                                    : isDarkMode ? 'text-white hover:bg-white/5' : 'text-zinc-900 hover:bg-zinc-100'
+                                  }`}
+                              >
+                                {t}
+                              </button>
+                            ));
+                          })()}
+                        </div>
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -864,9 +965,9 @@ const AgendaView = ({ professionals, services = [], onCompleteService, isDarkMod
                   {isProfDropdownOpen && (
                     <>
                       <div className="fixed inset-0 z-40" onClick={() => setIsProfDropdownOpen(false)} />
-                      <div className={`absolute top-full left-0 w-full mt-2 z-50 rounded-xl border shadow-xl overflow-hidden ${isDarkMode ? "bg-[#121214] border-zinc-800" : "bg-white border-zinc-200"}`}>
+                      <div className={`absolute top-full left-0 w-full mt-2 z-50 rounded-xl border shadow-2xl overflow-hidden ${isDarkMode ? "border-zinc-700/50 bg-[#0a0a0a]" : "border-zinc-200 bg-white"}`}>
                         {(professionals || []).map((prof: any) => (
-                          <button key={prof.id} type="button" onClick={() => { setSelectedProfessional(prof.id); setIsProfDropdownOpen(false); }} className={`w-full text-left px-4 py-2.5 text-sm transition-colors relative z-50 ${selectedProfessional === prof.id ? 'bg-orange-500/10 text-orange-500 font-medium' : (isDarkMode ? 'text-zinc-300 hover:bg-zinc-800' : 'text-zinc-700 hover:bg-zinc-100')}`}>{prof.name}</button>
+                          <button key={prof.id} type="button" onClick={() => { setSelectedProfessional(prof.id); setIsProfDropdownOpen(false); }} className={`w-full text-left px-4 py-2.5 text-sm transition-colors relative z-50 ${selectedProfessional === prof.id ? 'bg-gradient-to-r from-orange-600/30 to-transparent text-orange-500 font-medium' : (isDarkMode ? 'text-white hover:bg-white/5' : 'text-zinc-900 hover:bg-zinc-100')}`}>{prof.name}</button>
                         ))}
                       </div>
                     </>
@@ -888,9 +989,9 @@ const AgendaView = ({ professionals, services = [], onCompleteService, isDarkMod
                   {isServiceDropdownOpen && (
                     <>
                       <div className="fixed inset-0 z-40" onClick={() => setIsServiceDropdownOpen(false)} />
-                      <div className={`absolute top-full left-0 w-full mt-2 z-50 rounded-xl border shadow-xl overflow-hidden max-h-48 overflow-y-auto custom-scrollbar ${isDarkMode ? "bg-[#121214] border-zinc-800" : "bg-white border-zinc-200"}`}>
+                      <div className={`absolute top-full left-0 w-full mt-2 z-50 rounded-xl border shadow-2xl overflow-hidden max-h-48 overflow-y-auto custom-scrollbar ${isDarkMode ? "border-zinc-700/50 bg-[#0a0a0a]" : "border-zinc-200 bg-white"}`}>
                         {(services || []).map((service: any) => (
-                          <button key={service.id} type="button" onClick={() => { setSelectedService(service.id); setIsServiceDropdownOpen(false); }} className={`w-full text-left px-4 py-2.5 text-sm transition-colors relative z-50 ${selectedService === service.id ? 'bg-orange-500/10 text-orange-500 font-medium' : (isDarkMode ? 'text-zinc-300 hover:bg-zinc-800' : 'text-zinc-700 hover:bg-zinc-100')}`}>{service.name}</button>
+                          <button key={service.id} type="button" onClick={() => { setSelectedService(service.id); setIsServiceDropdownOpen(false); }} className={`w-full text-left px-4 py-2.5 text-sm transition-colors relative z-50 ${selectedService === service.id ? 'bg-gradient-to-r from-orange-600/30 to-transparent text-orange-500 font-medium' : (isDarkMode ? 'text-white hover:bg-white/5' : 'text-zinc-900 hover:bg-zinc-100')}`}>{service.name}</button>
                         ))}
                       </div>
                     </>
@@ -1020,6 +1121,7 @@ const CrmView = ({ patients, setPatients, columns, setColumns, onGenerateReceitu
   const [isRecording, setIsRecording] = useState(false);
   const [transcription, setTranscription] = useState('');
   const [recordType, setRecordType] = useState('Evolução');
+  const [isRecordTypeDropdownOpen, setIsRecordTypeDropdownOpen] = useState(false);
   const recognitionRef = useRef<any>(null);
 
   const [editName, setEditName] = useState('');
@@ -1390,15 +1492,33 @@ const CrmView = ({ patients, setPatients, columns, setColumns, onGenerateReceitu
                     {isRecording ? 'Parar Gravação' : 'Gravar Áudio'}
                   </button>
 
-                  <select
-                    value={recordType}
-                    onChange={(e) => setRecordType(e.target.value)}
-                    className={`bg-[#0a0a0a] border border-zinc-800 rounded-xl px-4 py-2 ${isDarkMode ? "text-white" : "text-zinc-900"} text-sm focus:outline-none focus:border-orange-500`}
-                  >
-                    <option>Evolução</option>
-                    <option>Anamnese</option>
-                    <option>Procedimento</option>
-                  </select>
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setIsRecordTypeDropdownOpen(!isRecordTypeDropdownOpen)}
+                      className={`flex items-center gap-2 ${isDarkMode ? 'bg-[#0a0a0a] border-zinc-800 text-white' : 'bg-white border-zinc-200 text-zinc-900'} border rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-orange-500 transition-colors`}
+                    >
+                      <span>{recordType}</span>
+                      <ChevronDown className={`w-4 h-4 text-zinc-400 transition-transform ${isRecordTypeDropdownOpen ? 'rotate-180' : ''}`} />
+                    </button>
+                    {isRecordTypeDropdownOpen && (
+                      <div className={`absolute z-50 w-full mt-1 rounded-xl border shadow-2xl overflow-hidden ${isDarkMode ? 'border-zinc-700/50 bg-[#0a0a0a]' : 'border-zinc-200 bg-white'}`}>
+                        {['Evolução', 'Anamnese', 'Procedimento'].map((opt) => (
+                          <button
+                            key={opt}
+                            type="button"
+                            onClick={() => { setRecordType(opt); setIsRecordTypeDropdownOpen(false); }}
+                            className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${recordType === opt
+                              ? 'bg-gradient-to-r from-orange-600/30 to-transparent text-orange-500 font-medium'
+                              : isDarkMode ? 'text-white hover:bg-white/5' : 'text-zinc-900 hover:bg-zinc-100'
+                              }`}
+                          >
+                            {opt}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
 
                   <span className="text-zinc-500 text-sm ml-auto">{new Date().toLocaleDateString('pt-BR')}</span>
                 </div>
@@ -1464,6 +1584,7 @@ const ClientesView = ({ patients, setPatients, onGenerateReceituario, isDarkMode
   const [isRecording, setIsRecording] = useState(false);
   const [transcription, setTranscription] = useState('');
   const [recordType, setRecordType] = useState('Evolução');
+  const [isRecordTypeDropdownOpen, setIsRecordTypeDropdownOpen] = useState(false);
   const recognitionRef = useRef<any>(null);
 
   const [editName, setEditName] = useState('');
@@ -1825,15 +1946,33 @@ const ClientesView = ({ patients, setPatients, onGenerateReceituario, isDarkMode
                     {isRecording ? 'Parar Gravação' : 'Gravar Áudio'}
                   </button>
 
-                  <select
-                    value={recordType}
-                    onChange={(e) => setRecordType(e.target.value)}
-                    className={`bg-[#0a0a0a] border border-zinc-800 rounded-xl px-4 py-2 ${isDarkMode ? "text-white" : "text-zinc-900"} text-sm focus:outline-none focus:border-orange-500`}
-                  >
-                    <option>Evolução</option>
-                    <option>Anamnese</option>
-                    <option>Procedimento</option>
-                  </select>
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setIsRecordTypeDropdownOpen(!isRecordTypeDropdownOpen)}
+                      className={`flex items-center gap-2 ${isDarkMode ? 'bg-[#0a0a0a] border-zinc-800 text-white' : 'bg-white border-zinc-200 text-zinc-900'} border rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-orange-500 transition-colors`}
+                    >
+                      <span>{recordType}</span>
+                      <ChevronDown className={`w-4 h-4 text-zinc-400 transition-transform ${isRecordTypeDropdownOpen ? 'rotate-180' : ''}`} />
+                    </button>
+                    {isRecordTypeDropdownOpen && (
+                      <div className={`absolute z-50 w-full mt-1 rounded-xl border shadow-2xl overflow-hidden ${isDarkMode ? 'border-zinc-700/50 bg-[#0a0a0a]' : 'border-zinc-200 bg-white'}`}>
+                        {['Evolução', 'Anamnese', 'Procedimento'].map((opt) => (
+                          <button
+                            key={opt}
+                            type="button"
+                            onClick={() => { setRecordType(opt); setIsRecordTypeDropdownOpen(false); }}
+                            className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${recordType === opt
+                              ? 'bg-gradient-to-r from-orange-600/30 to-transparent text-orange-500 font-medium'
+                              : isDarkMode ? 'text-white hover:bg-white/5' : 'text-zinc-900 hover:bg-zinc-100'
+                              }`}
+                          >
+                            {opt}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
 
                   <span className="text-zinc-500 text-sm ml-auto">{new Date().toLocaleDateString('pt-BR')}</span>
                 </div>
@@ -1896,6 +2035,7 @@ const ProfissionaisView = ({ professionals, setProfessionals, isDarkMode = true 
   const [specialty, setSpecialty] = useState('');
   const [color, setColor] = useState('#f97316');
   const [docType, setDocType] = useState('CRM');
+  const [isDocDropdownOpen, setIsDocDropdownOpen] = useState(false);
   const [docNumber, setDocNumber] = useState('');
   const [docUF, setDocUF] = useState('');
   const [telefone, setTelefone] = useState("");
@@ -2070,11 +2210,40 @@ const ProfissionaisView = ({ professionals, setProfessionals, isDarkMode = true 
                   <input value={name} onChange={(e) => setName(e.target.value)} className="w-full bg-[#050505] border border-zinc-800 rounded-xl px-4 py-3 text-white focus:border-orange-500 outline-none" />
                 </div>
                 <div className="grid grid-cols-12 gap-3">
-                  <div className="col-span-5">
+                  <div className="col-span-5 relative">
                     <label className="block text-[10px] font-bold text-zinc-500 mb-1">DOCUMENTO</label>
-                    <select value={docType} onChange={(e) => setDocType(e.target.value)} className="w-full bg-[#050505] border border-zinc-800 rounded-xl px-3 py-3 text-sm text-white outline-none focus:border-orange-500">
-                      {['CRM', 'CRO', 'COREN', 'CRBM', 'Outros'].map(t => <option key={t} value={t}>{t}</option>)}
-                    </select>
+                    {(() => {
+                      const docOptions = ['CRM', 'CRO', 'COREN', 'CRBM', 'Outros'];
+                      return (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => setIsDocDropdownOpen(!isDocDropdownOpen)}
+                            className={`w-full flex items-center justify-between ${isDarkMode ? 'bg-[#050505] border-zinc-800 text-white' : 'bg-white border-zinc-200 text-zinc-900'} border rounded-xl px-3 py-3 text-sm focus:outline-none focus:border-orange-500 transition-colors text-left`}
+                          >
+                            <span>{docType}</span>
+                            <ChevronDown className={`w-4 h-4 text-zinc-400 transition-transform ${isDocDropdownOpen ? 'rotate-180' : ''}`} />
+                          </button>
+                          {isDocDropdownOpen && (
+                            <div className={`absolute z-50 w-full mt-1 rounded-xl border shadow-2xl overflow-hidden ${isDarkMode ? 'border-zinc-700/50 bg-[#0a0a0a]' : 'border-zinc-200 bg-white'}`}>
+                              {docOptions.map((opt) => (
+                                <button
+                                  key={opt}
+                                  type="button"
+                                  onClick={() => { setDocType(opt); setIsDocDropdownOpen(false); }}
+                                  className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${docType === opt
+                                    ? 'bg-gradient-to-r from-orange-600/30 to-transparent text-orange-500 font-medium'
+                                    : isDarkMode ? 'text-white hover:bg-white/5' : 'text-zinc-900 hover:bg-zinc-100'
+                                    }`}
+                                >
+                                  {opt}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
                   </div>
                   <div className="col-span-4">
                     <label className="block text-[10px] font-bold text-zinc-500 mb-1">NÚMERO</label>
@@ -2214,6 +2383,7 @@ const ServicosView = ({ services, setServices, inventory, isDarkMode = true }: a
 
   const [name, setName] = useState('');
   const [category, setCategory] = useState('Outros');
+  const [isCatDropdownOpen, setIsCatDropdownOpen] = useState(false);
   const [duration, setDuration] = useState('');
   const [price, setPrice] = useState('');
   const [tax, setTax] = useState('');
@@ -2221,6 +2391,7 @@ const ServicosView = ({ services, setServices, inventory, isDarkMode = true }: a
   const [transactionFee, setTransactionFee] = useState('');
   const [description, setDescription] = useState('');
   const [serviceItems, setServiceItems] = useState<{ id: string, itemId: string, quantity: number }[]>([]);
+  const [openInsumoId, setOpenInsumoId] = useState<string | null>(null);
 
   const [desiredMargin, setDesiredMargin] = useState('60');
 
@@ -2483,17 +2654,40 @@ const ServicosView = ({ services, setServices, inventory, isDarkMode = true }: a
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
-                    <div>
+                    <div className="relative">
                       <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Categoria</label>
-                      <select
-                        value={category}
-                        onChange={(e) => setCategory(e.target.value)}
-                        className={`w-full bg-[#050505] border border-zinc-800 rounded-xl px-4 py-3 ${isDarkMode ? "text-white" : "text-zinc-900"} focus:outline-none focus:border-orange-500 transition-colors`}
-                      >
-                        {categories.filter(c => c !== 'Todos').map(cat => (
-                          <option key={cat} value={cat}>{cat}</option>
-                        ))}
-                      </select>
+                      {(() => {
+                        const catOptions = categories.filter(c => c !== 'Todos');
+                        return (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => setIsCatDropdownOpen(!isCatDropdownOpen)}
+                              className={`w-full flex items-center justify-between ${isDarkMode ? 'bg-[#050505] border-zinc-800 text-white' : 'bg-white border-zinc-200 text-zinc-900'} border rounded-xl px-4 py-3 focus:outline-none focus:border-orange-500 transition-colors text-left text-sm`}
+                            >
+                              <span>{category}</span>
+                              <ChevronDown className={`w-4 h-4 text-zinc-400 transition-transform ${isCatDropdownOpen ? 'rotate-180' : ''}`} />
+                            </button>
+                            {isCatDropdownOpen && (
+                              <div className={`absolute z-50 w-full mt-1 rounded-xl border shadow-2xl overflow-hidden ${isDarkMode ? 'border-zinc-700/50 bg-[#0a0a0a]' : 'border-zinc-200 bg-white'}`}>
+                                {catOptions.map((cat) => (
+                                  <button
+                                    key={cat}
+                                    type="button"
+                                    onClick={() => { setCategory(cat); setIsCatDropdownOpen(false); }}
+                                    className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${category === cat
+                                      ? 'bg-gradient-to-r from-orange-600/30 to-transparent text-orange-500 font-medium'
+                                      : isDarkMode ? 'text-white hover:bg-white/5' : 'text-zinc-900 hover:bg-zinc-100'
+                                      }`}
+                                  >
+                                    {cat}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </>
+                        );
+                      })()}
                     </div>
                     <div>
                       <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Duração (Min)</label>
@@ -2526,16 +2720,38 @@ const ServicosView = ({ services, setServices, inventory, isDarkMode = true }: a
                       <div className="flex flex-col gap-3">
                         {serviceItems.map(item => (
                           <div key={item.id} className="flex items-center gap-2">
-                            <select
-                              value={item.itemId}
-                              onChange={(e) => handleItemChange(item.id, 'itemId', e.target.value)}
-                              className={`flex-1 bg-[#121214] border border-zinc-800 rounded-lg px-3 py-2 ${isDarkMode ? "text-white" : "text-zinc-900"} text-sm focus:outline-none focus:border-orange-500`}
-                            >
-                              <option value="">Buscar no estoque...</option>
-                              {inventory.map((inv: any) => (
-                                <option key={inv.id} value={inv.id}>{inv.name} - {formatCurrency(inv.price)}</option>
-                              ))}
-                            </select>
+                            <div className="relative flex-1">
+                              <button
+                                type="button"
+                                onClick={() => setOpenInsumoId(openInsumoId === item.id ? null : item.id)}
+                                className={`w-full flex items-center justify-between ${isDarkMode ? 'bg-[#121214] border-zinc-800 text-white' : 'bg-white border-zinc-200 text-zinc-900'} border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-orange-500 transition-colors text-left`}
+                              >
+                                <span className={item.itemId ? '' : 'text-zinc-500'}>
+                                  {item.itemId
+                                    ? (() => { const inv = inventory.find((i: any) => i.id === item.itemId); return inv ? `${inv.name} - ${formatCurrency(inv.price)}` : 'Buscar no estoque...'; })()
+                                    : 'Buscar no estoque...'}
+                                </span>
+                                <ChevronDown className={`w-4 h-4 text-zinc-400 transition-transform ${openInsumoId === item.id ? 'rotate-180' : ''}`} />
+                              </button>
+                              {openInsumoId === item.id && (
+                                <div className={`absolute z-50 w-full mt-1 rounded-xl border shadow-2xl overflow-hidden ${isDarkMode ? 'border-zinc-700/50 bg-[#0a0a0a]' : 'border-zinc-200 bg-white'}`}>
+                                  <div className={`px-4 py-2 text-xs ${isDarkMode ? 'text-zinc-500' : 'text-zinc-400'} border-b ${isDarkMode ? 'border-zinc-800' : 'border-zinc-200'}`}>Buscar no estoque...</div>
+                                  {inventory.map((inv: any) => (
+                                    <button
+                                      key={inv.id}
+                                      type="button"
+                                      onClick={() => { handleItemChange(item.id, 'itemId', inv.id); setOpenInsumoId(null); }}
+                                      className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${item.itemId === inv.id
+                                        ? 'bg-gradient-to-r from-orange-600/30 to-transparent text-orange-500 font-medium'
+                                        : isDarkMode ? 'text-white hover:bg-white/5' : 'text-zinc-900 hover:bg-zinc-100'
+                                        }`}
+                                    >
+                                      {inv.name} - {formatCurrency(inv.price)}
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
                             <input
                               type="number"
                               value={item.quantity}
@@ -2764,6 +2980,7 @@ const EstoqueView = ({ inventory, setInventory, isDarkMode = true }: any) => {
 
   const [name, setName] = useState('');
   const [category, setCategory] = useState('Insumos');
+  const [isCatDropdownOpen, setIsCatDropdownOpen] = useState(false);
   const [price, setPrice] = useState('');
   const [salePrice, setSalePrice] = useState('');
   const [stock, setStock] = useState('');
@@ -2994,17 +3211,39 @@ const EstoqueView = ({ inventory, setInventory, isDarkMode = true }: any) => {
                 />
               </div>
 
-              <div>
+              <div className="relative">
                 <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Categoria</label>
-                <select
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value)}
-                  className={`w-full bg-[#050505] border border-zinc-800 rounded-xl px-4 py-3 ${isDarkMode ? "text-white" : "text-zinc-900"} focus:outline-none focus:border-orange-500 transition-colors`}
-                >
-                  {categories.map(cat => (
-                    <option key={cat} value={cat}>{cat}</option>
-                  ))}
-                </select>
+                {(() => {
+                  return (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => setIsCatDropdownOpen(!isCatDropdownOpen)}
+                        className={`w-full flex items-center justify-between ${isDarkMode ? 'bg-[#050505] border-zinc-800 text-white' : 'bg-white border-zinc-200 text-zinc-900'} border rounded-xl px-4 py-3 focus:outline-none focus:border-orange-500 transition-colors text-left text-sm`}
+                      >
+                        <span>{category}</span>
+                        <ChevronDown className={`w-4 h-4 text-zinc-400 transition-transform ${isCatDropdownOpen ? 'rotate-180' : ''}`} />
+                      </button>
+                      {isCatDropdownOpen && (
+                        <div className={`absolute z-50 w-full mt-1 rounded-xl border shadow-2xl overflow-hidden ${isDarkMode ? 'border-zinc-700/50 bg-[#0a0a0a]' : 'border-zinc-200 bg-white'}`}>
+                          {categories.map((cat) => (
+                            <button
+                              key={cat}
+                              type="button"
+                              onClick={() => { setCategory(cat); setIsCatDropdownOpen(false); }}
+                              className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${category === cat
+                                ? 'bg-gradient-to-r from-orange-600/30 to-transparent text-orange-500 font-medium'
+                                : isDarkMode ? 'text-white hover:bg-white/5' : 'text-zinc-900 hover:bg-zinc-100'
+                                }`}
+                            >
+                              {cat}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -3083,6 +3322,7 @@ const FinanceiroView = ({ expenses, setExpenses, isDarkMode = true }: any) => {
 
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState('Outros');
+  const [isCatDropdownOpen, setIsCatDropdownOpen] = useState(false);
   const [quantity, setQuantity] = useState('1');
   const [value, setValue] = useState('');
   const [dueDate, setDueDate] = useState('');
@@ -3570,17 +3810,39 @@ const FinanceiroView = ({ expenses, setExpenses, isDarkMode = true }: any) => {
               </div>
 
               <div className="grid grid-cols-2 gap-4">
-                <div>
+                <div className="relative">
                   <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Categoria</label>
-                  <select
-                    value={category}
-                    onChange={(e) => setCategory(e.target.value)}
-                    className={`w-full ${isDarkMode ? "bg-[#050505] border-zinc-800" : "bg-[var(--bg-surface)] border-[var(--border-default)]"} border rounded-xl px-4 py-3 ${isDarkMode ? "text-white" : "text-zinc-900"} focus:outline-none focus:border-orange-500 transition-colors`}
-                  >
-                    {categories.map(cat => (
-                      <option key={cat} value={cat}>{cat}</option>
-                    ))}
-                  </select>
+                  {(() => {
+                    return (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => setIsCatDropdownOpen(!isCatDropdownOpen)}
+                          className={`w-full flex items-center justify-between ${isDarkMode ? 'bg-[#050505] border-zinc-800 text-white' : 'bg-white border-zinc-200 text-zinc-900'} border rounded-xl px-4 py-3 focus:outline-none focus:border-orange-500 transition-colors text-left text-sm`}
+                        >
+                          <span>{category}</span>
+                          <ChevronDown className={`w-4 h-4 text-zinc-400 transition-transform ${isCatDropdownOpen ? 'rotate-180' : ''}`} />
+                        </button>
+                        {isCatDropdownOpen && (
+                          <div className={`absolute z-50 w-full mt-1 rounded-xl border shadow-2xl overflow-hidden ${isDarkMode ? 'border-zinc-700/50 bg-[#0a0a0a]' : 'border-zinc-200 bg-white'}`}>
+                            {categories.map((cat) => (
+                              <button
+                                key={cat}
+                                type="button"
+                                onClick={() => { setCategory(cat); setIsCatDropdownOpen(false); }}
+                                className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${category === cat
+                                  ? 'bg-gradient-to-r from-orange-600/30 to-transparent text-orange-500 font-medium'
+                                  : isDarkMode ? 'text-white hover:bg-white/5' : 'text-zinc-900 hover:bg-zinc-100'
+                                  }`}
+                              >
+                                {cat}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
                 </div>
                 <div>
                   <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Quantidade</label>
@@ -4142,6 +4404,16 @@ const SettingsView = ({
   const [workingDays, setWorkingDays] = useState([true, true, true, true, true, true, false]);
   const [aiTone, setAiTone] = useState('Empático e Acolhedor');
   const [isToneDropdownOpen, setIsToneDropdownOpen] = useState(false);
+  const [conselhoClasse, setConselhoClasse] = useState('CRM');
+  const [isConselhoDropdownOpen, setIsConselhoDropdownOpen] = useState(false);
+  const [fusoHorario, setFusoHorario] = useState('America/Sao_Paulo');
+  const [isFusoDropdownOpen, setIsFusoDropdownOpen] = useState(false);
+  const [isEstadoDropdownOpen, setIsEstadoDropdownOpen] = useState(false);
+  const [openFinCatId, setOpenFinCatId] = useState<string | null>(null);
+  const [tipoComissao, setTipoComissao] = useState('Porcentagem (%)');
+  const [isComissaoDropdownOpen, setIsComissaoDropdownOpen] = useState(false);
+  const [regimeTributario, setRegimeTributario] = useState('Simples Nacional');
+  const [isRegimeDropdownOpen, setIsRegimeDropdownOpen] = useState(false);
   const [paymentMethods, setPaymentMethods] = useState([
     { name: 'PIX', tax: '0.00', days: '0', active: true },
     { name: 'Cartão de Débito', tax: '1.99', days: '1', active: true },
@@ -4622,13 +4894,40 @@ const SettingsView = ({
                     <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Cidade</label>
                     <input type="text" value={clinicConfig.cidade} onChange={e => setClinicConfig({ ...clinicConfig, cidade: e.target.value })} className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800 text-white" : "bg-white border-zinc-200 text-zinc-900"} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors`} />
                   </div>
-                  <div className="col-span-1">
+                  <div className="col-span-1 relative">
                     <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Estado</label>
-                    <select value={clinicConfig.estado} onChange={e => setClinicConfig({ ...clinicConfig, estado: e.target.value })} className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800 text-white" : "bg-white border-zinc-200 text-zinc-900"} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors`}>
-                      <option value="SP">SP</option>
-                      <option value="RJ">RJ</option>
-                      <option value="MG">MG</option>
-                    </select>
+                    {(() => {
+                      const estadoOptions = ['SP', 'RJ', 'MG'];
+                      return (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => setIsEstadoDropdownOpen(!isEstadoDropdownOpen)}
+                            className={`w-full flex items-center justify-between ${isDarkMode ? 'bg-[#121214] border-zinc-800 text-white' : 'bg-white border-zinc-200 text-zinc-900'} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors text-left`}
+                          >
+                            <span>{clinicConfig.estado}</span>
+                            <ChevronDown className={`w-4 h-4 text-zinc-400 transition-transform ${isEstadoDropdownOpen ? 'rotate-180' : ''}`} />
+                          </button>
+                          {isEstadoDropdownOpen && (
+                            <div className={`absolute z-50 w-full mt-1 rounded-xl border shadow-2xl overflow-hidden ${isDarkMode ? 'border-zinc-700/50 bg-[#0a0a0a]' : 'border-zinc-200 bg-white'}`}>
+                              {estadoOptions.map((opt) => (
+                                <button
+                                  key={opt}
+                                  type="button"
+                                  onClick={() => { setClinicConfig({ ...clinicConfig, estado: opt }); setIsEstadoDropdownOpen(false); }}
+                                  className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${clinicConfig.estado === opt
+                                    ? 'bg-gradient-to-r from-orange-600/30 to-transparent text-orange-500 font-medium'
+                                    : isDarkMode ? 'text-white hover:bg-white/5' : 'text-zinc-900 hover:bg-zinc-100'
+                                    }`}
+                                >
+                                  {opt}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
                   </div>
                 </div>
               </div>
@@ -4652,16 +4951,40 @@ const SettingsView = ({
                   <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Nome do Responsável</label>
                   <input type="text" defaultValue="Dra. Ana Costa" className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800 text-white" : "bg-white border-zinc-200 text-zinc-900"} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors`} />
                 </div>
-                <div>
+                <div className="relative">
                   <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Conselho de Classe</label>
-                  <select className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800 text-white" : "bg-white border-zinc-200 text-zinc-900"} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors`}>
-                    <option value="CRM">CRM</option>
-                    <option value="CRO">CRO</option>
-                    <option value="COREN">COREN</option>
-                    <option value="CRF">CRF</option>
-                    <option value="CREFITO">CREFITO</option>
-                    <option value="Biomedicina">Biomedicina</option>
-                  </select>
+                  {(() => {
+                    const conselhoOptions = ['CRM', 'CRO', 'COREN', 'CRF', 'CREFITO', 'Biomedicina'];
+                    return (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => setIsConselhoDropdownOpen(!isConselhoDropdownOpen)}
+                          className={`w-full flex items-center justify-between ${isDarkMode ? 'bg-[#121214] border-zinc-800 text-white' : 'bg-white border-zinc-200 text-zinc-900'} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors text-left`}
+                        >
+                          <span>{conselhoClasse}</span>
+                          <ChevronDown className={`w-4 h-4 text-zinc-400 transition-transform ${isConselhoDropdownOpen ? 'rotate-180' : ''}`} />
+                        </button>
+                        {isConselhoDropdownOpen && (
+                          <div className={`absolute z-50 w-full mt-1 rounded-xl border shadow-2xl overflow-hidden ${isDarkMode ? 'border-zinc-700/50 bg-[#0a0a0a]' : 'border-zinc-200 bg-white'}`}>
+                            {conselhoOptions.map((opt) => (
+                              <button
+                                key={opt}
+                                type="button"
+                                onClick={() => { setConselhoClasse(opt); setIsConselhoDropdownOpen(false); }}
+                                className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${conselhoClasse === opt
+                                  ? 'bg-gradient-to-r from-orange-600/30 to-transparent text-orange-500 font-medium'
+                                  : isDarkMode ? 'text-white hover:bg-white/5' : 'text-zinc-900 hover:bg-zinc-100'
+                                  }`}
+                              >
+                                {opt}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
                 </div>
                 <div>
                   <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Número de Registro</label>
@@ -4720,13 +5043,44 @@ const SettingsView = ({
                   </div>
                 </div>
 
-                <div>
+                <div className="relative">
                   <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Fuso Horário (Timezone)</label>
-                  <select className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800 text-white" : "bg-white border-zinc-200 text-zinc-900"} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors`}>
-                    <option value="America/Sao_Paulo">(GMT-03:00) Horário de Brasília (São Paulo)</option>
-                    <option value="America/Manaus">(GMT-04:00) Manaus</option>
-                    <option value="America/Rio_Branco">(GMT-05:00) Rio Branco</option>
-                  </select>
+                  {(() => {
+                    const fusoOptions = [
+                      { value: 'America/Sao_Paulo', label: '(GMT-03:00) Horário de Brasília (São Paulo)' },
+                      { value: 'America/Manaus', label: '(GMT-04:00) Manaus' },
+                      { value: 'America/Rio_Branco', label: '(GMT-05:00) Rio Branco' },
+                    ];
+                    return (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => setIsFusoDropdownOpen(!isFusoDropdownOpen)}
+                          className={`w-full flex items-center justify-between ${isDarkMode ? 'bg-[#121214] border-zinc-800 text-white' : 'bg-white border-zinc-200 text-zinc-900'} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors text-left`}
+                        >
+                          <span>{fusoOptions.find(o => o.value === fusoHorario)?.label || fusoHorario}</span>
+                          <ChevronDown className={`w-4 h-4 text-zinc-400 transition-transform ${isFusoDropdownOpen ? 'rotate-180' : ''}`} />
+                        </button>
+                        {isFusoDropdownOpen && (
+                          <div className={`absolute z-50 w-full mt-1 rounded-xl border shadow-2xl overflow-hidden ${isDarkMode ? 'border-zinc-700/50 bg-[#0a0a0a]' : 'border-zinc-200 bg-white'}`}>
+                            {fusoOptions.map((opt) => (
+                              <button
+                                key={opt.value}
+                                type="button"
+                                onClick={() => { setFusoHorario(opt.value); setIsFusoDropdownOpen(false); }}
+                                className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${fusoHorario === opt.value
+                                  ? 'bg-gradient-to-r from-orange-600/30 to-transparent text-orange-500 font-medium'
+                                  : isDarkMode ? 'text-white hover:bg-white/5' : 'text-zinc-900 hover:bg-zinc-100'
+                                  }`}
+                              >
+                                {opt.label}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
                   <p className="text-xs text-zinc-500 mt-2">Importante para garantir que lembretes de agendamento sejam enviados na hora certa.</p>
                 </div>
               </div>
@@ -4780,7 +5134,7 @@ const SettingsView = ({
                           />
 
                           {/* Dropdown Menu */}
-                          <div className={`absolute top-full left-0 w-full mt-2 z-50 rounded-xl border shadow-xl overflow-hidden ${isDarkMode ? "bg-[#121214] border-zinc-800" : "bg-white border-zinc-200"}`}>
+                          <div className={`absolute top-full left-0 w-full mt-2 z-50 rounded-xl border shadow-2xl overflow-hidden ${isDarkMode ? "border-zinc-700/50 bg-[#0a0a0a]" : "border-zinc-200 bg-white"}`}>
                             {['Empático e Acolhedor', 'Profissional e Técnico', 'Descontraído e Jovem', 'Focado em Vendas'].map((tone) => (
                               <button
                                 key={tone}
@@ -4790,8 +5144,8 @@ const SettingsView = ({
                                   setIsToneDropdownOpen(false);
                                 }}
                                 className={`w-full text-left px-4 py-2.5 text-sm transition-colors relative z-50 ${aiTone === tone
-                                  ? 'bg-orange-500/10 text-orange-500 font-medium'
-                                  : (isDarkMode ? 'text-zinc-300 hover:bg-zinc-800' : 'text-zinc-700 hover:bg-zinc-100')
+                                  ? 'bg-gradient-to-r from-orange-600/30 to-transparent text-orange-500 font-medium'
+                                  : (isDarkMode ? 'text-white hover:bg-white/5' : 'text-zinc-900 hover:bg-zinc-100')
                                   }`}
                               >
                                 {tone}
@@ -5201,18 +5555,38 @@ const SettingsView = ({
                           className={`w-full bg-transparent border-b border-zinc-800 pb-1 ${isDarkMode ? "text-white" : "text-zinc-900"} text-sm focus:outline-none focus:border-orange-500 transition-colors`}
                         />
                       </div>
-                      <select
-                        value={cat.type}
-                        onChange={(e) => {
-                          const newCats = [...finCategories];
-                          newCats[index].type = e.target.value;
-                          setFinCategories(newCats);
-                        }}
-                        className={`${isDarkMode ? "bg-zinc-900 border-zinc-800 text-zinc-300" : "bg-white border-zinc-200 text-zinc-900"} border rounded-lg px-2 py-1 text-xs focus:outline-none focus:border-orange-500`}
-                      >
-                        <option value="Receita">Receita</option>
-                        <option value="Despesa">Despesa</option>
-                      </select>
+                      <div className="relative">
+                        <button
+                          type="button"
+                          onClick={() => setOpenFinCatId(openFinCatId === cat.id ? null : cat.id)}
+                          className={`flex items-center justify-between gap-2 ${isDarkMode ? 'bg-zinc-900 border-zinc-800 text-zinc-300' : 'bg-white border-zinc-200 text-zinc-900'} border rounded-lg px-2 py-1 text-xs focus:outline-none focus:border-orange-500 min-w-[100px]`}
+                        >
+                          <span>{cat.type}</span>
+                          <ChevronDown className={`w-3 h-3 text-zinc-400 transition-transform ${openFinCatId === cat.id ? 'rotate-180' : ''}`} />
+                        </button>
+                        {openFinCatId === cat.id && (
+                          <div className={`absolute z-50 w-full mt-1 rounded-xl border shadow-2xl overflow-hidden ${isDarkMode ? 'border-zinc-700/50 bg-[#0a0a0a]' : 'border-zinc-200 bg-white'}`}>
+                            {['Receita', 'Despesa'].map((opt) => (
+                              <button
+                                key={opt}
+                                type="button"
+                                onClick={() => {
+                                  const newCats = [...finCategories];
+                                  newCats[index].type = opt;
+                                  setFinCategories(newCats);
+                                  setOpenFinCatId(null);
+                                }}
+                                className={`w-full text-left px-4 py-2 text-xs transition-colors ${cat.type === opt
+                                  ? 'bg-gradient-to-r from-orange-600/30 to-transparent text-orange-500 font-medium'
+                                  : isDarkMode ? 'text-white hover:bg-white/5' : 'text-zinc-900 hover:bg-zinc-100'
+                                  }`}
+                              >
+                                {opt}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     </div>
                     <button
                       onClick={() => setFinCategories(finCategories.filter(c => c.id !== cat.id))}
@@ -5256,12 +5630,40 @@ const SettingsView = ({
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
-                  <div>
+                  <div className="relative">
                     <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Tipo de Comissão Padrão</label>
-                    <select className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800 text-white" : "bg-white border-zinc-200 text-zinc-900"} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors`}>
-                      <option>Porcentagem (%)</option>
-                      <option>Valor Fixo (R$)</option>
-                    </select>
+                    {(() => {
+                      const comissaoOptions = ['Porcentagem (%)', 'Valor Fixo (R$)'];
+                      return (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => setIsComissaoDropdownOpen(!isComissaoDropdownOpen)}
+                            className={`w-full flex items-center justify-between ${isDarkMode ? 'bg-[#121214] border-zinc-800 text-white' : 'bg-white border-zinc-200 text-zinc-900'} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors text-left`}
+                          >
+                            <span>{tipoComissao}</span>
+                            <ChevronDown className={`w-4 h-4 text-zinc-400 transition-transform ${isComissaoDropdownOpen ? 'rotate-180' : ''}`} />
+                          </button>
+                          {isComissaoDropdownOpen && (
+                            <div className={`absolute z-50 w-full mt-1 rounded-xl border shadow-2xl overflow-hidden ${isDarkMode ? 'border-zinc-700/50 bg-[#0a0a0a]' : 'border-zinc-200 bg-white'}`}>
+                              {comissaoOptions.map((opt) => (
+                                <button
+                                  key={opt}
+                                  type="button"
+                                  onClick={() => { setTipoComissao(opt); setIsComissaoDropdownOpen(false); }}
+                                  className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${tipoComissao === opt
+                                    ? 'bg-gradient-to-r from-orange-600/30 to-transparent text-orange-500 font-medium'
+                                    : isDarkMode ? 'text-white hover:bg-white/5' : 'text-zinc-900 hover:bg-zinc-100'
+                                    }`}
+                                >
+                                  {opt}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
                   </div>
                   <div>
                     <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Valor/Porcentagem Padrão</label>
@@ -5286,14 +5688,40 @@ const SettingsView = ({
 
               <div className="flex flex-col gap-6">
                 <div className="grid grid-cols-2 gap-4">
-                  <div>
+                  <div className="relative">
                     <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Regime Tributário</label>
-                    <select className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800 text-white" : "bg-white border-zinc-200 text-zinc-900"} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors`}>
-                      <option>Simples Nacional</option>
-                      <option>Lucro Presumido</option>
-                      <option>Lucro Real</option>
-                      <option>MEI</option>
-                    </select>
+                    {(() => {
+                      const regimeOptions = ['Simples Nacional', 'Lucro Presumido', 'Lucro Real', 'MEI'];
+                      return (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => setIsRegimeDropdownOpen(!isRegimeDropdownOpen)}
+                            className={`w-full flex items-center justify-between ${isDarkMode ? 'bg-[#121214] border-zinc-800 text-white' : 'bg-white border-zinc-200 text-zinc-900'} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors text-left`}
+                          >
+                            <span>{regimeTributario}</span>
+                            <ChevronDown className={`w-4 h-4 text-zinc-400 transition-transform ${isRegimeDropdownOpen ? 'rotate-180' : ''}`} />
+                          </button>
+                          {isRegimeDropdownOpen && (
+                            <div className={`absolute z-50 w-full mt-1 rounded-xl border shadow-2xl overflow-hidden ${isDarkMode ? 'border-zinc-700/50 bg-[#0a0a0a]' : 'border-zinc-200 bg-white'}`}>
+                              {regimeOptions.map((opt) => (
+                                <button
+                                  key={opt}
+                                  type="button"
+                                  onClick={() => { setRegimeTributario(opt); setIsRegimeDropdownOpen(false); }}
+                                  className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${regimeTributario === opt
+                                    ? 'bg-gradient-to-r from-orange-600/30 to-transparent text-orange-500 font-medium'
+                                    : isDarkMode ? 'text-white hover:bg-white/5' : 'text-zinc-900 hover:bg-zinc-100'
+                                    }`}
+                                >
+                                  {opt}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
                   </div>
                   <div>
                     <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Alíquota de ISS (%)</label>
