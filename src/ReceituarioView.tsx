@@ -138,7 +138,7 @@ export const ReceituarioView = ({
     cep: "00000-000"
   }
 }: ReceituarioViewProps) => {
-  const [tipoReceituario, setTipoReceituario] = useState<"simples" | "controle_especial">("simples");
+  const [tipoReceituario, setTipoReceituario] = useState<"simples" | "controle_especial" | "antimicrobianos" | "requisicao_exames">("simples");
   const [patientId, setPatientId] = useState(selectedPatientId || '');
   const [professionalId, setProfessionalId] = useState(professionals[0]?.id || '');
   const [prescricao, setPrescricao] = useState('');
@@ -148,6 +148,32 @@ export const ReceituarioView = ({
   const [comboboxSearch, setComboboxSearch] = useState('');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const [isTipoDropdownOpen, setIsTipoDropdownOpen] = useState(false);
+  const tipoDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutsideTipo = (event: MouseEvent) => {
+      if (tipoDropdownRef.current && !tipoDropdownRef.current.contains(event.target as Node)) {
+        setIsTipoDropdownOpen(false);
+      }
+    };
+    if (isTipoDropdownOpen) document.addEventListener('mousedown', handleClickOutsideTipo);
+    return () => document.removeEventListener('mousedown', handleClickOutsideTipo);
+  }, [isTipoDropdownOpen]);
+
+  const [isProfDropdownOpen, setIsProfDropdownOpen] = useState(false);
+  const profDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutsideProf = (event: MouseEvent) => {
+      if (profDropdownRef.current && !profDropdownRef.current.contains(event.target as Node)) {
+        setIsProfDropdownOpen(false);
+      }
+    };
+    if (isProfDropdownOpen) document.addEventListener('mousedown', handleClickOutsideProf);
+    return () => document.removeEventListener('mousedown', handleClickOutsideProf);
+  }, [isProfDropdownOpen]);
 
   // Estados e Logica do Mini Calendário Popover
   const [viewDate, setViewDate] = useState(new Date());
@@ -567,21 +593,82 @@ export const ReceituarioView = ({
               </div>
             </div>
 
-            <div>
+            <div className="relative" ref={tipoDropdownRef}>
               <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Tipo de Receituário</label>
-              <select value={tipoReceituario} onChange={(e) => setTipoReceituario(e.target.value as any)} className={`w-full ${isDarkMode ? 'bg-zinc-900 border-zinc-700 text-white' : 'bg-white border-zinc-200 text-zinc-900'} border rounded-xl px-4 py-3 focus:outline-none focus:border-orange-500 transition-colors`}>
-                <option value="simples">Receituário Simples</option>
-                <option value="controle_especial">Receituário de Controle Especial</option>
-              </select>
+              {(() => {
+                const tipoOptions = [
+                  { value: 'simples', label: 'Receituário Simples' },
+                  { value: 'controle_especial', label: 'Receituário de Controle Especial' },
+                  { value: 'antimicrobianos', label: 'Receituário de Antimicrobianos' },
+                  { value: 'requisicao_exames', label: 'Requisição de Exames' },
+                ];
+                const selectedLabel = tipoOptions.find(o => o.value === tipoReceituario)?.label || '';
+                return (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setIsTipoDropdownOpen(!isTipoDropdownOpen)}
+                      className={`w-full flex items-center justify-between ${isDarkMode ? 'bg-zinc-900 border-zinc-700 text-white' : 'bg-white border-zinc-200 text-zinc-900'} border rounded-xl px-4 py-3 focus:outline-none focus:border-orange-500 transition-colors text-left text-sm`}
+                    >
+                      <span>{selectedLabel}</span>
+                      <ChevronDown className={`w-4 h-4 text-zinc-400 transition-transform ${isTipoDropdownOpen ? 'rotate-180' : ''}`} />
+                    </button>
+                    {isTipoDropdownOpen && (
+                      <div className="absolute z-50 w-full mt-1 rounded-xl border border-zinc-700/50 bg-[#0a0a0a] shadow-2xl overflow-hidden">
+                        {tipoOptions.map((opt) => (
+                          <button
+                            key={opt.value}
+                            type="button"
+                            onClick={() => { setTipoReceituario(opt.value as any); setIsTipoDropdownOpen(false); }}
+                            className={`w-full text-left px-4 py-3 text-sm transition-colors ${tipoReceituario === opt.value
+                              ? 'bg-gradient-to-r from-orange-600/30 to-transparent text-orange-500 font-medium'
+                              : 'text-white hover:bg-white/5'
+                              }`}
+                          >
+                            {opt.label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
             </div>
 
-            <div>
+            <div className="relative" ref={profDropdownRef}>
               <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Profissional Emitente</label>
-              <select value={professionalId} onChange={(e) => setProfessionalId(e.target.value)} className={`w-full ${isDarkMode ? 'bg-zinc-900 border-zinc-700 text-white' : 'bg-white border-zinc-200 text-zinc-900'} border rounded-xl px-4 py-3 focus:outline-none focus:border-orange-500 transition-colors`}>
-                {professionals.map((p: any) => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
-                ))}
-              </select>
+              {(() => {
+                const selectedProfLabel = selectedProfessional?.name || 'Selecione';
+                return (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setIsProfDropdownOpen(!isProfDropdownOpen)}
+                      className={`w-full flex items-center justify-between ${isDarkMode ? 'bg-zinc-900 border-zinc-700 text-white' : 'bg-white border-zinc-200 text-zinc-900'} border rounded-xl px-4 py-3 focus:outline-none focus:border-orange-500 transition-colors text-left text-sm`}
+                    >
+                      <span>{selectedProfLabel}</span>
+                      <ChevronDown className={`w-4 h-4 text-zinc-400 transition-transform ${isProfDropdownOpen ? 'rotate-180' : ''}`} />
+                    </button>
+                    {isProfDropdownOpen && (
+                      <div className="absolute z-50 w-full mt-1 rounded-xl border border-zinc-700/50 bg-[#0a0a0a] shadow-2xl overflow-hidden">
+                        {professionals.map((p: any) => (
+                          <button
+                            key={p.id}
+                            type="button"
+                            onClick={() => { setProfessionalId(String(p.id)); setIsProfDropdownOpen(false); }}
+                            className={`w-full text-left px-4 py-3 text-sm transition-colors ${String(professionalId) === String(p.id)
+                                ? 'bg-gradient-to-r from-orange-600/30 to-transparent text-orange-500 font-medium'
+                                : 'text-white hover:bg-white/5'
+                              }`}
+                          >
+                            {p.name}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
             </div>
           </div>
         </div>
@@ -839,6 +926,283 @@ export const ReceituarioView = ({
                     </div>
                   </div>
 
+                </div>
+              </div>
+            )}
+            {tipoReceituario === "antimicrobianos" && (
+              <div className="w-full max-w-[21cm] min-h-[29.7cm] bg-[#ffffff] text-[#000000] shadow-2xl mx-auto flex flex-col relative font-sans" style={{ backgroundColor: '#ffffff', color: '#000000', fontFamily: 'Arial, Helvetica, sans-serif' }}>
+                <div className="p-8 flex flex-col flex-1">
+
+                  {/* === TÍTULO === */}
+                  <h1 className="text-center text-[24px] font-extrabold tracking-wider mb-6" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+                    RECEITUÁRIO DE ANTIMICROBIANOS
+                  </h1>
+
+                  {/* === IDENTIFICAÇÃO DO PACIENTE + VIA DIGITAL === */}
+                  <div className="flex gap-0 mb-5">
+                    <div className="flex-1 border-[1.5px] border-black">
+                      <div className="bg-gray-100 border-b-[1.5px] border-black px-3 py-1 text-[11px] font-bold tracking-wide">
+                        IDENTIFICAÇÃO DO PACIENTE
+                      </div>
+                      <div className="p-3 text-[10px] leading-[2]" contentEditable suppressContentEditableWarning>
+                        <div className="flex items-baseline">
+                          <span className="font-semibold mr-1">NOME COMPLETO:</span>
+                          <span className="flex-1 border-b border-black">{selectedPatientData?.name || ''}</span>
+                        </div>
+                        <div className="flex items-baseline gap-6">
+                          <div className="flex items-baseline">
+                            <span className="font-semibold mr-1">IDADE:</span>
+                            <span className="w-20 border-b border-black">&nbsp;</span>
+                          </div>
+                          <div className="flex items-baseline">
+                            <span className="font-semibold mr-1">SEXO:</span>
+                            <span className="w-28 border-b border-black">&nbsp;</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="w-[140px] border-[1.5px] border-black border-l-0 flex flex-col items-center justify-center p-2 text-center">
+                      <div className="text-[10px] font-extrabold leading-tight">VIA DIGITAL</div>
+                      <div className="text-[7px] text-gray-500 mt-0.5 leading-tight">VALIDAR EM:<br />https://assinaturadigital.iti.gov.br</div>
+                    </div>
+                  </div>
+
+                  {/* === 3 BLOCOS DE MEDICAMENTO === */}
+                  {[0, 1, 2].map((i) => (
+                    <div key={i} className="border-[1.5px] border-black mb-4 p-3 text-[10px] leading-[1.9]" contentEditable suppressContentEditableWarning>
+                      <div className="flex items-baseline mb-0.5">
+                        <span className="font-bold mr-1 whitespace-nowrap">NOME DO MEDICAMENTO OU DA SUBSTÂNCIA PRESCRITA (DCB):</span>
+                        <span className="flex-1 border-b border-black">&nbsp;</span>
+                      </div>
+                      <div className="flex items-baseline mb-0.5">
+                        <span className="font-bold mr-1">DOSE OU CONCENTRAÇÃO:</span>
+                        <span className="flex-1 border-b border-black">&nbsp;</span>
+                      </div>
+                      <div className="flex items-baseline gap-4 mb-0.5">
+                        <div className="flex items-baseline flex-1">
+                          <span className="font-bold mr-1 whitespace-nowrap">FORMA FARMACÊUTICA:</span>
+                          <span className="flex-1 border-b border-black">&nbsp;</span>
+                        </div>
+                        <div className="flex items-baseline flex-1">
+                          <span className="font-bold mr-1 whitespace-nowrap">VIA DE ADMINISTRAÇÃO:</span>
+                          <span className="flex-1 border-b border-black">&nbsp;</span>
+                        </div>
+                      </div>
+                      <div className="flex items-baseline mb-0.5">
+                        <span className="font-bold mr-1">POSOLOGIA:</span>
+                        <span className="flex-1 border-b border-black">&nbsp;</span>
+                      </div>
+                      <div className="flex items-baseline gap-4 mb-0.5">
+                        <div className="flex items-baseline">
+                          <span className="font-bold mr-1">QUANTIDADE:</span>
+                          <span className="w-28 border-b border-black">&nbsp;</span>
+                        </div>
+                        <div className="flex items-baseline flex-1">
+                          <span className="font-bold mr-1 whitespace-nowrap">DURAÇÃO DO TRATAMENTO:</span>
+                          <span className="flex-1 border-b border-black">&nbsp;</span>
+                        </div>
+                      </div>
+                      <div className="flex items-baseline">
+                        <span className="font-bold mr-1">OBS:</span>
+                        <span className="flex-1 border-b border-black">&nbsp;</span>
+                      </div>
+                    </div>
+                  ))}
+
+                  {/* === IDENTIFICAÇÃO DO EMITENTE === */}
+                  <div className="flex gap-0 mb-4 mt-auto">
+                    <div className="flex-1 border-[1.5px] border-black">
+                      <div className="bg-gray-100 border-b-[1.5px] border-black text-center py-1 text-[11px] font-bold tracking-wide">
+                        IDENTIFICAÇÃO DO EMITENTE
+                      </div>
+                      <div className="flex">
+                        <div className="flex-1 p-3 text-[10px] leading-[2]" contentEditable suppressContentEditableWarning>
+                          <div className="flex items-baseline">
+                            <span className="font-semibold mr-1">NOME MÉDICO(A):</span>
+                            <span className="flex-1 border-b border-black">{selectedProfessional?.name || ''}</span>
+                          </div>
+                          <div className="flex items-baseline gap-4">
+                            <div className="flex items-baseline">
+                              <span className="font-semibold mr-1">CRM:</span>
+                              <span className="w-28 border-b border-black">{selectedProfessional?.doc?.number || ''}</span>
+                            </div>
+                            <div className="flex items-baseline">
+                              <span className="font-semibold mr-1">UF:</span>
+                              <span className="w-10 border-b border-black text-center">{selectedProfessional?.doc?.uf || ''}</span>
+                            </div>
+                          </div>
+                          <div className="flex items-baseline">
+                            <span className="font-semibold mr-1">ENDEREÇO:</span>
+                            <span className="flex-1 border-b border-black">{clinicConfig?.logradouro || ''}, {clinicConfig?.numero || ''}</span>
+                          </div>
+                          <div className="flex items-baseline gap-4">
+                            <div className="flex items-baseline flex-1">
+                              <span className="font-semibold mr-1">CIDADE:</span>
+                              <span className="flex-1 border-b border-black">{clinicConfig?.cidade || ''}</span>
+                            </div>
+                            <div className="flex items-baseline">
+                              <span className="font-semibold mr-1">UF:</span>
+                              <span className="w-10 border-b border-black text-center">{clinicConfig?.estado || ''}</span>
+                            </div>
+                          </div>
+                          <div className="flex items-baseline gap-4">
+                            <div className="flex items-baseline">
+                              <span className="font-semibold mr-1">TELEFONE:</span>
+                              <span className="w-32 border-b border-black">{clinicConfig?.telefone || ''}</span>
+                            </div>
+                            <div className="flex items-baseline">
+                              <span className="font-semibold mr-1">DATA EMISSÃO:</span>
+                              <span className="w-28 border-b border-black">&nbsp;</span>
+                            </div>
+                          </div>
+                        </div>
+                        {/* Logo / dados do local */}
+                        <div className="w-[180px] border-l-[1.5px] border-black flex flex-col items-center justify-center p-3 text-center">
+                          {clinicConfig?.logoUrl ? (
+                            <img src={clinicConfig.logoUrl} alt="Logo" className="max-h-14 max-w-[140px] object-contain mb-1" />
+                          ) : (
+                            <div className="w-16 h-12 border border-dashed border-gray-400 flex items-center justify-center text-gray-400 text-[7px] rounded mb-1">LOGO</div>
+                          )}
+                          <div className="text-[7px] text-gray-500 font-medium leading-tight">LOGO E DADOS DO LOCAL<br />DE ATENDIMENTO (IMAGEM)</div>
+                        </div>
+                      </div>
+                      <div className="border-t-[1.5px] border-black flex">
+                        <div className="flex-1 px-3 py-1 text-[9px] font-bold text-right">ASSINATURA MÉDICO(A)</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* === IDENTIFICAÇÃO DO FORNECEDOR === */}
+                  <div className="border-[1.5px] border-black mb-3">
+                    <div className="bg-gray-100 border-b-[1.5px] border-black text-center py-1 text-[11px] font-bold tracking-wide">
+                      IDENTIFICAÇÃO DO FORNECEDOR
+                    </div>
+                    <div className="p-3 text-[10px] leading-[2]" contentEditable suppressContentEditableWarning>
+                      <div className="flex items-baseline gap-4">
+                        <div className="flex items-baseline flex-1">
+                          <span className="font-semibold mr-1">NOME FARMACÊUTICO(A):</span>
+                          <span className="flex-1 border-b border-black">&nbsp;</span>
+                        </div>
+                        <div className="flex items-baseline">
+                          <span className="font-semibold mr-1">CRF:</span>
+                          <span className="w-16 border-b border-black">&nbsp;</span>
+                        </div>
+                        <div className="flex items-baseline">
+                          <span className="font-semibold mr-1">UF:</span>
+                          <span className="w-10 border-b border-black">&nbsp;</span>
+                        </div>
+                      </div>
+                      <div className="flex items-baseline gap-4">
+                        <div className="flex items-baseline flex-1">
+                          <span className="font-semibold mr-1">NOME FARMÁCIA:</span>
+                          <span className="flex-1 border-b border-black">&nbsp;</span>
+                        </div>
+                        <div className="flex items-baseline">
+                          <span className="font-semibold mr-1">CNPJ:</span>
+                          <span className="w-36 border-b border-black">&nbsp;</span>
+                        </div>
+                      </div>
+                      <div className="flex items-baseline">
+                        <span className="font-semibold mr-1">ENDEREÇO:</span>
+                        <span className="flex-1 border-b border-black">&nbsp;</span>
+                      </div>
+                      <div className="flex items-baseline gap-4">
+                        <div className="flex items-baseline flex-1">
+                          <span className="font-semibold mr-1">CIDADE:</span>
+                          <span className="flex-1 border-b border-black">&nbsp;</span>
+                        </div>
+                        <div className="flex items-baseline">
+                          <span className="font-semibold mr-1">UF:</span>
+                          <span className="w-10 border-b border-black">&nbsp;</span>
+                        </div>
+                      </div>
+                      <div className="flex items-baseline">
+                        <span className="font-semibold mr-1">TELEFONE:</span>
+                        <span className="flex-1 border-b border-black">&nbsp;</span>
+                      </div>
+                    </div>
+                    <div className="border-t-[1.5px] border-black flex justify-end px-3 py-1">
+                      <div className="text-[9px] font-bold">ASSINATURA FARMACÊUTICO(A)</div>
+                    </div>
+                  </div>
+
+                  {/* === RODAPÉ VERSÃO === */}
+                  <div className="text-center text-[8px] text-gray-500 font-medium tracking-wider mt-1">
+                    VERSÃO 2.0 | ABRIL DE 2020
+                  </div>
+
+                </div>
+              </div>
+            )}
+            {tipoReceituario === "requisicao_exames" && (
+              <div className="w-full max-w-[21cm] min-h-[29.7cm] bg-[#ffffff] text-[#000000] shadow-2xl mx-auto flex relative font-sans" style={{ backgroundColor: '#ffffff', color: '#000000', fontFamily: 'Arial, Helvetica, sans-serif' }}>
+                {/* Via 1 */}
+                <div className="flex-1 p-8 flex flex-col">
+                  {/* Ícone + Título */}
+                  <div className="flex flex-col items-center mb-8">
+                    <div className="w-10 h-10 rounded-full bg-[#2AABB3] flex items-center justify-center mb-2">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
+                    </div>
+                    <h2 className="text-[14px] font-bold tracking-wide text-center">REQUISIÇÃO DE EXAMES</h2>
+                  </div>
+                  {/* Paciente */}
+                  <div className="mb-1 text-[11px] italic" contentEditable suppressContentEditableWarning>
+                    <div className="flex items-baseline mb-1">
+                      <span className="font-semibold mr-1">Paciente:</span>
+                      <span className="flex-1 border-b border-black">{selectedPatientData?.name || ''}</span>
+                    </div>
+                    <div className="flex items-baseline gap-4">
+                      <div className="flex items-baseline">
+                        <span className="font-semibold mr-1">Idade:</span>
+                        <span className="w-24 border-b border-black">&nbsp;</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold mr-1">Sexo:</span>
+                        <span className="w-4 h-4 border border-black inline-block"></span><span className="text-[10px] ml-0.5">F</span>
+                        <span className="w-4 h-4 border border-black inline-block ml-2"></span><span className="text-[10px] ml-0.5">M</span>
+                      </div>
+                    </div>
+                  </div>
+                  {/* Exame Solicitado */}
+                  <div className="mt-6 mb-2 text-[11px] italic font-semibold">Exame Solicitado:</div>
+                  <div className="flex-1 border border-black rounded-sm min-h-[220px] p-2 text-[11px]" contentEditable suppressContentEditableWarning>&nbsp;</div>
+                  {/* Assinatura */}
+                  <div className="mt-6 mb-2 text-[11px] italic font-semibold">Data, carimbo e assinatura do Médico:</div>
+                  <div className="border border-black rounded-sm h-[80px] p-2" contentEditable suppressContentEditableWarning>&nbsp;</div>
+                </div>
+
+                {/* Linha pontilhada central */}
+                <div className="w-0 border-l-2 border-dashed border-gray-300 my-6"></div>
+
+                {/* Via 2 (cópia idêntica) */}
+                <div className="flex-1 p-8 flex flex-col">
+                  <div className="flex flex-col items-center mb-8">
+                    <div className="w-10 h-10 rounded-full bg-[#2AABB3] flex items-center justify-center mb-2">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
+                    </div>
+                    <h2 className="text-[14px] font-bold tracking-wide text-center">REQUISIÇÃO DE EXAMES</h2>
+                  </div>
+                  <div className="mb-1 text-[11px] italic" contentEditable suppressContentEditableWarning>
+                    <div className="flex items-baseline mb-1">
+                      <span className="font-semibold mr-1">Paciente:</span>
+                      <span className="flex-1 border-b border-black">{selectedPatientData?.name || ''}</span>
+                    </div>
+                    <div className="flex items-baseline gap-4">
+                      <div className="flex items-baseline">
+                        <span className="font-semibold mr-1">Idade:</span>
+                        <span className="w-24 border-b border-black">&nbsp;</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold mr-1">Sexo:</span>
+                        <span className="w-4 h-4 border border-black inline-block"></span><span className="text-[10px] ml-0.5">F</span>
+                        <span className="w-4 h-4 border border-black inline-block ml-2"></span><span className="text-[10px] ml-0.5">M</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-6 mb-2 text-[11px] italic font-semibold">Exame Solicitado:</div>
+                  <div className="flex-1 border border-black rounded-sm min-h-[220px] p-2 text-[11px]" contentEditable suppressContentEditableWarning>&nbsp;</div>
+                  <div className="mt-6 mb-2 text-[11px] italic font-semibold">Data, carimbo e assinatura do Médico:</div>
+                  <div className="border border-black rounded-sm h-[80px] p-2" contentEditable suppressContentEditableWarning>&nbsp;</div>
                 </div>
               </div>
             )}
