@@ -360,27 +360,27 @@ export const ReceituarioView = ({
 
   return (
     <div className="flex flex-col h-screen bg-[#f8f9fa]">
-      <div className="h-16 bg-[#0a0a0a] border-b border-white/5 flex items-center justify-between px-6 shrink-0">
+      <div className={`h-16 border-b flex items-center justify-between px-6 shrink-0 ${isDarkMode ? 'bg-[#0a0a0a] border-white/5' : 'bg-white border-zinc-200'}`}>
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center shadow-sm border border-white/10">
-            <FileText className="text-white w-5 h-5" />
+          <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-sm border ${isDarkMode ? 'bg-white/10 border-white/10' : 'bg-zinc-100 border-zinc-200'}`}>
+            <FileText className={`w-5 h-5 ${isDarkMode ? 'text-white' : 'text-zinc-700'}`} />
           </div>
           <div>
-            <h1 className="text-lg font-bold text-white tracking-tight leading-none mb-1">Central de Receituários</h1>
-            <p className="text-[10px] text-white/40 uppercase font-bold tracking-[0.1em]">Gestão de Prescrições • Aura Medical</p>
+            <h1 className={`text-lg font-bold tracking-tight leading-none mb-1 ${isDarkMode ? 'text-white' : 'text-zinc-900'}`}>Central de Receituários</h1>
+            <p className={`text-[10px] uppercase font-bold tracking-[0.1em] ${isDarkMode ? 'text-white/40' : 'text-zinc-400'}`}>Gestão de Prescrições</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
           <button
             onClick={handleExportPDF}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-neutral-400 hover:text-white transition-colors bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg"
+            className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold transition-colors border rounded-lg ${isDarkMode ? 'text-neutral-400 hover:text-white bg-white/5 hover:bg-white/10 border-white/10' : 'text-zinc-500 hover:text-zinc-900 bg-zinc-50 hover:bg-zinc-100 border-zinc-200'}`}
           >
             <FileDown className="w-4 h-4" />
             PDF
           </button>
           <button
             onClick={handlePrint}
-            className="flex items-center gap-2 px-5 py-2.5 text-sm font-bold text-white bg-white/10 hover:bg-white/20 border border-white/20 transition-all rounded-xl shadow-lg active:scale-95"
+            className={`flex items-center gap-2 px-5 py-2.5 text-sm font-bold transition-all rounded-xl shadow-lg active:scale-95 border ${isDarkMode ? 'text-white bg-white/10 hover:bg-white/20 border-white/20' : 'text-white bg-orange-500 hover:bg-orange-600 border-orange-500'}`}
           >
             <Printer className="w-4 h-4" />
             Imprimir A4
@@ -491,7 +491,7 @@ export const ReceituarioView = ({
             <div className="space-y-3">
               <div className="p-4 rounded-2xl bg-orange-500/5 border border-orange-500/10">
                 <label className="block text-[10px] font-bold text-orange-600 mb-2 uppercase tracking-widest">
-                  Data da Sessão Anterior
+                  Data da Sessão
                 </label>
                 <div className="relative" ref={calendarRef}>
                   <button
@@ -555,7 +555,7 @@ export const ReceituarioView = ({
                 </div>
               </div>
 
-              <div className={`mt-4 p-5 rounded-2xl border ${patientId ? "border-orange-500/20 bg-orange-500/5" : "border-zinc-800 bg-zinc-900/30"} h-[220px] flex flex-col print:hidden`}>
+              <div className={`mt-4 p-5 rounded-2xl border h-[220px] flex flex-col print:hidden ${patientId ? "border-orange-500/20 bg-orange-500/5" : isDarkMode ? "border-zinc-800 bg-zinc-900/30" : "border-zinc-200 bg-white"}`}>
                 <div className="flex items-center gap-2 mb-3">
                   <div className={`w-2 h-2 rounded-full ${patientId ? "bg-orange-500 animate-pulse" : "bg-zinc-600"}`} />
                   <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Resumo da Evolução</span>
@@ -614,7 +614,7 @@ export const ReceituarioView = ({
                       <ChevronDown className={`w-4 h-4 text-zinc-400 transition-transform ${isTipoDropdownOpen ? 'rotate-180' : ''}`} />
                     </button>
                     {isTipoDropdownOpen && (
-                      <div className="absolute z-50 w-full mt-1 rounded-xl border border-zinc-700/50 bg-[#0a0a0a] shadow-2xl overflow-hidden">
+                      <div className={`absolute z-50 w-full mt-1 rounded-xl border shadow-2xl overflow-hidden ${isDarkMode ? 'border-zinc-700/50 bg-[#0a0a0a]' : 'border-zinc-200 bg-white'}`}>
                         {tipoOptions.map((opt) => (
                           <button
                             key={opt.value}
@@ -622,7 +622,7 @@ export const ReceituarioView = ({
                             onClick={() => { setTipoReceituario(opt.value as any); setIsTipoDropdownOpen(false); }}
                             className={`w-full text-left px-4 py-3 text-sm transition-colors ${tipoReceituario === opt.value
                               ? 'bg-gradient-to-r from-orange-600/30 to-transparent text-orange-500 font-medium'
-                              : 'text-white hover:bg-white/5'
+                              : isDarkMode ? 'text-white hover:bg-white/5' : 'text-zinc-900 hover:bg-zinc-100'
                               }`}
                           >
                             {opt.label}
@@ -650,15 +650,15 @@ export const ReceituarioView = ({
                       <ChevronDown className={`w-4 h-4 text-zinc-400 transition-transform ${isProfDropdownOpen ? 'rotate-180' : ''}`} />
                     </button>
                     {isProfDropdownOpen && (
-                      <div className="absolute z-50 w-full mt-1 rounded-xl border border-zinc-700/50 bg-[#0a0a0a] shadow-2xl overflow-hidden">
+                      <div className={`absolute z-50 w-full mt-1 rounded-xl border shadow-2xl overflow-hidden ${isDarkMode ? 'border-zinc-700/50 bg-[#0a0a0a]' : 'border-zinc-200 bg-white'}`}>
                         {professionals.map((p: any) => (
                           <button
                             key={p.id}
                             type="button"
                             onClick={() => { setProfessionalId(String(p.id)); setIsProfDropdownOpen(false); }}
                             className={`w-full text-left px-4 py-3 text-sm transition-colors ${String(professionalId) === String(p.id)
-                                ? 'bg-gradient-to-r from-orange-600/30 to-transparent text-orange-500 font-medium'
-                                : 'text-white hover:bg-white/5'
+                              ? 'bg-gradient-to-r from-orange-600/30 to-transparent text-orange-500 font-medium'
+                              : isDarkMode ? 'text-white hover:bg-white/5' : 'text-zinc-900 hover:bg-zinc-100'
                               }`}
                           >
                             {p.name}
@@ -673,28 +673,28 @@ export const ReceituarioView = ({
           </div>
         </div>
 
-        <div className="flex-1 flex flex-col bg-neutral-100 overflow-hidden relative">
+        <div className={`flex-1 flex flex-col overflow-hidden relative ${isDarkMode ? 'bg-[#0a0a0a]' : 'bg-neutral-200'}`}>
           {/* WORD STYLE TOOLBAR - FIXA NO TOPO DO PAINEL DIREITO */}
-          <div id="custom-toolbar" className="flex items-center justify-center gap-2 p-3 bg-[#050505] border-b border-white/5 w-full sticky top-0 z-50 print:hidden shadow-[0_4px_20px_rgba(0,0,0,0.4)]">
-            <button type="button" onMouseDown={(e) => { e.preventDefault(); document.execCommand('bold', false, undefined); }} className="text-neutral-400 hover:text-orange-500 hover:bg-white/5 transition-colors p-1.5 rounded" title="Negrito">
+          <div id="custom-toolbar" className={`flex items-center justify-center gap-2 p-3 border-b w-full sticky top-0 z-50 print:hidden ${isDarkMode ? 'bg-[#050505] border-white/5 shadow-[0_4px_20px_rgba(0,0,0,0.4)]' : 'bg-white border-zinc-200 shadow-sm'}`}>
+            <button type="button" onMouseDown={(e) => { e.preventDefault(); document.execCommand('bold', false, undefined); }} className={`${isDarkMode ? 'text-neutral-400 hover:bg-white/5' : 'text-zinc-500 hover:bg-zinc-100'} hover:text-orange-500 transition-colors p-1.5 rounded`} title="Negrito">
               <Bold className="w-[18px] h-[18px]" strokeWidth={2.5} />
             </button>
-            <button type="button" onMouseDown={(e) => { e.preventDefault(); document.execCommand('italic', false, undefined); }} className="text-neutral-400 hover:text-orange-500 hover:bg-white/5 transition-colors p-1.5 rounded" title="Itálico">
+            <button type="button" onMouseDown={(e) => { e.preventDefault(); document.execCommand('italic', false, undefined); }} className={`${isDarkMode ? 'text-neutral-400 hover:bg-white/5' : 'text-zinc-500 hover:bg-zinc-100'} hover:text-orange-500 transition-colors p-1.5 rounded`} title="Itálico">
               <Italic className="w-[18px] h-[18px]" strokeWidth={2.5} />
             </button>
-            <button type="button" onMouseDown={(e) => { e.preventDefault(); document.execCommand('underline', false, undefined); }} className="text-neutral-400 hover:text-orange-500 hover:bg-white/5 transition-colors p-1.5 rounded" title="Sublinhado">
+            <button type="button" onMouseDown={(e) => { e.preventDefault(); document.execCommand('underline', false, undefined); }} className={`${isDarkMode ? 'text-neutral-400 hover:bg-white/5' : 'text-zinc-500 hover:bg-zinc-100'} hover:text-orange-500 transition-colors p-1.5 rounded`} title="Sublinhado">
               <Underline className="w-[18px] h-[18px]" strokeWidth={2.5} />
             </button>
-            <span className="w-px h-5 bg-white/10 mx-2"></span>
-            <button type="button" onMouseDown={(e) => { e.preventDefault(); document.execCommand('insertOrderedList', false, undefined); }} className="text-neutral-400 hover:text-orange-500 hover:bg-white/5 transition-colors p-1.5 rounded" title="Lista Numerada">
+            <span className={`w-px h-5 mx-2 ${isDarkMode ? 'bg-white/10' : 'bg-zinc-300'}`}></span>
+            <button type="button" onMouseDown={(e) => { e.preventDefault(); document.execCommand('insertOrderedList', false, undefined); }} className={`${isDarkMode ? 'text-neutral-400 hover:bg-white/5' : 'text-zinc-500 hover:bg-zinc-100'} hover:text-orange-500 transition-colors p-1.5 rounded`} title="Lista Numerada">
               <ListOrdered className="w-[18px] h-[18px]" strokeWidth={2.5} />
             </button>
-            <button type="button" onMouseDown={(e) => { e.preventDefault(); document.execCommand('insertUnorderedList', false, undefined); }} className="text-neutral-400 hover:text-orange-500 hover:bg-white/5 transition-colors p-1.5 rounded" title="Lista em Tópicos">
+            <button type="button" onMouseDown={(e) => { e.preventDefault(); document.execCommand('insertUnorderedList', false, undefined); }} className={`${isDarkMode ? 'text-neutral-400 hover:bg-white/5' : 'text-zinc-500 hover:bg-zinc-100'} hover:text-orange-500 transition-colors p-1.5 rounded`} title="Lista em Tópicos">
               <List className="w-[18px] h-[18px]" strokeWidth={2.5} />
             </button>
           </div>
 
-          <div className="flex-1 w-full overflow-y-auto bg-neutral-100 dark:bg-[#0a0a0a] py-10 flex justify-center">
+          <div className={`flex-1 w-full overflow-y-auto py-10 flex justify-center ${isDarkMode ? 'bg-[#0a0a0a]' : 'bg-neutral-200'}`}>
             {tipoReceituario === "simples" && (
               <div className="w-full max-w-[21cm] min-h-[29.7cm] bg-[#ffffff] text-[#000000] shadow-2xl mx-auto p-12 flex flex-col relative font-sans" style={{ backgroundColor: '#ffffff', color: '#000000' }}>
                 <div className="flex justify-between items-start w-full mb-8">

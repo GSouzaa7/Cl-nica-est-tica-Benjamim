@@ -63,6 +63,27 @@
   scrollbar-color: #333 #0a0a0a;
 }
 
+/* ─── LIGHT SCROLLBAR ────────────────────────── */
+:root.light ::-webkit-scrollbar-track {
+  background: #f5f5f5;
+}
+
+:root.light ::-webkit-scrollbar-thumb {
+  background: #ccc;
+}
+
+:root.light ::-webkit-scrollbar-thumb:hover {
+  background: #aaa;
+}
+
+:root.light ::-webkit-scrollbar-corner {
+  background: #f5f5f5;
+}
+
+:root.light * {
+  scrollbar-color: #ccc #f5f5f5;
+}
+
 :root.light {
   --bg-base: #FAFAFA;
   --bg-surface: #FFFFFF;
