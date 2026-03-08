@@ -135,10 +135,19 @@ type ModulePermissions = {
 const LoginScreen = ({ onLogin, isDarkMode = true }: { onLogin: (email: string) => void, isDarkMode?: boolean }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
+  const [isRegistering, setIsRegistering] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (email) onLogin(email);
+    if (isRegistering) {
+      if (email && name && password) {
+        alert('Cadastro realizado com sucesso! Aguarde aprovação de um administrador.');
+        setIsRegistering(false);
+      }
+    } else {
+      if (email) onLogin(email);
+    }
   };
 
   return (
@@ -181,19 +190,32 @@ const LoginScreen = ({ onLogin, isDarkMode = true }: { onLogin: (email: string) 
             </div>
 
             <form onSubmit={handleSubmit} className="flex flex-col gap-5 w-full font-sans">
+              {isRegistering && (
+                <div className="w-full animate-entry">
+                  <label className="block text-xs font-semibold !text-neutral-400 mb-2 uppercase tracking-wider">Nome Completo</label>
+                  <input
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="w-full !bg-black/40 border !border-white/10 rounded-xl px-5 py-3.5 !text-white placeholder-neutral-500 focus:outline-none focus:border-orange-500 transition-colors font-sans text-sm"
+                    placeholder="Seu Nome"
+                    required
+                  />
+                </div>
+              )}
               <div className="w-full">
-                <label className="block text-xs font-semibold !text-neutral-400 mb-2 uppercase tracking-wider">E-mail Corporativo</label>
+                <label className="block text-xs font-semibold !text-neutral-400 mb-2 uppercase tracking-wider">{isRegistering ? 'E-mail' : 'E-mail Corporativo'}</label>
                 <input
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full !bg-black/40 border !border-white/10 rounded-xl px-5 py-3.5 !text-white placeholder-neutral-500 focus:outline-none focus:border-orange-500 transition-colors font-sans text-sm"
-                  placeholder="clinica@esteticapro.com"
+                  placeholder={isRegistering ? "seu@email.com" : "clinica@esteticapro.com"}
                   required
                 />
               </div>
               <div className="w-full">
-                <label className="block text-xs font-semibold !text-neutral-400 mb-2 uppercase tracking-wider">Senha de Acesso</label>
+                <label className="block text-xs font-semibold !text-neutral-400 mb-2 uppercase tracking-wider">{isRegistering ? 'Senha' : 'Senha de Acesso'}</label>
                 <input
                   type="password"
                   value={password}
@@ -202,18 +224,20 @@ const LoginScreen = ({ onLogin, isDarkMode = true }: { onLogin: (email: string) 
                   placeholder="••••••••"
                   required
                 />
-                <div className="flex justify-end mt-2">
-                  <button type="button" onClick={() => alert('Função de recuperação de senha será enviada por e-mail.')} className="text-xs font-medium !text-orange-500 hover:!text-orange-400 transition-colors">
-                    Esqueceu a senha?
-                  </button>
-                </div>
+                {!isRegistering && (
+                  <div className="flex justify-end mt-2 animate-entry">
+                    <button type="button" onClick={() => alert('Função de recuperação de senha será enviada por e-mail.')} className="text-xs font-medium !text-orange-500 hover:!text-orange-400 transition-colors">
+                      Esqueceu a senha?
+                    </button>
+                  </div>
+                )}
               </div>
 
               <button
                 type="submit"
                 className={`w-full bg-gradient-to-r from-orange-400 to-orange-600 text-[#2c1306] shadow-[0_0_20px_rgba(249,115,22,0.4)] hover:shadow-[0_0_40px_rgba(249,115,22,0.7)] hover:scale-[1.02] border-none font-bold py-3.5 rounded-xl transition-all duration-300 mt-2 font-sans`}
               >
-                Entrar no Sistema
+                {isRegistering ? 'Criar Conta' : 'Entrar no Sistema'}
               </button>
 
               <div className="flex items-center gap-4 my-2">
@@ -224,10 +248,14 @@ const LoginScreen = ({ onLogin, isDarkMode = true }: { onLogin: (email: string) 
 
               <button
                 type="button"
-                onClick={() => alert('O painel de Auto-Cadastro de Profissionais será carregado em uma nova janela.')}
+                onClick={() => setIsRegistering(!isRegistering)}
                 className="text-sm font-medium !text-neutral-400 hover:!text-white transition-colors"
               >
-                <span className="font-bold underline decoration-orange-500/50 underline-offset-4">Criar uma conta</span>
+                {isRegistering ? (
+                  <>Já tem uma conta? <span className="font-bold underline decoration-orange-500/50 underline-offset-4">Fazer login</span></>
+                ) : (
+                  <span className="font-bold underline decoration-orange-500/50 underline-offset-4">Criar uma conta</span>
+                )}
               </button>
             </form>
 
@@ -936,8 +964,8 @@ const AgendaView = ({ professionals, services = [], onCompleteService, isDarkMod
                                 type="button"
                                 onClick={() => { setSelectedTime(t); setIsTimeDropdownOpen(false); }}
                                 className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${selectedTime === t
-                                    ? 'bg-gradient-to-r from-orange-600/30 to-transparent text-orange-500 font-medium'
-                                    : isDarkMode ? 'text-white hover:bg-white/5' : 'text-zinc-900 hover:bg-zinc-100'
+                                  ? 'bg-gradient-to-r from-orange-600/30 to-transparent text-orange-500 font-medium'
+                                  : isDarkMode ? 'text-white hover:bg-white/5' : 'text-zinc-900 hover:bg-zinc-100'
                                   }`}
                               >
                                 {t}
@@ -1123,6 +1151,13 @@ const CrmView = ({ patients, setPatients, columns, setColumns, onGenerateReceitu
   const [recordType, setRecordType] = useState('Evolução');
   const [isRecordTypeDropdownOpen, setIsRecordTypeDropdownOpen] = useState(false);
   const recognitionRef = useRef<any>(null);
+  const isRecordingIntent = useRef(false);
+  const transcriptionRef = useRef(transcription);
+  const baseTranscriptionRef = useRef(''); // Texto que já estava lá antes de começar a gravar
+
+  React.useEffect(() => {
+    transcriptionRef.current = transcription;
+  }, [transcription]);
 
   const [editName, setEditName] = useState('');
   const [editPhone, setEditPhone] = useState('');
@@ -1166,61 +1201,89 @@ const CrmView = ({ patients, setPatients, columns, setColumns, onGenerateReceitu
 
   const handleRecordAudio = () => {
     if (isRecording) {
+      isRecordingIntent.current = false;
       setIsRecording(false);
-      if (recognitionRef.current) {
-        recognitionRef.current.stop();
-      }
-    } else {
-      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-      if (!SpeechRecognition) {
-        alert("Seu navegador não suporta reconhecimento de voz.");
-        return;
-      }
-
-      const recognition = new SpeechRecognition();
-      recognition.lang = 'pt-BR';
-      recognition.continuous = true;
-      recognition.interimResults = true;
-
-      let currentFinalTranscript = transcription;
-
-      recognition.onresult = (event: any) => {
-        let interimTranscript = '';
-        let newFinalTranscript = '';
-
-        for (let i = event.resultIndex; i < event.results.length; ++i) {
-          if (event.results[i].isFinal) {
-            newFinalTranscript += event.results[i][0].transcript;
-          } else {
-            interimTranscript += event.results[i][0].transcript;
-          }
-        }
-
-        currentFinalTranscript += newFinalTranscript;
-        setTranscription(currentFinalTranscript + interimTranscript);
-      };
-
-      recognition.onerror = (event: any) => {
-        console.error("Erro na gravação de áudio:", event.error);
-        if (event.error === 'not-allowed') {
-          alert("Permissão de microfone necessária para gravar.");
-        }
-        setIsRecording(false);
-      };
-
-      recognition.onend = () => {
-        setIsRecording(false);
-      };
-
-      try {
-        recognition.start();
-        recognitionRef.current = recognition;
-        setIsRecording(true);
-      } catch (e) {
-        console.error("Erro ao iniciar gravação:", e);
-        setIsRecording(false);
-      }
+      if (recognitionRef.current) recognitionRef.current.stop();
+      return;
     }
+
+    // Prioriza webkitSpeechRecognition para Edge/Chrome para garantir maior estabilidade
+    const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
+    if (!SpeechRecognition) return alert("Navegador não suporta transcrição nativa.");
+
+    baseTranscriptionRef.current = transcriptionRef.current; // Salva o ponto de partida
+
+    const recognition = new SpeechRecognition();
+    recognitionRef.current = recognition;
+
+    recognition.continuous = true;
+    recognition.interimResults = true; // Feedback em tempo real
+    recognition.lang = 'pt-BR';
+
+    recognition.onresult = (event: any) => {
+      let finalSessionText = "";
+      let interimSessionText = "";
+
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const transcript = event.results[i][0].transcript;
+        if (event.results[i].isFinal) {
+          // Re-sincronização agressiva: pegamos apenas o que o motor confirmou
+          // mas para simplificar e evitar bugs de duplicação em modo 'continuous', 
+          // a melhor prática é reconstruir o que foi falado NESTA sessão.
+        }
+      }
+
+      // Versão Robusta Simples: Reconstrução Total da Sessão Atual
+      let completeSessionText = "";
+      let interimText = "";
+      for (let i = 0; i < event.results.length; i++) {
+        if (event.results[i].isFinal) {
+          completeSessionText += event.results[i][0].transcript + " ";
+        } else {
+          interimText += event.results[i][0].transcript;
+        }
+      }
+
+      const base = baseTranscriptionRef.current ? baseTranscriptionRef.current.trim() + " " : "";
+      const fullText = (base + completeSessionText + interimText).trim();
+
+      setTranscription(fullText);
+      transcriptionRef.current = fullText;
+    };
+
+    recognition.onerror = (event: any) => {
+      const isEdge = /Edg/.test(navigator.userAgent);
+      if (event.error === 'not-allowed') {
+        alert("🚨 BLOQUEIO DE MICROFONE! Verifique as permissões no ícone de cadeado na barra de endereços.");
+      } else if (event.error === 'network') {
+        if (isEdge) {
+          alert("🚨 MODO EDGE: O Edge detectou um erro de rede. Certifique-se de que o 'Reconhecimento de Fala Online' está ativado nas configurações do Windows (Privacidade > Fala) e que o Edge está atualizado (Ajuda > Sobre).");
+        } else {
+          alert("🚨 Erro de Rede: A transcrição nativa precisa de internet.");
+        }
+      }
+      setIsRecording(false);
+      isRecordingIntent.current = false;
+    };
+
+    recognition.onend = () => {
+      if (isRecordingIntent.current) {
+        try {
+          // Maior delay para garantir liberação de hardware no Edge
+          setTimeout(() => {
+            if (isRecordingIntent.current) recognition.start();
+          }, 200);
+        } catch (e) {
+          setIsRecording(false);
+        }
+      } else {
+        setIsRecording(false);
+      }
+    };
+
+    isRecordingIntent.current = true;
+    setIsRecording(true);
+    recognition.start();
   };
 
   const handleSaveRecord = () => {
@@ -1256,6 +1319,33 @@ const CrmView = ({ patients, setPatients, columns, setColumns, onGenerateReceitu
       notes: editNotes,
     };
     setPatients(patients.map((p: any) => p.id === activeCard.id ? updatedCard : p));
+  };
+
+  const handleDragStart = (e: React.DragEvent, cardId: string) => {
+    e.dataTransfer.setData('cardId', cardId);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+  };
+
+  const handleDrop = (e: React.DragEvent, targetColumnId: string) => {
+    const cardId = e.dataTransfer.getData('cardId');
+    if (!cardId) return;
+
+    setColumns(columns.map((col: any) => {
+      // Remover de onde estava
+      const newCardIds = col.cardIds.filter((id: string) => id !== cardId);
+
+      // Adicionar à nova coluna se for o alvo
+      if (col.id === targetColumnId) {
+        if (!newCardIds.includes(cardId)) {
+          return { ...col, cardIds: [...newCardIds, cardId] };
+        }
+      }
+
+      return { ...col, cardIds: newCardIds };
+    }));
   };
 
   return (
@@ -1306,7 +1396,11 @@ const CrmView = ({ patients, setPatients, columns, setColumns, onGenerateReceitu
             </div>
 
             {/* Cards Area */}
-            <div className="p-3 flex-1 overflow-y-auto custom-scrollbar flex flex-col gap-3">
+            <div
+              className="p-3 flex-1 overflow-y-auto custom-scrollbar flex flex-col gap-3 min-h-[150px]"
+              onDragOver={handleDragOver}
+              onDrop={(e) => handleDrop(e, column.id)}
+            >
               {column.cardIds.map((cardId: string) => {
                 const card = patients.find((p: any) => p.id === cardId);
                 if (!card) return null;
@@ -1314,9 +1408,11 @@ const CrmView = ({ patients, setPatients, columns, setColumns, onGenerateReceitu
                   <div
                     key={card.id}
                     onClick={() => setActiveCardId(card.id)}
-                    className={`${isDarkMode ? "bg-[#121214]" : "bg-zinc-50"} border border-zinc-800/80 rounded-xl p-4 cursor-pointer hover:border-orange-500/50 transition-colors group`}
+                    draggable={true}
+                    onDragStart={(e) => handleDragStart(e, card.id)}
+                    className={`${isDarkMode ? "bg-[#121214]" : "bg-zinc-50"} border border-zinc-800/80 rounded-xl p-4 cursor-pointer hover:border-orange-500/50 transition-colors group relative active:opacity-50`}
                   >
-                    <div className="flex items-center gap-3 mb-3">
+                    <div className="flex items-center gap-3 mb-3 pointer-events-none">
                       <div className="w-8 h-8 rounded-full bg-orange-500/20 flex items-center justify-center text-orange-500 font-bold text-xs">
                         {card.name.charAt(0).toUpperCase() || '?'}
                       </div>
@@ -1586,6 +1682,13 @@ const ClientesView = ({ patients, setPatients, onGenerateReceituario, isDarkMode
   const [recordType, setRecordType] = useState('Evolução');
   const [isRecordTypeDropdownOpen, setIsRecordTypeDropdownOpen] = useState(false);
   const recognitionRef = useRef<any>(null);
+  const isRecordingIntent = useRef(false);
+  const transcriptionRef = useRef(transcription);
+  const baseTranscriptionRef = useRef(''); // Texto que já estava lá antes de começar a gravar
+
+  React.useEffect(() => {
+    transcriptionRef.current = transcription;
+  }, [transcription]);
 
   const [editName, setEditName] = useState('');
   const [editPhone, setEditPhone] = useState('');
@@ -1615,61 +1718,76 @@ const ClientesView = ({ patients, setPatients, onGenerateReceituario, isDarkMode
 
   const handleRecordAudio = () => {
     if (isRecording) {
+      isRecordingIntent.current = false;
       setIsRecording(false);
-      if (recognitionRef.current) {
-        recognitionRef.current.stop();
-      }
-    } else {
-      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-      if (!SpeechRecognition) {
-        alert("Seu navegador não suporta reconhecimento de voz.");
-        return;
-      }
-
-      const recognition = new SpeechRecognition();
-      recognition.lang = 'pt-BR';
-      recognition.continuous = true;
-      recognition.interimResults = true;
-
-      let currentFinalTranscript = transcription;
-
-      recognition.onresult = (event: any) => {
-        let interimTranscript = '';
-        let newFinalTranscript = '';
-
-        for (let i = event.resultIndex; i < event.results.length; ++i) {
-          if (event.results[i].isFinal) {
-            newFinalTranscript += event.results[i][0].transcript;
-          } else {
-            interimTranscript += event.results[i][0].transcript;
-          }
-        }
-
-        currentFinalTranscript += newFinalTranscript;
-        setTranscription(currentFinalTranscript + interimTranscript);
-      };
-
-      recognition.onerror = (event: any) => {
-        console.error("Erro na gravação de áudio:", event.error);
-        if (event.error === 'not-allowed') {
-          alert("Permissão de microfone necessária para gravar.");
-        }
-        setIsRecording(false);
-      };
-
-      recognition.onend = () => {
-        setIsRecording(false);
-      };
-
-      try {
-        recognition.start();
-        recognitionRef.current = recognition;
-        setIsRecording(true);
-      } catch (e) {
-        console.error("Erro ao iniciar gravação:", e);
-        setIsRecording(false);
-      }
+      if (recognitionRef.current) recognitionRef.current.stop();
+      return;
     }
+
+    // Prioriza webkitSpeechRecognition para Edge/Chrome para garantir maior estabilidade
+    const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
+    if (!SpeechRecognition) return alert("Navegador não suporta transcrição nativa.");
+
+    baseTranscriptionRef.current = transcriptionRef.current; // Salva o ponto de partida
+
+    const recognition = new SpeechRecognition();
+    recognitionRef.current = recognition;
+
+    recognition.continuous = true;
+    recognition.interimResults = true; // Feedback em tempo real
+    recognition.lang = 'pt-BR';
+
+    recognition.onresult = (event: any) => {
+      let completeSessionText = "";
+      let interimText = "";
+      for (let i = 0; i < event.results.length; i++) {
+        if (event.results[i].isFinal) {
+          completeSessionText += event.results[i][0].transcript + " ";
+        } else {
+          interimText += event.results[i][0].transcript;
+        }
+      }
+
+      const base = baseTranscriptionRef.current ? baseTranscriptionRef.current.trim() + " " : "";
+      const fullText = (base + completeSessionText + interimText).trim();
+
+      setTranscription(fullText);
+      transcriptionRef.current = fullText;
+    };
+
+    recognition.onerror = (event: any) => {
+      const isEdge = /Edg/.test(navigator.userAgent);
+      if (event.error === 'not-allowed') {
+        alert("🚨 BLOQUEIO DE MICROFONE! Verifique as permissões no ícone de cadeado na barra de endereços.");
+      } else if (event.error === 'network') {
+        if (isEdge) {
+          alert("🚨 MODO EDGE: O Edge detectou um erro de rede. Certifique-se de que o 'Reconhecimento de Fala Online' está ativado nas configurações do Windows (Privacidade > Fala) e que o Edge está atualizado (Ajuda > Sobre).");
+        } else {
+          alert("🚨 Erro de Rede: A transcrição nativa precisa de internet.");
+        }
+      }
+      setIsRecording(false);
+      isRecordingIntent.current = false;
+    };
+
+    recognition.onend = () => {
+      if (isRecordingIntent.current) {
+        try {
+          // Maior delay para garantir liberação de hardware no Edge
+          setTimeout(() => {
+            if (isRecordingIntent.current) recognition.start();
+          }, 200);
+        } catch (e) {
+          setIsRecording(false);
+        }
+      } else {
+        setIsRecording(false);
+      }
+    };
+
+    isRecordingIntent.current = true;
+    setIsRecording(true);
+    recognition.start();
   };
 
   const handleSaveRecord = () => {
@@ -3381,6 +3499,40 @@ const FinanceiroView = ({ expenses, setExpenses, isDarkMode = true }: any) => {
     return matchesSearch && matchesFilter;
   });
 
+  const handleExportCSV = () => {
+    if (filteredExpenses.length === 0) {
+      alert('Nenhum dado para exportar com os filtros atuais.');
+      return;
+    }
+
+    const headers = ['ID', 'Descrição', 'Categoria', 'Tipo', 'Quantidade', 'Valor', 'Vencimento', 'Status', 'Recorrência'];
+    const csvRows = [headers.join(',')];
+
+    filteredExpenses.forEach((exp: any) => {
+      const row = [
+        exp.id,
+        `"${(exp.description || '').replace(/"/g, '""')}"`,
+        `"${exp.category || ''}"`,
+        exp.type || '',
+        exp.quantity || 1,
+        exp.value || 0,
+        exp.dueDate || '',
+        exp.status || '',
+        exp.recurrence || ''
+      ];
+      csvRows.push(row.join(','));
+    });
+
+    const csvData = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const csvUrl = URL.createObjectURL(csvData);
+    const hiddenElement = document.createElement('a');
+    hiddenElement.href = csvUrl;
+    hiddenElement.target = '_blank';
+    hiddenElement.download = 'relatorio_financeiro.csv';
+    hiddenElement.click();
+    URL.revokeObjectURL(csvUrl);
+  };
+
   return (
     <div className="flex-1 flex flex-col relative overflow-hidden">
 
@@ -3397,7 +3549,10 @@ const FinanceiroView = ({ expenses, setExpenses, isDarkMode = true }: any) => {
           </div>
 
           <div className="flex items-center gap-4">
-            <button className={`bg-transparent border ${isDarkMode ? "border-zinc-800 hover:bg-zinc-900 text-white" : "border-[var(--border-default)] hover:bg-zinc-100 text-zinc-900"} font-semibold px-6 py-2.5 rounded-full flex items-center gap-2 transition-colors`}>
+            <button
+              onClick={handleExportCSV}
+              className={`bg-transparent border ${isDarkMode ? "border-zinc-800 hover:bg-zinc-900 text-white" : "border-[var(--border-default)] hover:bg-zinc-100 text-zinc-900"} font-semibold px-6 py-2.5 rounded-full flex items-center gap-2 transition-colors`}
+            >
               <Download size={18} />
               Exportar
             </button>

@@ -74,7 +74,7 @@ const compareDates = (d1: string, d2: string) => {
   } catch { return false; }
 };
 
-const NativeRichTextEditor = ({ value, onChange }: { value: string; onChange: (val: string) => void }) => {
+const NativeRichTextEditor = ({ value, onChange, className }: { value: string; onChange: (val: string) => void; className?: string }) => {
   const editorRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -111,7 +111,7 @@ const NativeRichTextEditor = ({ value, onChange }: { value: string; onChange: (v
       `}</style>
       <div
         ref={editorRef}
-        className="w-full min-h-[400px] outline-none text-neutral-800 text-base leading-relaxed custom-editor-content"
+        className={className || "w-full min-h-[400px] outline-none text-neutral-800 text-base leading-relaxed custom-editor-content"}
         contentEditable
         onInput={handleInput}
         suppressContentEditableWarning
@@ -697,7 +697,14 @@ export const ReceituarioView = ({
           <div className={`flex-1 w-full overflow-y-auto py-10 flex justify-center ${isDarkMode ? 'bg-[#0a0a0a]' : 'bg-neutral-200'}`}>
             {tipoReceituario === "simples" && (
               <div className="w-full max-w-[21cm] min-h-[29.7cm] bg-[#ffffff] text-[#000000] shadow-2xl mx-auto p-12 flex flex-col relative font-sans" style={{ backgroundColor: '#ffffff', color: '#000000' }}>
-                <div className="flex justify-between items-start w-full mb-8">
+                {/* --- MARCA D'ÁGUA --- */}
+                {clinicConfig?.logoUrl && (
+                  <div className="absolute inset-0 flex items-center justify-center opacity-[0.05] pointer-events-none select-none z-0">
+                    <img src={clinicConfig.logoUrl} alt="Watermark" className="w-[12cm] h-[12cm] object-contain grayscale" />
+                  </div>
+                )}
+
+                <div className="flex justify-between items-start w-full mb-8 relative z-10">
                   <div className="flex flex-col">
                     <h2 className="text-[26px] font-serif text-black outline-none italic leading-tight mb-1">{selectedProfessional?.name || 'Dr. Rafael Costa'}</h2>
                     <div className="flex flex-col text-[10px] text-black font-bold uppercase tracking-wider">
@@ -783,13 +790,25 @@ export const ReceituarioView = ({
             )}
             {tipoReceituario === "controle_especial" && (
               <div className="w-full max-w-[21cm] min-h-[29.7cm] bg-[#ffffff] text-[#000000] shadow-2xl mx-auto flex flex-col relative font-sans" style={{ backgroundColor: '#ffffff', color: '#000000', fontFamily: 'Arial, Helvetica, sans-serif' }}>
+                {/* --- MARCA D'ÁGUA --- */}
+                {clinicConfig?.logoUrl && (
+                  <div className="absolute inset-0 flex items-center justify-center opacity-[0.05] pointer-events-none select-none z-0">
+                    <img src={clinicConfig.logoUrl} alt="Watermark" className="w-[14cm] h-[14cm] object-contain grayscale" />
+                  </div>
+                )}
+
                 {/* === BORDA EXTERNA === */}
-                <div className="border-[2.5px] border-black m-4 p-6 flex flex-col flex-1" style={{ minHeight: 'calc(29.7cm - 32px)' }}>
+                <div className="p-12 flex flex-col flex-1">
 
                   {/* === TÍTULO === */}
-                  <h1 className="text-center text-[22px] font-extrabold tracking-wide mb-5" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
-                    RECEITUÁRIO DE CONTROLE ESPECIAL
-                  </h1>
+                  <div className="flex items-center justify-center gap-20 mb-5">
+                    <h1 className="text-[22px] font-extrabold tracking-wide" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+                      RECEITUÁRIO DE CONTROLE ESPECIAL
+                    </h1>
+                    {clinicConfig?.logoUrl && (
+                      <img src={clinicConfig.logoUrl} alt="Logo" className="max-h-24 max-w-[160px] object-contain" />
+                    )}
+                  </div>
 
                   {/* === TOPO: EMITENTE + VIAS/ASSINATURA === */}
                   <div className="flex gap-4 mb-6">
@@ -808,8 +827,8 @@ export const ReceituarioView = ({
                           <span className="flex-1 border-b border-black">{selectedProfessional?.doc?.number || '11111'}</span>
                           <span className="font-semibold mr-1">UF</span>
                           <span className="w-10 border-b border-black text-center">{selectedProfessional?.doc?.uf || 'SP'}</span>
-                          <span className="font-semibold mr-1">No.</span>
-                          <span className="w-16 border-b border-black">&nbsp;</span>
+                          <span className="font-semibold mr-1">RQE</span>
+                          <span className="text-center w-16 border-b border-black">{selectedProfessional?.rqe?.numero || '&nbsp;'}</span>
                         </div>
                         <div className="flex items-baseline">
                           <span className="font-semibold mr-1 whitespace-nowrap">Endereço Completo e Telefone</span>
@@ -851,16 +870,17 @@ export const ReceituarioView = ({
                       <span className="flex-1 border-b border-black pb-0.5">&nbsp;</span>
                     </div>
 
-                    {/* PRESCRIÇÃO COM LINHAS HORIZONTAIS */}
+                    {/* PRESCRIÇÃO LIVRE */}
                     <div className="flex items-baseline mb-2 text-[12px]">
                       <span className="font-bold mr-1">Prescrição:</span>
-                      <span className="flex-1 border-b border-black pb-0.5">&nbsp;</span>
                     </div>
                     <div className="flex-1 relative">
-                      {/* Linhas horizontais de fundo */}
-                      <div className="absolute inset-0 pointer-events-none" style={{ backgroundImage: 'repeating-linear-gradient(to bottom, transparent, transparent 27px, #000 27px, #000 28px)', backgroundSize: '100% 28px' }}></div>
-                      <div className="relative z-10">
-                        <WordEditor value={prescricao} onChange={setPrescricao} />
+                      <div className="relative z-10 w-full h-full">
+                        <NativeRichTextEditor
+                          value={prescricao}
+                          onChange={setPrescricao}
+                          className="w-full h-full min-h-[400px] outline-none text-[#000000] text-[15px] p-2 leading-[1.6] custom-editor-content bg-transparent"
+                        />
                       </div>
                     </div>
                   </div>
@@ -962,8 +982,6 @@ export const ReceituarioView = ({
                       </div>
                     </div>
                     <div className="w-[140px] border-[1.5px] border-black border-l-0 flex flex-col items-center justify-center p-2 text-center">
-                      <div className="text-[10px] font-extrabold leading-tight">VIA DIGITAL</div>
-                      <div className="text-[7px] text-gray-500 mt-0.5 leading-tight">VALIDAR EM:<br />https://assinaturadigital.iti.gov.br</div>
                     </div>
                   </div>
 
@@ -1059,11 +1077,10 @@ export const ReceituarioView = ({
                         {/* Logo / dados do local */}
                         <div className="w-[180px] border-l-[1.5px] border-black flex flex-col items-center justify-center p-3 text-center">
                           {clinicConfig?.logoUrl ? (
-                            <img src={clinicConfig.logoUrl} alt="Logo" className="max-h-14 max-w-[140px] object-contain mb-1" />
+                            <img src={clinicConfig.logoUrl} alt="Logo da Clínica" className="max-h-20 max-w-[160px] object-contain" />
                           ) : (
-                            <div className="w-16 h-12 border border-dashed border-gray-400 flex items-center justify-center text-gray-400 text-[7px] rounded mb-1">LOGO</div>
+                            <div className="w-32 h-16 border border-dashed border-neutral-300 flex items-center justify-center text-neutral-400 text-[10px] rounded uppercase tracking-tighter bg-neutral-50/50 font-bold">LOGOTIPO</div>
                           )}
-                          <div className="text-[7px] text-gray-500 font-medium leading-tight">LOGO E DADOS DO LOCAL<br />DE ATENDIMENTO (IMAGEM)</div>
                         </div>
                       </div>
                       <div className="border-t-[1.5px] border-black flex">
@@ -1135,14 +1152,23 @@ export const ReceituarioView = ({
               </div>
             )}
             {tipoReceituario === "requisicao_exames" && (
-              <div className="w-full max-w-[21cm] min-h-[29.7cm] bg-[#ffffff] text-[#000000] shadow-2xl mx-auto flex relative font-sans" style={{ backgroundColor: '#ffffff', color: '#000000', fontFamily: 'Arial, Helvetica, sans-serif' }}>
-                {/* Via 1 */}
-                <div className="flex-1 p-8 flex flex-col">
+              <div className="w-full max-w-[21cm] min-h-[29.7cm] bg-[#ffffff] text-[#000000] shadow-2xl mx-auto flex flex-col items-center py-16 px-8 relative font-sans" style={{ backgroundColor: '#ffffff', color: '#000000', fontFamily: 'Arial, Helvetica, sans-serif' }}>
+                {/* --- MARCA D'ÁGUA --- */}
+                {clinicConfig?.logoUrl && (
+                  <div className="absolute inset-0 flex items-center justify-center opacity-[0.05] pointer-events-none select-none z-0">
+                    <img src={clinicConfig.logoUrl} alt="Watermark" className="w-[12cm] h-[12cm] object-contain grayscale" />
+                  </div>
+                )}
+
+                {/* Única Via Centralizada */}
+                <div className="w-full max-w-[15cm] flex flex-col flex-1">
                   {/* Ícone + Título */}
                   <div className="flex flex-col items-center mb-8">
-                    <div className="w-10 h-10 rounded-full bg-[#2AABB3] flex items-center justify-center mb-2">
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
-                    </div>
+                    {clinicConfig?.logoUrl ? (
+                      <img src={clinicConfig.logoUrl} alt="Logo da Clínica" className="max-h-16 max-w-[160px] object-contain mb-2" />
+                    ) : (
+                      <div className="w-32 h-12 border border-dashed border-neutral-300 flex items-center justify-center text-neutral-400 text-[10px] rounded uppercase tracking-tighter bg-neutral-50/50 font-bold mb-2">LOGOTIPO</div>
+                    )}
                     <h2 className="text-[14px] font-bold tracking-wide text-center">REQUISIÇÃO DE EXAMES</h2>
                   </div>
                   {/* Paciente */}
@@ -1167,42 +1193,23 @@ export const ReceituarioView = ({
                   <div className="mt-6 mb-2 text-[11px] italic font-semibold">Exame Solicitado:</div>
                   <div className="flex-1 border border-black rounded-sm min-h-[220px] p-2 text-[11px]" contentEditable suppressContentEditableWarning>&nbsp;</div>
                   {/* Assinatura */}
-                  <div className="mt-6 mb-2 text-[11px] italic font-semibold">Data, carimbo e assinatura do Médico:</div>
-                  <div className="border border-black rounded-sm h-[80px] p-2" contentEditable suppressContentEditableWarning>&nbsp;</div>
-                </div>
-
-                {/* Linha pontilhada central */}
-                <div className="w-0 border-l-2 border-dashed border-gray-300 my-6"></div>
-
-                {/* Via 2 (cópia idêntica) */}
-                <div className="flex-1 p-8 flex flex-col">
-                  <div className="flex flex-col items-center mb-8">
-                    <div className="w-10 h-10 rounded-full bg-[#2AABB3] flex items-center justify-center mb-2">
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
-                    </div>
-                    <h2 className="text-[14px] font-bold tracking-wide text-center">REQUISIÇÃO DE EXAMES</h2>
-                  </div>
-                  <div className="mb-1 text-[11px] italic" contentEditable suppressContentEditableWarning>
-                    <div className="flex items-baseline mb-1">
-                      <span className="font-semibold mr-1">Paciente:</span>
-                      <span className="flex-1 border-b border-black">{selectedPatientData?.name || ''}</span>
-                    </div>
-                    <div className="flex items-baseline gap-4">
-                      <div className="flex items-baseline">
-                        <span className="font-semibold mr-1">Idade:</span>
-                        <span className="w-24 border-b border-black">&nbsp;</span>
+                  <div className="mt-auto pt-6 flex flex-col items-center w-full">
+                    <div className="border border-neutral-400 rounded-sm w-full h-[4cm] overflow-hidden flex flex-col">
+                      <div className="flex border-b border-neutral-400 shrink-0">
+                        <div className="w-[30%] px-2 py-1.5 border-r border-neutral-400 text-[10px] font-bold text-black outline-none flex flex-col justify-center" contentEditable suppressContentEditableWarning>
+                          <span>DATA:</span>
+                        </div>
+                        <div className="flex-1 px-2 py-1.5 text-[10px] font-bold text-black leading-tight outline-none flex items-center bg-gray-50/50" contentEditable suppressContentEditableWarning>
+                          CARIMBO/ASSINATURA
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold mr-1">Sexo:</span>
-                        <span className="w-4 h-4 border border-black inline-block"></span><span className="text-[10px] ml-0.5">F</span>
-                        <span className="w-4 h-4 border border-black inline-block ml-2"></span><span className="text-[10px] ml-0.5">M</span>
-                      </div>
+                      <div className="flex-1 flex items-center justify-center text-black text-[9px]"></div>
+                    </div>
+                    <div className="flex items-end mt-4 w-full">
+                      <span className="font-bold uppercase text-[10px] mr-2 leading-none">ASSINATURA</span>
+                      <div className="flex-1 border-b border-neutral-800 mb-[1px]"></div>
                     </div>
                   </div>
-                  <div className="mt-6 mb-2 text-[11px] italic font-semibold">Exame Solicitado:</div>
-                  <div className="flex-1 border border-black rounded-sm min-h-[220px] p-2 text-[11px]" contentEditable suppressContentEditableWarning>&nbsp;</div>
-                  <div className="mt-6 mb-2 text-[11px] italic font-semibold">Data, carimbo e assinatura do Médico:</div>
-                  <div className="border border-black rounded-sm h-[80px] p-2" contentEditable suppressContentEditableWarning>&nbsp;</div>
                 </div>
               </div>
             )}
