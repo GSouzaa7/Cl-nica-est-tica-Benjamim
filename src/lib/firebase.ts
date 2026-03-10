@@ -1,0 +1,26 @@
+/// <reference types="vite/client" />
+import { initializeApp, getApps, getApp } from "firebase/app";
+import { getAuth } from "firebase/auth";
+import { getFirestore } from "firebase/firestore";
+
+const firebaseConfig = {
+    apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "dummy",
+    authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "dummy",
+    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "dummy",
+    storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "dummy",
+    messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "dummy",
+    appId: import.meta.env.VITE_FIREBASE_APP_ID || "dummy",
+};
+
+console.log("🔥 [DEBUG] API KEY:", import.meta.env.VITE_FIREBASE_API_KEY ? "EXISTS" : "IS EMPTY/UNDEFINED");
+
+let app;
+try {
+    app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+} catch (error) {
+    console.error("Firebase initialization error", error);
+    app = initializeApp({}); // fallback
+}
+
+export const auth = getAuth(app);
+export const db = getFirestore(app);

@@ -24,7 +24,7 @@ export const PermissionProvider = ({ children }: { children: ReactNode }) => {
 
     setIsLoading(true);
     try {
-      if (user.role === 'ADMIN') {
+      if (user.role === 'admin') {
         setPermissions([
           'access_dashboard',
           'access_agenda',

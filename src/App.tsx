@@ -57,11 +57,17 @@ import {
   Receipt,
   Percent,
   FileSignature,
+  CheckCircle,
   Sun,
   Moon
 } from 'lucide-react';
 
+import { useAuth } from './contexts/AuthContext';
+import { signInWithEmailAndPassword, signOut } from 'firebase/auth';
+import { auth } from './lib/firebase';
+import { registrarNovoUsuario } from './lib/authService';
 import { ReceituarioView } from './ReceituarioView';
+// @ts-ignore
 import videoBg from '../Flow_delpmaspu_.mp4';
 
 const Toggle = ({ checked, onChange, disabled, isDarkMode = true }: { checked: boolean, onChange: (checked: boolean) => void, disabled: boolean, isDarkMode?: boolean }) => {
@@ -137,135 +143,180 @@ const LoginScreen = ({ onLogin, isDarkMode = true }: { onLogin: (email: string) 
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [isRegistering, setIsRegistering] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (isRegistering) {
-      if (email && name && password) {
-        alert('Cadastro realizado com sucesso! Aguarde aprovação de um administrador.');
-        setIsRegistering(false);
+    console.log("🔘 [DEBUG] Botão de formulário clicado! Registrando:", isRegistering);
+    try {
+      if (isRegistering) {
+        if (email && name && password) {
+          console.log("👉 Tentando criar usuário no Firebase...");
+          const user = await registrarNovoUsuario(email, password, name);
+          console.log("✅ Usuário criado com sucesso!", user.uid);
+          setShowSuccessModal(true);
+        } else {
+          alert("Preencha todos os campos para registrar.");
+        }
+      } else {
+        if (email && password) {
+          console.log("👉 Tentando login no Firebase...");
+          const result = await signInWithEmailAndPassword(auth, email, password);
+          console.log("✅ Login aceito pelo Firebase Auth!", result.user.uid);
+        } else {
+          alert("Preencha email e senha para entrar.");
+        }
       }
-    } else {
-      if (email) onLogin(email);
+    } catch (err: any) {
+      console.error("❌ Erro Capturado no handleSubmit:", err);
+      let msgs = err.message || 'Erro de autenticação';
+      if (msgs.includes('auth/invalid-credential') || msgs.includes('auth/wrong-password') || msgs.includes('auth/user-not-found')) msgs = 'Email ou senha incorretos.';
+      if (msgs.includes('auth/email-already-in-use')) msgs = 'Este email já está cadastrado no sistema.';
+      if (msgs.includes('auth/weak-password')) msgs = 'A senha deve ter pelo menos 6 caracteres.';
+      alert(msgs);
     }
   };
 
   return (
-    <div className="dark !bg-[#050505] !text-white grid grid-cols-1 lg:grid-cols-12 min-h-screen w-full relative z-10 overflow-hidden">
-      {/* Cinematic Video Background (Unmounted automatically when not rendered) */}
-      <video src={videoBg} autoPlay loop muted playsInline className="absolute inset-0 w-full h-full object-cover opacity-40 z-0 pointer-events-none" />
-
-      {/* Luminous Layers */}
-      <div className="absolute inset-0 z-0 pointer-events-none">
-        <div className="stars absolute inset-0"></div>
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[1200px] h-[800px] bg-orange-900/10 blur-[120px] rounded-full"></div>
-      </div>
-
-      {/* LADO ESQUERDO (lg:col-span-7) */}
-      <div className="lg:col-span-7 font-bricolage text-5xl lg:text-7xl font-light tracking-tight !text-white leading-[1.05] p-10 lg:p-24 flex items-center animate-entry uppercase relative z-20">
-        <h1>
-          A EXCELÊNCIA QUE SUA CLÍNICA MERECE E A GESTÃO QUE VOCÊ PRECISA.
-        </h1>
-      </div>
-
-      {/* LADO DIREITO (lg:col-span-5) - LOGIN */}
-      <div className="lg:col-span-5 flex items-center justify-center p-6 lg:p-12 relative z-20">
-
-        {/* Contêiner de Segurança Anti-Vazamento */}
-        <div className="w-full max-w-md mx-auto relative bg-neutral-900/50 rounded-[32px] p-[2px] overflow-hidden shadow-[0_0_30px_rgba(249,115,22,0.2)] group">
-
-          {/* Luminous Animated Border agora isolado pelo novo overflow-hidden */}
-          <div className="absolute inset-0 bg-gradient-to-b from-yellow-300 via-orange-500 to-transparent opacity-80 z-0 pointer-events-none transition-all duration-700 group-hover:via-orange-400 group-hover:opacity-100"></div>
-
-          {/* Inner Glass Box */}
-          <div className="relative z-10 !bg-[#0A0A0A]/90 backdrop-blur-3xl rounded-[30px] p-8 lg:p-10 w-full flex flex-col items-center">
-
-            <div className="flex flex-col items-center text-center mb-8">
-              <div className={`w-12 h-12 !bg-orange-500 rounded-xl flex items-center justify-center mb-6 shadow-[0_0_30px_rgba(249,115,22,0.4)]`}>
-                <Asterisk className="!text-white" size={28} />
+    <>
+      <div className="dark !bg-[#050505] !text-white grid grid-cols-1 lg:grid-cols-12 min-h-screen w-full relative z-10 overflow-hidden">
+        {showSuccessModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-entry">
+            <div className="bg-[#0A0A0A] border border-white/10 p-8 rounded-[32px] max-w-sm w-full flex flex-col items-center text-center shadow-[0_0_40px_rgba(249,115,22,0.2)]">
+              <div className="w-16 h-16 bg-emerald-500/20 text-emerald-500 rounded-full flex items-center justify-center mb-6">
+                <CheckCircle size={32} />
               </div>
-              <h1 className="!text-white font-bricolage text-4xl font-light tracking-tight mb-2">
-                Estética<span className="font-semibold !text-orange-500">Pro</span>
-              </h1>
+              <h3 className="text-2xl font-light font-bricolage text-white mb-3">Solicitação Enviada!</h3>
+              <p className="text-neutral-400 mb-8 font-sans text-sm leading-relaxed">
+                Conta requerida com sucesso! Aguarde a aprovação do administrador para ingressar no painel.
+              </p>
+              <button
+                onClick={() => {
+                  setShowSuccessModal(false);
+                  setIsRegistering(false);
+                }}
+                className="w-full bg-white text-black font-semibold rounded-xl py-3.5 hover:bg-neutral-200 transition-colors"
+              >
+                Voltar ao Login
+              </button>
             </div>
+          </div>
+        )}
+        {/* Cinematic Video Background (Unmounted automatically when not rendered) */}
+        <video src={videoBg} autoPlay loop muted playsInline className="absolute inset-0 w-full h-full object-cover opacity-40 z-0 pointer-events-none" />
 
-            <form onSubmit={handleSubmit} className="flex flex-col gap-5 w-full font-sans">
-              {isRegistering && (
-                <div className="w-full animate-entry">
-                  <label className="block text-xs font-semibold !text-neutral-400 mb-2 uppercase tracking-wider">Nome Completo</label>
+        {/* Luminous Layers */}
+        <div className="absolute inset-0 z-0 pointer-events-none">
+          <div className="stars absolute inset-0"></div>
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[1200px] h-[800px] bg-orange-900/10 blur-[120px] rounded-full"></div>
+        </div>
+
+        {/* LADO ESQUERDO (lg:col-span-7) */}
+        <div className="lg:col-span-7 font-bricolage text-5xl lg:text-7xl font-light tracking-tight !text-white leading-[1.05] p-10 lg:p-24 flex items-center animate-entry uppercase relative z-20">
+          <h1>
+            A EXCELÊNCIA QUE SUA CLÍNICA MERECE E A GESTÃO QUE VOCÊ PRECISA.
+          </h1>
+        </div>
+
+        {/* LADO DIREITO (lg:col-span-5) - LOGIN */}
+        <div className="lg:col-span-5 flex items-center justify-center p-6 lg:p-12 relative z-20">
+
+          {/* Contêiner de Segurança Anti-Vazamento */}
+          <div className="w-full max-w-md mx-auto relative bg-neutral-900/50 rounded-[32px] p-[2px] overflow-hidden shadow-[0_0_30px_rgba(249,115,22,0.2)] group">
+
+            {/* Luminous Animated Border agora isolado pelo novo overflow-hidden */}
+            <div className="absolute inset-0 bg-gradient-to-b from-yellow-300 via-orange-500 to-transparent opacity-80 z-0 pointer-events-none transition-all duration-700 group-hover:via-orange-400 group-hover:opacity-100"></div>
+
+            {/* Inner Glass Box */}
+            <div className="relative z-10 !bg-[#0A0A0A]/90 backdrop-blur-3xl rounded-[30px] p-8 lg:p-10 w-full flex flex-col items-center">
+
+              <div className="flex flex-col items-center text-center mb-8">
+                <div className={`w-12 h-12 !bg-orange-500 rounded-xl flex items-center justify-center mb-6 shadow-[0_0_30px_rgba(249,115,22,0.4)]`}>
+                  <Asterisk className="!text-white" size={28} />
+                </div>
+                <h1 className="!text-white font-bricolage text-4xl font-light tracking-tight mb-2">
+                  Estética<span className="font-semibold !text-orange-500">Pro</span>
+                </h1>
+              </div>
+
+              <form onSubmit={handleSubmit} className="flex flex-col gap-5 w-full font-sans">
+                {isRegistering && (
+                  <div className="w-full animate-entry">
+                    <label className="block text-xs font-semibold !text-neutral-400 mb-2 uppercase tracking-wider">Nome Completo</label>
+                    <input
+                      type="text"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      className="w-full !bg-black/40 border !border-white/10 rounded-xl px-5 py-3.5 !text-white placeholder-neutral-500 focus:outline-none focus:border-orange-500 transition-colors font-sans text-sm"
+                      placeholder="Seu Nome"
+                      required
+                    />
+                  </div>
+                )}
+                <div className="w-full">
+                  <label className="block text-xs font-semibold !text-neutral-400 mb-2 uppercase tracking-wider">{isRegistering ? 'E-mail' : 'E-mail Corporativo'}</label>
                   <input
-                    type="text"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
                     className="w-full !bg-black/40 border !border-white/10 rounded-xl px-5 py-3.5 !text-white placeholder-neutral-500 focus:outline-none focus:border-orange-500 transition-colors font-sans text-sm"
-                    placeholder="Seu Nome"
+                    placeholder={isRegistering ? "seu@email.com" : "clinica@esteticapro.com"}
                     required
                   />
                 </div>
-              )}
-              <div className="w-full">
-                <label className="block text-xs font-semibold !text-neutral-400 mb-2 uppercase tracking-wider">{isRegistering ? 'E-mail' : 'E-mail Corporativo'}</label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full !bg-black/40 border !border-white/10 rounded-xl px-5 py-3.5 !text-white placeholder-neutral-500 focus:outline-none focus:border-orange-500 transition-colors font-sans text-sm"
-                  placeholder={isRegistering ? "seu@email.com" : "clinica@esteticapro.com"}
-                  required
-                />
+                <div className="w-full">
+                  <label className="block text-xs font-semibold !text-neutral-400 mb-2 uppercase tracking-wider">{isRegistering ? 'Senha' : 'Senha de Acesso'}</label>
+                  <input
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full !bg-black/40 border !border-white/10 rounded-xl px-5 py-3.5 !text-white placeholder-neutral-500 focus:outline-none focus:border-orange-500 transition-colors font-sans text-sm"
+                    placeholder="••••••••"
+                    required
+                  />
+                  {!isRegistering && (
+                    <div className="flex justify-end mt-2 animate-entry">
+                      <button type="button" onClick={() => alert('Função de recuperação de senha será enviada por e-mail.')} className="text-xs font-medium !text-orange-500 hover:!text-orange-400 transition-colors">
+                        Esqueceu a senha?
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                <button
+                  type="submit"
+                  className={`w-full bg-gradient-to-r from-orange-400 to-orange-600 text-[#2c1306] shadow-[0_0_20px_rgba(249,115,22,0.4)] hover:shadow-[0_0_40px_rgba(249,115,22,0.7)] hover:scale-[1.02] border-none font-bold py-3.5 rounded-xl transition-all duration-300 mt-2 font-sans`}
+                >
+                  {isRegistering ? 'Criar Conta' : 'Entrar no Sistema'}
+                </button>
+
+                <div className="flex items-center gap-4 my-2">
+                  <div className="flex-1 h-px bg-white/5 bg-gradient-to-r from-transparent to-white/10"></div>
+                  <span className="text-xs !text-neutral-500">ou</span>
+                  <div className="flex-1 h-px bg-white/5 bg-gradient-to-l from-transparent to-white/10"></div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setIsRegistering(!isRegistering)}
+                  className="text-sm font-medium !text-neutral-400 hover:!text-white transition-colors"
+                >
+                  {isRegistering ? (
+                    <>Já tem uma conta? <span className="font-bold underline decoration-orange-500/50 underline-offset-4">Fazer login</span></>
+                  ) : (
+                    <span className="font-bold underline decoration-orange-500/50 underline-offset-4">Criar uma conta</span>
+                  )}
+                </button>
+              </form>
+
+              <div className="mt-8 text-center text-[11px] !text-neutral-500 font-sans border-t !border-white/5 pt-6 w-full">
+                Dica de Navegação: Use <strong className="!text-white font-semibold">admin</strong> no email para privilégios totais ou entre como <strong className="!text-white font-semibold">Profissional</strong>.
               </div>
-              <div className="w-full">
-                <label className="block text-xs font-semibold !text-neutral-400 mb-2 uppercase tracking-wider">{isRegistering ? 'Senha' : 'Senha de Acesso'}</label>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full !bg-black/40 border !border-white/10 rounded-xl px-5 py-3.5 !text-white placeholder-neutral-500 focus:outline-none focus:border-orange-500 transition-colors font-sans text-sm"
-                  placeholder="••••••••"
-                  required
-                />
-                {!isRegistering && (
-                  <div className="flex justify-end mt-2 animate-entry">
-                    <button type="button" onClick={() => alert('Função de recuperação de senha será enviada por e-mail.')} className="text-xs font-medium !text-orange-500 hover:!text-orange-400 transition-colors">
-                      Esqueceu a senha?
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              <button
-                type="submit"
-                className={`w-full bg-gradient-to-r from-orange-400 to-orange-600 text-[#2c1306] shadow-[0_0_20px_rgba(249,115,22,0.4)] hover:shadow-[0_0_40px_rgba(249,115,22,0.7)] hover:scale-[1.02] border-none font-bold py-3.5 rounded-xl transition-all duration-300 mt-2 font-sans`}
-              >
-                {isRegistering ? 'Criar Conta' : 'Entrar no Sistema'}
-              </button>
-
-              <div className="flex items-center gap-4 my-2">
-                <div className="flex-1 h-px bg-white/5 bg-gradient-to-r from-transparent to-white/10"></div>
-                <span className="text-xs !text-neutral-500">ou</span>
-                <div className="flex-1 h-px bg-white/5 bg-gradient-to-l from-transparent to-white/10"></div>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setIsRegistering(!isRegistering)}
-                className="text-sm font-medium !text-neutral-400 hover:!text-white transition-colors"
-              >
-                {isRegistering ? (
-                  <>Já tem uma conta? <span className="font-bold underline decoration-orange-500/50 underline-offset-4">Fazer login</span></>
-                ) : (
-                  <span className="font-bold underline decoration-orange-500/50 underline-offset-4">Criar uma conta</span>
-                )}
-              </button>
-            </form>
-
-            <div className="mt-8 text-center text-[11px] !text-neutral-500 font-sans border-t !border-white/5 pt-6 w-full">
-              Dica de Navegação: Use <strong className="!text-white font-semibold">admin</strong> no email para privilégios totais ou entre como <strong className="!text-white font-semibold">Profissional</strong>.
             </div>
           </div>
         </div>
       </div>
-    </div>
+    </>
   );
 };
 
@@ -294,22 +345,23 @@ const PendingScreen = ({ onLogout, isDarkMode = true }: { onLogout: () => void, 
 );
 
 const DeniedScreen = ({ onLogout, isDarkMode = true }: { onLogout: () => void, isDarkMode?: boolean }) => (
-  <div className={`min-h-screen bg-[#050505] flex flex-col justify-center items-center p-4 selection:bg-orange-500/30 transition-colors duration-300 relative`}>
+  <div className={`min-h-screen bg-[#050505] flex flex-col justify-center items-center p-4 selection:bg-orange-500/30 transition-colors duration-300 relative overflow-hidden text-white`}>
     <div className="absolute inset-0 z-0 pointer-events-none">
       <div className="stars absolute inset-0"></div>
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[500px] bg-orange-900/10 blur-[120px] rounded-full"></div>
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[500px] bg-red-900/10 blur-[120px] rounded-full"></div>
     </div>
-    <div className={`w-full relative z-10 max-w-md bg-[#0a0a0a] border-red-900/50 electric-card border rounded-2xl p-8 shadow-2xl text-center transition-colors duration-300`}>
+
+    <div className="relative z-10 w-full max-w-md bg-[#0a0a0a] border border-white/10 electric-card rounded-[32px] p-10 shadow-[0_0_40px_rgba(239,68,68,0.15)] text-center transition-colors duration-300">
       <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-6">
         <XCircle className="text-red-500" size={32} />
       </div>
-      <h2 className={`text-2xl font-bold ${isDarkMode ? "text-white" : "text-zinc-900"} mb-2`}>Acesso Negado</h2>
-      <p className="text-zinc-400 mb-8">
-        Seu acesso a esta clínica foi negado ou revogado por um administrador.
+      <h2 className="text-3xl font-light font-bricolage text-white mb-2">Acesso Negado</h2>
+      <p className="text-neutral-400 mb-8 font-sans text-sm leading-relaxed">
+        Seu acesso a esta clínica foi revogado ou recusado pelo administrador. Se achar que houve um erro, contate a gerência ou crie uma nova solicitação com seu e-mail.
       </p>
       <button
         onClick={onLogout}
-        className={`w-full bg-zinc-800 hover:bg-zinc-700 ${isDarkMode ? "text-white" : "text-zinc-900"} font-medium py-2.5 rounded-lg transition-colors`}
+        className="w-full bg-white text-black font-semibold rounded-xl py-3.5 hover:bg-neutral-200 transition-colors"
       >
         Voltar para o Login
       </button>
@@ -4784,25 +4836,25 @@ const SettingsView = ({
                       </div>
                     ) : (
                       <div className="flex flex-col gap-3">
-                        {pendingUsers.map(([email]: any) => (
-                          <div key={email} className={`flex items-center justify-between p-4 rounded-xl border ${isDarkMode ? "border-zinc-800/50" : "border-zinc-200/50"} ${isDarkMode ? "bg-zinc-900/20" : "bg-[var(--bg-card)] shadow-sm"}`}>
+                        {pendingUsers.map(([email, status, id, name]: any) => (
+                          <div key={id} className={`flex items-center justify-between p-4 rounded-xl border ${isDarkMode ? "border-zinc-800/50" : "border-zinc-200/50"} ${isDarkMode ? "bg-zinc-900/20" : "bg-[var(--bg-card)] shadow-sm"}`}>
                             <div className="flex items-center gap-4">
                               <div className="w-10 h-10 rounded-full bg-orange-500/20 flex items-center justify-center text-orange-500 font-bold">
-                                {email.charAt(0).toUpperCase()}
+                                {(name || email).charAt(0).toUpperCase()}
                               </div>
                               <div>
                                 <div className="flex items-center gap-2">
-                                  <span className={`font-medium ${isDarkMode ? "text-white" : "text-zinc-900"}`}>{email.split('@')[0]}</span>
+                                  <span className={`font-medium ${isDarkMode ? "text-white" : "text-zinc-900"}`}>{name || email.split('@')[0]}</span>
                                   <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-zinc-800 text-zinc-400 tracking-wider">PROFISSIONAL</span>
                                 </div>
                                 <div className="text-xs text-zinc-500 mt-0.5">{email} • Solicitado recentemente</div>
                               </div>
                             </div>
                             <div className="flex items-center gap-2">
-                              <button onClick={() => handleDeny(email)} className="px-4 py-2 rounded-lg text-sm font-medium text-red-400 hover:bg-red-400/10 border border-red-900/30 transition-colors">
+                              <button onClick={() => handleDeny(id)} className="px-4 py-2 rounded-lg text-sm font-medium text-red-400 hover:bg-red-400/10 border border-red-900/30 transition-colors">
                                 Negar
                               </button>
-                              <button onClick={() => handleApprove(email)} className="px-4 py-2 rounded-lg text-sm font-medium text-emerald-400 hover:bg-emerald-400/10 border border-emerald-900/30 transition-colors">
+                              <button onClick={() => handleApprove(id)} className="px-4 py-2 rounded-lg text-sm font-medium text-emerald-400 hover:bg-emerald-400/10 border border-emerald-900/30 transition-colors">
                                 Aprovar
                               </button>
                             </div>
@@ -4829,21 +4881,21 @@ const SettingsView = ({
                       </div>
                     ) : (
                       <div className="flex flex-col gap-3">
-                        {approvedUsers.map(([email]: any) => (
-                          <div key={email} className={`flex items-center justify-between p-4 rounded-xl border ${isDarkMode ? "border-zinc-800/50" : "border-zinc-200/50"} ${isDarkMode ? "bg-zinc-900/20" : "bg-[var(--bg-card)] shadow-sm"}`}>
+                        {approvedUsers.map(([email, status, id, name]: any) => (
+                          <div key={id} className={`flex items-center justify-between p-4 rounded-xl border ${isDarkMode ? "border-zinc-800/50" : "border-zinc-200/50"} ${isDarkMode ? "bg-zinc-900/20" : "bg-[var(--bg-card)] shadow-sm"}`}>
                             <div className="flex items-center gap-4">
                               <div className="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-500 font-bold">
-                                {email.charAt(0).toUpperCase()}
+                                {(name || email).charAt(0).toUpperCase()}
                               </div>
                               <div>
                                 <div className="flex items-center gap-2">
-                                  <span className={`font-medium ${isDarkMode ? "text-white" : "text-zinc-900"}`}>{email.split('@')[0]}</span>
+                                  <span className={`font-medium ${isDarkMode ? "text-white" : "text-zinc-900"}`}>{name || email.split('@')[0]}</span>
                                   <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-zinc-800 text-zinc-400 tracking-wider">PROFISSIONAL</span>
                                 </div>
                                 <div className="text-xs text-zinc-500 mt-0.5">{email}</div>
                               </div>
                             </div>
-                            <button onClick={() => handleDeny(email)} className={`px-4 py-2 rounded-lg text-sm font-medium text-zinc-400 hover:${isDarkMode ? "text-white" : "text-zinc-900"} ${isDarkMode ? "hover:bg-zinc-800" : "hover:bg-zinc-100"} border border-zinc-700 transition-colors`}>
+                            <button onClick={() => handleDeny(id)} className={`px-4 py-2 rounded-lg text-sm font-medium text-zinc-400 hover:${isDarkMode ? "text-white" : "text-zinc-900"} ${isDarkMode ? "hover:bg-zinc-800" : "hover:bg-zinc-100"} border border-zinc-700 transition-colors`}>
                               Revogar Acesso
                             </button>
                           </div>
@@ -5930,6 +5982,8 @@ const SettingsView = ({
 };
 
 export default function App() {
+  const { user, users, updateUserStatus, isAuthLoading } = useAuth();
+
   const [isDarkMode, setIsDarkMode] = useState(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('theme');
@@ -5937,14 +5991,17 @@ export default function App() {
     }
     return true;
   });
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [currentUserEmail, setCurrentUserEmail] = useState('');
-  const [userStatuses, setUserStatuses] = useState<Record<string, AccessStatus>>({
-    'camila@estetica.com': 'pending'
-  });
+
+  const isAuthenticated = !!user;
+  const setIsAuthenticated = (v: boolean) => { }; // Dummy setter
+  const currentUserEmail = user?.email || '';
+  const setCurrentUserEmail = (v: string) => { }; // Dummy setter
+  const role = user?.role || 'profissional';
+  const setRole = (v: any) => { }; // Dummy setter
+
+  const [userStatuses, setUserStatuses] = useState<Record<string, any>>({});
   const [activeMenu, setActiveMenu] = useState('Dashboard');
   const [activeSettingsMenu, setActiveSettingsMenu] = useState('Conta & Organização');
-  const [role, setRole] = useState<'admin' | 'profissional'>('admin');
   const [matrixRole, setMatrixRole] = useState<'admin' | 'profissional'>('admin');
   const [activeTab, setActiveTab] = useState('Pendentes');
   const [isSaving, setIsSaving] = useState(false);
@@ -5984,7 +6041,7 @@ export default function App() {
       localStorage.setItem('theme', 'light');
     }
   }, [isDarkMode]);
-
+  // isAuthLoading removed from here to follow hook order
   const [patients, setPatients] = useState<any[]>([]);
   const [professionals, setProfessionals] = useState([
     { id: '1', name: 'Dr. Rafael Costa', specialty: '', color: '#ef4444', active: true },
@@ -6020,18 +6077,8 @@ export default function App() {
   });
 
   const handleLogin = (email: string) => {
-    const isAdm = email.toLowerCase().includes('admin');
-    setRole(isAdm ? 'admin' : 'profissional');
-    setCurrentUserEmail(email);
-
-    if (!isAdm && !userStatuses[email]) {
-      setUserStatuses(prev => ({ ...prev, [email]: 'pending' }));
-    }
-
-    // Set default active menu based on role
-    setActiveMenu('Dashboard');
-
-    setIsAuthenticated(true);
+    // Removida velha regra "admin" com mocks e estados hardcoded da UI antiga
+    // Autenticação agora é orientada de forma reativa pelo estado unificado do Firebase em AuthContext.tsx
   };
 
 
@@ -6054,20 +6101,31 @@ export default function App() {
     }
   };
 
-  const handleLogout = () => {
-    setIsAuthenticated(false);
-    setCurrentUserEmail('');
-    setActiveMenu('Dashboard');
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      setActiveMenu('Dashboard');
+    } catch (error) {
+      console.error("Erro ao desconectar:", error);
+    }
   };
+
+  if (isAuthLoading) {
+    return (
+      <div className="min-h-screen bg-[#050505] flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-orange-500"></div>
+      </div>
+    );
+  }
 
   if (!isAuthenticated) {
     return <LoginScreen onLogin={handleLogin} isDarkMode={isDarkMode} />;
   }
 
   if (role === 'profissional') {
-    const status = userStatuses[currentUserEmail];
-    if (status === 'pending') return <PendingScreen onLogout={handleLogout} isDarkMode={isDarkMode} />;
-    if (status === 'denied') return <DeniedScreen onLogout={handleLogout} isDarkMode={isDarkMode} />;
+    const status = user?.status;
+    if (status === 'PENDING') return <PendingScreen onLogout={handleLogout} isDarkMode={isDarkMode} />;
+    if (status === 'REJECTED' || status === 'denied') return <DeniedScreen onLogout={handleLogout} isDarkMode={isDarkMode} />;
   }
 
   const permissions: ModulePermissions = {
@@ -6111,16 +6169,32 @@ export default function App() {
   const currentPermissions = matrixRole === 'admin' ? permissions : profissionalPermissions;
   const activeUserPermissions = role === 'admin' ? permissions : profissionalPermissions;
 
-  const pendingUsers = Object.entries(userStatuses).filter(([_, status]) => status === 'pending');
-  const approvedUsers = Object.entries(userStatuses).filter(([_, status]) => status === 'approved');
-  const deniedUsers = Object.entries(userStatuses).filter(([_, status]) => status === 'denied');
+  const pendingUsers = users.filter((u) => u.status === 'PENDING').map(u => [u.email, u.status, u.id, u.name]);
+  const approvedUsers = users.filter((u) => u.status === 'APPROVED' && u.role !== 'admin').map(u => [u.email, u.status, u.id, u.name]);
+  const deniedUsers = users.filter((u) => u.status === 'REJECTED').map(u => [u.email, u.status, u.id, u.name]);
 
-  const handleApprove = (email: string) => {
-    setUserStatuses(prev => ({ ...prev, [email]: 'approved' }));
+  const handleApprove = (userId: string) => {
+    updateUserStatus(userId, 'APPROVED');
+    // Adicionar profissional aprovado à lista de profissionais automaticamente
+    const approvedUser = users.find(u => u.id === userId);
+    if (approvedUser) {
+      const alreadyAdded = professionals.some(p => p.id === userId);
+      if (!alreadyAdded) {
+        const colors = ['#ef4444', '#10b981', '#0ea5e9', '#f59e0b', '#8b5cf6', '#ec4899'];
+        const randomColor = colors[Math.floor(Math.random() * colors.length)];
+        setProfessionals(prev => [...prev, {
+          id: userId,
+          name: approvedUser.name,
+          specialty: '',
+          color: randomColor,
+          active: true
+        }]);
+      }
+    }
   };
 
-  const handleDeny = (email: string) => {
-    setUserStatuses(prev => ({ ...prev, [email]: 'denied' }));
+  const handleDeny = (userId: string) => {
+    updateUserStatus(userId, 'REJECTED');
   };
 
   const handleSave = () => {
