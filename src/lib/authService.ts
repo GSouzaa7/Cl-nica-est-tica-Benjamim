@@ -39,12 +39,16 @@ export const registrarNovoUsuario = async (email: string, senha: string, nome?: 
             // Cria o documento regras_acesso na coleção configuracoes liberando todas as permissões para "profissional"
             await setDoc(doc(db, "configuracoes", "regras_acesso"), {
                 profissional: {
-                    agenda: true,
-                    clientes: true,
-                    receituario: true,
-                    financeiro: true,
-                    prontuario: true,
-                    estoque: true
+                    dashboard: { view: true, create: true, edit: true, delete: true },
+                    crm: { view: true, create: true, edit: true, delete: true },
+                    clientes: { view: true, create: true, edit: true, delete: true },
+                    receituario: { view: true, create: true, edit: true, delete: true },
+                    agenda: { view: true, create: true, edit: true, delete: true },
+                    financeiro: { view: true, create: true, edit: true, delete: true },
+                    relatorios: { view: true, create: true, edit: true, delete: true },
+                    estoque: { view: true, create: true, edit: true, delete: true },
+                    profissionais: { view: true, create: true, edit: true, delete: true },
+                    servicos: { view: true, create: true, edit: true, delete: true },
                 },
                 criadoEm: serverTimestamp()
             });

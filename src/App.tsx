@@ -64,7 +64,8 @@ import {
 
 import { useAuth } from './contexts/AuthContext';
 import { signInWithEmailAndPassword, signOut } from 'firebase/auth';
-import { auth } from './lib/firebase';
+import { auth, db } from './lib/firebase';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { registrarNovoUsuario } from './lib/authService';
 import { ReceituarioView } from './ReceituarioView';
 // @ts-ignore
@@ -6074,7 +6075,27 @@ export default function App() {
     financeiro: { view: false, create: false, edit: false, delete: false },
     relatorios: { view: true, create: false, edit: false, delete: false },
     estoque: { view: true, create: true, edit: false, delete: false },
+    profissionais: { view: false, create: false, edit: false, delete: false },
+    servicos: { view: false, create: false, edit: false, delete: false },
   });
+
+  // Fetch das permissões salvas no Firestore
+  useEffect(() => {
+    const fetchPermissions = async () => {
+      if (isAuthenticated) {
+        try {
+          const docRef = doc(db, 'configuracoes', 'regras_acesso');
+          const docSnap = await getDoc(docRef);
+          if (docSnap.exists() && docSnap.data().profissional) {
+            setProfissionalPermissions(docSnap.data().profissional as ModulePermissions);
+          }
+        } catch (error) {
+          console.error("Erro ao buscar as regras de acesso no Firestore:", error);
+        }
+      }
+    };
+    fetchPermissions();
+  }, [isAuthenticated]);
 
   const handleLogin = (email: string) => {
     // Removida velha regra "admin" com mocks e estados hardcoded da UI antiga
@@ -6137,6 +6158,8 @@ export default function App() {
     financeiro: { view: true, create: true, edit: true, delete: true },
     relatorios: { view: true, create: true, edit: true, delete: true },
     estoque: { view: true, create: true, edit: true, delete: true },
+    profissionais: { view: true, create: true, edit: true, delete: true },
+    servicos: { view: true, create: true, edit: true, delete: true },
   };
 
   const modules = [
@@ -6148,6 +6171,8 @@ export default function App() {
     { id: 'financeiro', name: 'Financeiro' },
     { id: 'relatorios', name: 'Relatórios' },
     { id: 'estoque', name: 'Estoque' },
+    { id: 'profissionais', name: 'Profissionais' },
+    { id: 'servicos', name: 'Serviços' },
   ];
 
   const handleToggle = (moduleId: string, action: keyof Permissions) => {
@@ -6197,11 +6222,20 @@ export default function App() {
     updateUserStatus(userId, 'REJECTED');
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     setIsSaving(true);
-    setTimeout(() => {
+    try {
+      const docRef = doc(db, 'configuracoes', 'regras_acesso');
+      await setDoc(docRef, { profissional: profissionalPermissions }, { merge: true });
+      // Simula feedback para UX
+      setTimeout(() => {
+        setIsSaving(false);
+      }, 500);
+    } catch (error) {
+      console.error("Erro ao salvar regras de acesso:", error);
       setIsSaving(false);
-    }, 2000);
+      alert("Houve um erro ao salvar suas permissões. Tente novamente.");
+    }
   };
 
   return (
@@ -6225,9 +6259,9 @@ export default function App() {
           {activeUserPermissions.agenda?.view && <NavItem icon={<Calendar size={18} />} label="Agenda" active={activeMenu === 'Agenda'} onClick={() => setActiveMenu('Agenda')} isDarkMode={isDarkMode} />}
           {activeUserPermissions.crm?.view && <NavItem icon={<BarChart3 size={18} />} label="CRM" active={activeMenu === 'CRM'} onClick={() => setActiveMenu('CRM')} isDarkMode={isDarkMode} />}
           {activeUserPermissions.clientes?.view && <NavItem icon={<Users size={18} />} label="Clientes" active={activeMenu === 'Clientes'} onClick={() => setActiveMenu('Clientes')} isDarkMode={isDarkMode} />}
-          <NavItem icon={<FileSignature size={18} />} label="Receituário" active={activeMenu === 'Receituário'} onClick={() => setActiveMenu('Receituário')} isDarkMode={isDarkMode} />
-          <NavItem icon={<User size={18} />} label="Profissionais" active={activeMenu === 'Profissionais'} onClick={() => setActiveMenu('Profissionais')} isDarkMode={isDarkMode} />
-          <NavItem icon={<Briefcase size={18} />} label="Serviços" active={activeMenu === 'Serviços'} onClick={() => setActiveMenu('Serviços')} isDarkMode={isDarkMode} />
+          {activeUserPermissions.receituario?.view && <NavItem icon={<FileSignature size={18} />} label="Receituário" active={activeMenu === 'Receituário'} onClick={() => setActiveMenu('Receituário')} isDarkMode={isDarkMode} />}
+          {activeUserPermissions.profissionais?.view && <NavItem icon={<User size={18} />} label="Profissionais" active={activeMenu === 'Profissionais'} onClick={() => setActiveMenu('Profissionais')} isDarkMode={isDarkMode} />}
+          {activeUserPermissions.servicos?.view && <NavItem icon={<Briefcase size={18} />} label="Serviços" active={activeMenu === 'Serviços'} onClick={() => setActiveMenu('Serviços')} isDarkMode={isDarkMode} />}
           {activeUserPermissions.estoque?.view && <NavItem icon={<Box size={18} />} label="Estoque" active={activeMenu === 'Estoque'} onClick={() => setActiveMenu('Estoque')} isDarkMode={isDarkMode} />}
           {activeUserPermissions.financeiro?.view && <NavItem icon={<DollarSign size={18} />} label="Financeiro" active={activeMenu === 'Financeiro'} onClick={() => setActiveMenu('Financeiro')} isDarkMode={isDarkMode} />}
           {activeUserPermissions.relatorios?.view && <NavItem icon={<PieChart size={18} />} label="Relatórios" active={activeMenu === 'Relatórios'} onClick={() => setActiveMenu('Relatórios')} isDarkMode={isDarkMode} />}
