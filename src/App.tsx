@@ -65,7 +65,7 @@ import {
 import { useAuth } from './contexts/AuthContext';
 import { signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import { auth, db } from './lib/firebase';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, collection, getDocs, onSnapshot, writeBatch, deleteDoc, query, orderBy, arrayRemove, arrayUnion } from 'firebase/firestore';
 import { registrarNovoUsuario } from './lib/authService';
 import { ReceituarioView } from './ReceituarioView';
 // @ts-ignore
@@ -419,10 +419,10 @@ const DashboardView = ({
                   <DollarSign size={16} />
                 </div>
               </div>
-              <div className="text-3xl font-bold text-white mb-2">R$ 14.500,00</div>
-              <div className="flex items-center gap-1 text-xs font-medium text-emerald-500">
+              <div className="text-3xl font-bold text-white mb-2">R$ 0,00</div>
+              <div className="flex items-center gap-1 text-xs font-medium text-neutral-500">
                 <TrendingUp size={14} />
-                <span>+12.5% vs mês anterior</span>
+                <span>+0% vs mês anterior</span>
               </div>
             </div>
 
@@ -434,10 +434,10 @@ const DashboardView = ({
                   <Calendar size={16} />
                 </div>
               </div>
-              <div className="text-3xl font-bold text-white mb-2">42</div>
-              <div className="flex items-center gap-1 text-xs font-medium text-emerald-500">
+              <div className="text-3xl font-bold text-white mb-2">0</div>
+              <div className="flex items-center gap-1 text-xs font-medium text-neutral-500">
                 <TrendingUp size={14} />
-                <span>+8.2% vs mês anterior</span>
+                <span>+0% vs mês anterior</span>
               </div>
             </div>
 
@@ -449,10 +449,10 @@ const DashboardView = ({
                   <Users size={16} />
                 </div>
               </div>
-              <div className="text-3xl font-bold text-white mb-2">18</div>
-              <div className="flex items-center gap-1 text-xs font-medium text-red-500">
+              <div className="text-3xl font-bold text-white mb-2">0</div>
+              <div className="flex items-center gap-1 text-xs font-medium text-neutral-500">
                 <TrendingDown size={14} />
-                <span>-3.1% vs mês anterior</span>
+                <span>0% vs mês anterior</span>
               </div>
             </div>
 
@@ -464,10 +464,10 @@ const DashboardView = ({
                   <BarChart3 size={16} />
                 </div>
               </div>
-              <div className="text-3xl font-bold text-white mb-2">R$ 3.200,00</div>
-              <div className="flex items-center gap-1 text-xs font-medium text-emerald-500">
+              <div className="text-3xl font-bold text-white mb-2">R$ 0,00</div>
+              <div className="flex items-center gap-1 text-xs font-medium text-neutral-500">
                 <TrendingUp size={14} />
-                <span>+5.7% vs mês anterior</span>
+                <span>+0% vs mês anterior</span>
               </div>
             </div>
           </div>
@@ -524,12 +524,12 @@ const DashboardView = ({
 
                 {/* Bars */}
                 {[
-                  { month: 'SET', val1: 40, val2: 20 },
-                  { month: 'OUT', val1: 55, val2: 30 },
-                  { month: 'NOV', val1: 45, val2: 25 },
-                  { month: 'DEZ', val1: 90, val2: 60 },
-                  { month: 'JAN', val1: 65, val2: 40 },
-                  { month: 'FEV', val1: 50, val2: 35 },
+                  { month: 'SET', val1: 0, val2: 0 },
+                  { month: 'OUT', val1: 0, val2: 0 },
+                  { month: 'NOV', val1: 0, val2: 0 },
+                  { month: 'DEZ', val1: 0, val2: 0 },
+                  { month: 'JAN', val1: 0, val2: 0 },
+                  { month: 'FEV', val1: 0, val2: 0 },
                 ].map((data, i) => (
                   <div key={i} className="flex flex-col items-center gap-3 z-10 w-full">
                     <div className="w-full max-w-[48px] h-full flex items-end relative group">
@@ -1226,29 +1226,40 @@ const CrmView = ({ patients, setPatients, columns, setColumns, onGenerateReceitu
     }
   }, [activeCard?.id]);
 
-  const handleCreateColumn = () => {
+  const handleCreateColumn = async () => {
     if (newColumnName.trim()) {
-      setColumns([...columns, { id: Date.now().toString(), title: newColumnName, cardIds: [] }]);
-      setNewColumnName('');
-      setIsNewColumnModalOpen(false);
+      const colId = Date.now().toString();
+      const newCol = { id: colId, title: newColumnName, cardIds: [], order: columns.length };
+      try {
+        await setDoc(doc(db, 'crm_columns', colId), newCol);
+        setNewColumnName('');
+        setIsNewColumnModalOpen(false);
+      } catch (e) {
+        console.error("Erro ao criar coluna:", e);
+      }
     }
   };
 
-  const handleCreateCard = () => {
+  const handleCreateCard = async () => {
     if (newCardName.trim() && activeColumnId) {
-      const newPatient = { id: Date.now().toString(), name: newCardName, phone: '', email: '', cpf: '', notes: '', history: [] };
-      setPatients([newPatient, ...patients]);
-      setColumns(columns.map((col: any) => {
-        if (col.id === activeColumnId) {
-          return {
-            ...col,
-            cardIds: [...col.cardIds, newPatient.id]
-          };
+      const newPatientId = Date.now().toString();
+      const newPatient = { id: newPatientId, name: newCardName, phone: '', email: '', cpf: '', notes: '', history: [] };
+
+      try {
+        await setDoc(doc(db, 'clientes', newPatientId), newPatient);
+
+        // update the column
+        const column = columns.find((c: any) => c.id === activeColumnId);
+        if (column) {
+          const updatedCol = { ...column, cardIds: [...column.cardIds, newPatientId] };
+          await setDoc(doc(db, 'crm_columns', activeColumnId), updatedCol);
         }
-        return col;
-      }));
-      setNewCardName('');
-      setIsNewCardModalOpen(false);
+
+        setNewCardName('');
+        setIsNewCardModalOpen(false);
+      } catch (e) {
+        console.error("Erro ao criar lead:", e);
+      }
     }
   };
 
@@ -1274,19 +1285,6 @@ const CrmView = ({ patients, setPatients, columns, setColumns, onGenerateReceitu
     recognition.lang = 'pt-BR';
 
     recognition.onresult = (event: any) => {
-      let finalSessionText = "";
-      let interimSessionText = "";
-
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        const transcript = event.results[i][0].transcript;
-        if (event.results[i].isFinal) {
-          // Re-sincronização agressiva: pegamos apenas o que o motor confirmou
-          // mas para simplificar e evitar bugs de duplicação em modo 'continuous', 
-          // a melhor prática é reconstruir o que foi falado NESTA sessão.
-        }
-      }
-
-      // Versão Robusta Simples: Reconstrução Total da Sessão Atual
       let completeSessionText = "";
       let interimText = "";
       for (let i = 0; i < event.results.length; i++) {
@@ -1339,7 +1337,7 @@ const CrmView = ({ patients, setPatients, columns, setColumns, onGenerateReceitu
     recognition.start();
   };
 
-  const handleSaveRecord = () => {
+  const handleSaveRecord = async () => {
     if (!transcription.trim() || !activeCard) return;
 
     const newRecord = {
@@ -1358,11 +1356,15 @@ const CrmView = ({ patients, setPatients, columns, setColumns, onGenerateReceitu
       history: [newRecord, ...(activeCard.history || [])]
     };
 
-    setPatients(patients.map((p: any) => p.id === activeCard.id ? updatedCard : p));
-    setTranscription('');
+    try {
+      await setDoc(doc(db, 'clientes', activeCard.id), updatedCard);
+      setTranscription('');
+    } catch (error) {
+      console.error("Erro ao salvar prontuário do lead:", error);
+    }
   };
 
-  const handleSavePatient = () => {
+  const handleSavePatient = async () => {
     if (!activeCard) return;
     const updatedCard = {
       ...activeCard,
@@ -1371,7 +1373,11 @@ const CrmView = ({ patients, setPatients, columns, setColumns, onGenerateReceitu
       email: editEmail,
       notes: editNotes,
     };
-    setPatients(patients.map((p: any) => p.id === activeCard.id ? updatedCard : p));
+    try {
+      await setDoc(doc(db, 'clientes', activeCard.id), updatedCard);
+    } catch (error) {
+      console.error("Erro ao atualizar lead:", error);
+    }
   };
 
   const handleDragStart = (e: React.DragEvent, cardId: string) => {
@@ -1382,23 +1388,35 @@ const CrmView = ({ patients, setPatients, columns, setColumns, onGenerateReceitu
     e.preventDefault();
   };
 
-  const handleDrop = (e: React.DragEvent, targetColumnId: string) => {
+  const handleDrop = async (e: React.DragEvent, targetColumnId: string) => {
     const cardId = e.dataTransfer.getData('cardId');
     if (!cardId) return;
 
-    setColumns(columns.map((col: any) => {
-      // Remover de onde estava
-      const newCardIds = col.cardIds.filter((id: string) => id !== cardId);
+    try {
+      const batch = writeBatch(db);
 
-      // Adicionar à nova coluna se for o alvo
-      if (col.id === targetColumnId) {
-        if (!newCardIds.includes(cardId)) {
-          return { ...col, cardIds: [...newCardIds, cardId] };
+      columns.forEach((col: any) => {
+        const docRef = doc(db, 'crm_columns', col.id);
+
+        // 1. We keep ONLY the IDs that still exist in the 'patients' array (Auto-heal Ghosts)
+        let validCardIds = col.cardIds.filter((id: string) => patients.some((p: any) => p.id === id));
+
+        // 2. We remove the dragged card from this column (if it was here)
+        validCardIds = validCardIds.filter((id: string) => id !== cardId);
+
+        // 3. If this is the target column, we add the dragged card to the end
+        if (col.id === targetColumnId) {
+          validCardIds.push(cardId);
         }
-      }
 
-      return { ...col, cardIds: newCardIds };
-    }));
+        // 4. Send the completely clean and accurate array to Firestore
+        batch.update(docRef, { cardIds: validCardIds });
+      });
+
+      await batch.commit();
+    } catch (error) {
+      console.error("Erro ao mover lead:", error);
+    }
   };
 
   return (
@@ -1433,7 +1451,9 @@ const CrmView = ({ patients, setPatients, columns, setColumns, onGenerateReceitu
             <div className={`p-4 border-b ${isDarkMode ? "border-zinc-800/80" : "border-zinc-200/80"} flex items-center justify-between`}>
               <div className="flex items-center gap-2">
                 <h3 className={`${isDarkMode ? "text-white" : "text-zinc-900"} font-bold text-sm uppercase tracking-wider`}>{column.title}</h3>
-                <span className="bg-zinc-800 text-zinc-400 text-xs font-bold px-2 py-0.5 rounded-full">{column.cardIds.length}</span>
+                <span className="bg-zinc-800 text-zinc-400 text-xs font-bold px-2 py-0.5 rounded-full">
+                  {column.cardIds.filter((id: string) => patients.some((p: any) => p.id === id)).length}
+                </span>
               </div>
               <div className="flex items-center gap-1">
                 <button
@@ -1721,7 +1741,7 @@ const CrmView = ({ patients, setPatients, columns, setColumns, onGenerateReceitu
   );
 };
 
-const ClientesView = ({ patients, setPatients, onGenerateReceituario, isDarkMode = true }: any) => {
+const ClientesView = ({ patients, setPatients, columns, onGenerateReceituario, isDarkMode = true }: any) => {
   const [isNewPatientModalOpen, setIsNewPatientModalOpen] = useState(false);
   const [activePatientId, setActivePatientId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -1749,6 +1769,50 @@ const ClientesView = ({ patients, setPatients, onGenerateReceituario, isDarkMode
   const [editNotes, setEditNotes] = useState('');
   const [clientCPF, setClientCPF] = useState('');
   const [isSaved, setIsSaved] = useState(false);
+
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState<string | null>(null);
+
+  const handleDeleteRequest = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setItemToDelete(id);
+    setIsDeleteModalOpen(true);
+  };
+
+  const cancelDelete = () => {
+    setIsDeleteModalOpen(false);
+    setItemToDelete(null);
+  };
+
+  const confirmDelete = async () => {
+    if (itemToDelete) {
+      try {
+        const batch = writeBatch(db);
+
+        // 1. Deleta o paciente
+        batch.delete(doc(db, 'clientes', itemToDelete));
+
+        // 2. Remove o ID do paciente de todas as colunas do CRM
+        if (columns && Array.isArray(columns)) {
+          columns.forEach((col: any) => {
+            if (col.cardIds && col.cardIds.includes(itemToDelete)) {
+              batch.update(doc(db, 'crm_columns', col.id), {
+                cardIds: arrayRemove(itemToDelete)
+              });
+            }
+          });
+        }
+
+        await batch.commit();
+
+        setIsDeleteModalOpen(false);
+        setItemToDelete(null);
+      } catch (error) {
+        console.error("Erro ao deletar paciente:", error);
+        alert("Erro ao excluir paciente. Tente novamente.");
+      }
+    }
+  };
 
   const formatCPF = (value: string) => {
     return value
@@ -1843,7 +1907,7 @@ const ClientesView = ({ patients, setPatients, onGenerateReceituario, isDarkMode
     recognition.start();
   };
 
-  const handleSaveRecord = () => {
+  const handleSaveRecord = async () => {
     if (!transcription.trim() || !currentPatient) return;
 
     const newRecord = {
@@ -1865,7 +1929,6 @@ const ClientesView = ({ patients, setPatients, onGenerateReceituario, isDarkMode
         cpf: clientCPF.replace(/\D/g, ''),
         history: [newRecord]
       };
-      setPatients([updatedPatient, ...patients]);
       setIsNewPatientModalOpen(false);
       setActivePatientId(updatedPatient.id);
     } else {
@@ -1877,13 +1940,20 @@ const ClientesView = ({ patients, setPatients, onGenerateReceituario, isDarkMode
         notes: editNotes,
         history: [newRecord, ...(currentPatient.history || [])]
       };
-      setPatients(patients.map((p: any) => p.id === currentPatient.id ? updatedPatient : p));
+    }
+
+    try {
+      const docRef = doc(db, 'clientes', updatedPatient.id);
+      await setDoc(docRef, updatedPatient);
+    } catch (error) {
+      console.error("Erro ao salvar histórico do paciente:", error);
+      alert("Erro ao salvar histórico. Tente novamente.");
     }
 
     setTranscription('');
   };
 
-  const handleSavePatient = () => {
+  const handleSavePatient = async () => {
     if (!currentPatient) return;
 
     let updatedPatient;
@@ -1897,7 +1967,6 @@ const ClientesView = ({ patients, setPatients, onGenerateReceituario, isDarkMode
         notes: editNotes,
         cpf: clientCPF.replace(/\D/g, ''),
       };
-      setPatients([updatedPatient, ...patients]);
       setIsNewPatientModalOpen(false);
       setActivePatientId(updatedPatient.id);
     } else {
@@ -1909,7 +1978,14 @@ const ClientesView = ({ patients, setPatients, onGenerateReceituario, isDarkMode
         notes: editNotes,
         cpf: clientCPF.replace(/\D/g, ''),
       };
-      setPatients(patients.map((p: any) => p.id === currentPatient.id ? updatedPatient : p));
+    }
+
+    try {
+      const docRef = doc(db, 'clientes', updatedPatient.id);
+      await setDoc(docRef, updatedPatient);
+    } catch (error) {
+      console.error("Erro ao salvar paciente:", error);
+      alert("Erro ao salvar paciente. Tente novamente.");
     }
 
     setIsSaved(true);
@@ -1983,8 +2059,12 @@ const ClientesView = ({ patients, setPatients, onGenerateReceituario, isDarkMode
                     <p className="text-zinc-500 text-sm">{patient.phone || 'Telefone não cadastrado'}</p>
                   </div>
                 </div>
-                <button className={`text-zinc-500 hover:${isDarkMode ? "text-white" : "text-zinc-900"} transition-colors`}>
-                  <MoreVertical size={18} />
+                <button
+                  onClick={(e) => handleDeleteRequest(patient.id, e)}
+                  title="Excluir Paciente"
+                  className={`text-zinc-500 hover:text-red-500 transition-colors cursor-pointer relative z-10`}
+                >
+                  <Trash2 size={18} />
                 </button>
               </div>
 
@@ -2193,6 +2273,37 @@ const ClientesView = ({ patients, setPatients, onGenerateReceituario, isDarkMode
           </div>
         </div>
       )}
+
+      {/* Delete Confirmation Modal */}
+      {isDeleteModalOpen && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
+          <div className={`${isDarkMode ? "bg-[#18181b] border-red-900/30 shadow-[0_0_40px_rgba(239,68,68,0.15)]" : "bg-white border-zinc-200 shadow-2xl"} rounded-3xl w-full max-w-sm border overflow-hidden animate-in zoom-in-95 duration-200`}>
+            <div className={`p-6 border-b ${isDarkMode ? "border-zinc-800/80" : "border-zinc-100"}`}>
+              <div className="flex items-center justify-center w-16 h-16 rounded-full bg-red-500/10 mb-6 mx-auto border border-red-500/20">
+                <AlertTriangle className="w-8 h-8 text-red-500" />
+              </div>
+              <h3 className={`text-xl font-bold text-center mb-2 tracking-tight ${isDarkMode ? 'text-white' : 'text-zinc-900'}`}>Excluir Paciente</h3>
+              <p className={`text-center text-sm ${isDarkMode ? 'text-zinc-400' : 'text-zinc-500'}`}>
+                Tem certeza que deseja excluir? Esta ação é permanente e removerá todo o histórico clínico.
+              </p>
+            </div>
+            <div className={`p-4 gap-3 flex flex-col md:flex-row justify-end ${isDarkMode ? 'bg-[#0a0a0a]' : 'bg-zinc-50'}`}>
+              <button
+                onClick={cancelDelete}
+                className={`w-full md:w-auto px-5 py-2.5 text-sm font-semibold rounded-xl transition-all ${isDarkMode ? 'text-zinc-400 hover:text-white hover:bg-zinc-800' : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200'}`}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmDelete}
+                className="w-full md:w-auto px-5 py-2.5 text-sm font-semibold text-white bg-red-500 hover:bg-red-600 rounded-xl transition-all shadow-[0_0_15px_rgba(239,68,68,0.3)] hover:shadow-[0_0_20px_rgba(239,68,68,0.5)] flex items-center justify-center gap-2"
+              >
+                <Trash2 size={16} /> Excluir
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -2201,6 +2312,9 @@ const ClientesView = ({ patients, setPatients, onGenerateReceituario, isDarkMode
 const ProfissionaisView = ({ professionals, setProfessionals, isDarkMode = true }: any) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState<string | null>(null);
 
   const [name, setName] = useState('');
   const [specialty, setSpecialty] = useState('');
@@ -2249,16 +2363,13 @@ const ProfissionaisView = ({ professionals, setProfessionals, isDarkMode = true 
     setShowColorPicker(false);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!name.trim()) return;
 
-    if (editingId) {
-      setProfessionals(professionals.map((p: any) =>
-        p.id === editingId ? { ...p, name, specialty, color, phone: telefone, email, rqe: { numero: rqeNumero, uf: rqeUf }, doc: { type: docType, number: docNumber, uf: docUF } } : p
-      ));
-    } else {
-      setProfessionals([...professionals, {
-        id: Date.now().toString(),
+    try {
+      const idToSave = editingId || Date.now().toString();
+      const profData = {
+        id: idToSave,
         name,
         specialty,
         color,
@@ -2267,15 +2378,37 @@ const ProfissionaisView = ({ professionals, setProfessionals, isDarkMode = true 
         rqe: { numero: rqeNumero, uf: rqeUf },
         active: true,
         doc: { type: docType, number: docNumber, uf: docUF }
-      }]);
+      };
+
+      await setDoc(doc(db, 'profissionais', idToSave), profData);
+      setIsModalOpen(false);
+    } catch (error) {
+      console.error("Erro ao salvar profissional:", error);
+      alert("Houve um erro ao salvar o profissional.");
     }
-    setIsModalOpen(false);
   };
 
-  const handleDelete = (id: string) => {
-    if (confirm('Tem certeza que deseja excluir este profissional?')) {
-      setProfessionals(professionals.filter((p: any) => p.id !== id));
+  const handleDeleteRequest = (id: string) => {
+    setItemToDelete(id);
+    setIsDeleteModalOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (itemToDelete) {
+      try {
+        await deleteDoc(doc(db, 'profissionais', itemToDelete));
+      } catch (error) {
+        console.error("Erro ao excluir profissional:", error);
+        alert("Houve um erro ao excluir o profissional.");
+      }
     }
+    setIsDeleteModalOpen(false);
+    setItemToDelete(null);
+  };
+
+  const cancelDelete = () => {
+    setIsDeleteModalOpen(false);
+    setItemToDelete(null);
   };
 
   const handleApplyColor = () => {
@@ -2334,7 +2467,7 @@ const ProfissionaisView = ({ professionals, setProfessionals, isDarkMode = true 
                   <button onClick={() => handleOpenModal(prof)} className={`text-zinc-500 hover:${isDarkMode ? "text-white" : "text-zinc-900"} transition-colors p-1`}>
                     <Pencil size={16} />
                   </button>
-                  <button onClick={() => handleDelete(prof.id)} className="text-zinc-500 hover:text-red-500 transition-colors p-1">
+                  <button onClick={() => handleDeleteRequest(prof.id)} className="text-zinc-500 hover:text-red-500 transition-colors p-1">
                     <Trash2 size={16} />
                   </button>
                 </div>
@@ -2364,17 +2497,17 @@ const ProfissionaisView = ({ professionals, setProfessionals, isDarkMode = true 
       {/* Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className={`${isDarkMode ? "bg-[#0a0a0a] border-orange-900/30 shadow-[0_0_50px_rgba(249,115,22,0.1)]" : "bg-white border-[var(--border-default)] shadow-2xl"} border rounded-3xl w-full max-w-md p-8 relative`}>
+          <div className={`${isDarkMode ? "bg-[#0a0a0a] border-orange-900/30 shadow-[0_0_50px_rgba(249,115,22,0.1)]" : "bg-white border-[var(--border-default)] shadow-2xl"} border rounded-3xl w-full max-w-md p-8 relative max-h-[90vh] flex flex-col`}>
             <button
               onClick={() => setIsModalOpen(false)}
-              className={`absolute top-6 right-6 text-zinc-500 hover:${isDarkMode ? "text-white" : "text-zinc-900"} transition-colors`}
+              className={`absolute top-6 right-6 text-zinc-500 hover:${isDarkMode ? "text-white" : "text-zinc-900"} transition-colors z-10`}
             >
               <X size={20} />
             </button>
 
-            <h2 className={`text-2xl font-bold ${isDarkMode ? "text-white" : "text-zinc-900"} mb-8`}>Cadastrar Profissional</h2>
+            <h2 className={`text-2xl font-bold ${isDarkMode ? "text-white" : "text-zinc-900"} mb-8 shrink-0`}>Cadastrar Profissional</h2>
 
-            <div className="flex flex-col gap-6">
+            <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 flex flex-col gap-6">
               <div className="space-y-4">
                 <div>
                   <label className="block text-[10px] font-bold text-zinc-500 mb-1">NOME COMPLETO</label>
@@ -2503,7 +2636,7 @@ const ProfissionaisView = ({ professionals, setProfessionals, isDarkMode = true 
                 </div>
 
                 {showColorPicker && (
-                  <div className="absolute top-full left-0 mt-2 z-50 bg-white rounded-2xl p-4 shadow-2xl border border-zinc-200 w-64">
+                  <div className="absolute bottom-full left-0 mb-2 z-50 bg-white rounded-2xl p-4 shadow-2xl border border-zinc-200 w-64">
                     <HexColorPicker color={tempColor} onChange={setTempColor} style={{ width: '100%' }} />
                     <div className="mt-4 flex gap-2">
                       <input
@@ -2541,6 +2674,36 @@ const ProfissionaisView = ({ professionals, setProfessionals, isDarkMode = true 
           </div>
         </div>
       )}
+      {/* Delete Confirmation Modal */}
+      {isDeleteModalOpen && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
+          <div className={`${isDarkMode ? "bg-[#18181b] border-red-900/30 shadow-[0_0_40px_rgba(239,68,68,0.15)]" : "bg-white border-zinc-200 shadow-2xl"} rounded-3xl w-full max-w-sm border overflow-hidden animate-in zoom-in-95 duration-200`}>
+            <div className={`p-6 border-b ${isDarkMode ? "border-zinc-800/80" : "border-zinc-100"}`}>
+              <div className="flex items-center justify-center w-16 h-16 rounded-full bg-red-500/10 mb-6 mx-auto border border-red-500/20">
+                <AlertTriangle className="w-8 h-8 text-red-500" />
+              </div>
+              <h3 className={`text-xl font-bold text-center mb-2 tracking-tight ${isDarkMode ? 'text-white' : 'text-zinc-900'}`}>Excluir Profissional</h3>
+              <p className={`text-center text-sm ${isDarkMode ? 'text-zinc-400' : 'text-zinc-500'}`}>
+                Tem certeza que deseja excluir? Esta ação é permanente.
+              </p>
+            </div>
+            <div className={`p-4 gap-3 flex flex-col md:flex-row justify-end ${isDarkMode ? 'bg-[#0a0a0a]' : 'bg-zinc-50'}`}>
+              <button
+                onClick={cancelDelete}
+                className={`w-full md:w-auto px-5 py-2.5 text-sm font-semibold rounded-xl transition-all ${isDarkMode ? 'text-zinc-400 hover:text-white hover:bg-zinc-800' : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200'}`}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmDelete}
+                className="w-full md:w-auto px-5 py-2.5 text-sm font-semibold text-white bg-red-500 hover:bg-red-600 rounded-xl transition-all shadow-[0_0_15px_rgba(239,68,68,0.3)] hover:shadow-[0_0_20px_rgba(239,68,68,0.5)] flex items-center justify-center gap-2"
+              >
+                <Trash2 size={16} /> Excluir
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -2549,6 +2712,9 @@ const ProfissionaisView = ({ professionals, setProfessionals, isDarkMode = true 
 const ServicosView = ({ services, setServices, inventory, isDarkMode = true }: any) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('Dados do Serviço');
   const [filterCategory, setFilterCategory] = useState('Todos');
 
@@ -2596,34 +2762,53 @@ const ServicosView = ({ services, setServices, inventory, isDarkMode = true }: a
     setIsModalOpen(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!name.trim()) return;
 
-    const newService = {
-      id: editingId || Date.now().toString(),
-      name,
-      category,
-      duration: parseInt(duration) || 0,
-      price: parseFloat(price) || 0,
-      tax: parseFloat(tax) || 0,
-      commission: parseFloat(commission) || 0,
-      transactionFee: parseFloat(transactionFee) || 0,
-      description,
-      items: serviceItems
-    };
+    try {
+      const idToSave = editingId || Date.now().toString();
+      const newService = {
+        id: idToSave,
+        name,
+        category,
+        duration: parseInt(duration) || 0,
+        price: parseFloat(price) || 0,
+        tax: parseFloat(tax) || 0,
+        commission: parseFloat(commission) || 0,
+        transactionFee: parseFloat(transactionFee) || 0,
+        description,
+        items: serviceItems
+      };
 
-    if (editingId) {
-      setServices(services.map((s: any) => s.id === editingId ? newService : s));
-    } else {
-      setServices([...services, newService]);
+      await setDoc(doc(db, 'servicos', idToSave), newService);
+      setIsModalOpen(false);
+    } catch (error) {
+      console.error("Erro ao salvar serviço:", error);
+      alert("Houve um erro ao salvar o serviço.");
     }
-    setIsModalOpen(false);
   };
 
-  const handleDelete = (id: string) => {
-    if (confirm('Tem certeza que deseja excluir este serviço?')) {
-      setServices(services.filter((s: any) => s.id !== id));
+  const handleDeleteRequest = (id: string) => {
+    setItemToDelete(id);
+    setIsDeleteModalOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (itemToDelete) {
+      try {
+        await deleteDoc(doc(db, 'servicos', itemToDelete));
+      } catch (error) {
+        console.error("Erro ao excluir serviço:", error);
+        alert("Houve um erro ao excluir o serviço.");
+      }
     }
+    setIsDeleteModalOpen(false);
+    setItemToDelete(null);
+  };
+
+  const cancelDelete = () => {
+    setIsDeleteModalOpen(false);
+    setItemToDelete(null);
   };
 
   const handleAddItem = () => {
@@ -2738,7 +2923,7 @@ const ServicosView = ({ services, setServices, inventory, isDarkMode = true }: a
                     <button onClick={() => handleOpenModal(service)} className={`text-zinc-500 hover:${isDarkMode ? "text-white" : "text-zinc-900"} transition-colors p-1`}>
                       <Pencil size={16} />
                     </button>
-                    <button onClick={() => handleDelete(service.id)} className="text-zinc-500 hover:text-red-500 transition-colors p-1">
+                    <button onClick={() => handleDeleteRequest(service.id)} className="text-zinc-500 hover:text-red-500 transition-colors p-1">
                       <Trash2 size={16} />
                     </button>
                   </div>
@@ -3140,6 +3325,36 @@ const ServicosView = ({ services, setServices, inventory, isDarkMode = true }: a
           </div>
         </div>
       )}
+      {/* Delete Confirmation Modal */}
+      {isDeleteModalOpen && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
+          <div className={`${isDarkMode ? "bg-[#18181b] border-red-900/30 shadow-[0_0_40px_rgba(239,68,68,0.15)]" : "bg-white border-zinc-200 shadow-2xl"} rounded-3xl w-full max-w-sm border overflow-hidden animate-in zoom-in-95 duration-200`}>
+            <div className={`p-6 border-b ${isDarkMode ? "border-zinc-800/80" : "border-zinc-100"}`}>
+              <div className="flex items-center justify-center w-16 h-16 rounded-full bg-red-500/10 mb-6 mx-auto border border-red-500/20">
+                <AlertTriangle className="w-8 h-8 text-red-500" />
+              </div>
+              <h3 className={`text-xl font-bold text-center mb-2 tracking-tight ${isDarkMode ? 'text-white' : 'text-zinc-900'}`}>Excluir Serviço</h3>
+              <p className={`text-center text-sm ${isDarkMode ? 'text-zinc-400' : 'text-zinc-500'}`}>
+                Tem certeza que deseja excluir? Esta ação removerá o serviço do catálogo e não pode ser desfeita.
+              </p>
+            </div>
+            <div className={`p-4 gap-3 flex flex-col md:flex-row justify-end ${isDarkMode ? 'bg-[#0a0a0a]' : 'bg-zinc-50'}`}>
+              <button
+                onClick={cancelDelete}
+                className={`w-full md:w-auto px-5 py-2.5 text-sm font-semibold rounded-xl transition-all ${isDarkMode ? 'text-zinc-400 hover:text-white hover:bg-zinc-800' : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200'}`}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmDelete}
+                className="w-full md:w-auto px-5 py-2.5 text-sm font-semibold text-white bg-red-500 hover:bg-red-600 rounded-xl transition-all shadow-[0_0_15px_rgba(239,68,68,0.3)] hover:shadow-[0_0_20px_rgba(239,68,68,0.5)] flex items-center justify-center gap-2"
+              >
+                <Trash2 size={16} /> Excluir
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -3148,6 +3363,9 @@ const ServicosView = ({ services, setServices, inventory, isDarkMode = true }: a
 const EstoqueView = ({ inventory, setInventory, isDarkMode = true }: any) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState<string | null>(null);
 
   const [name, setName] = useState('');
   const [category, setCategory] = useState('Insumos');
@@ -3181,31 +3399,50 @@ const EstoqueView = ({ inventory, setInventory, isDarkMode = true }: any) => {
     setIsModalOpen(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!name.trim()) return;
 
-    const newItem = {
-      id: editingId || Date.now().toString(),
-      name,
-      category,
-      price: parseFloat(price) || 0,
-      salePrice: parseFloat(salePrice) || 0,
-      stock: parseInt(stock) || 0,
-      minStock: parseInt(minStock) || 0,
-    };
+    try {
+      const idToSave = editingId || Date.now().toString();
+      const newItem = {
+        id: idToSave,
+        name,
+        category,
+        price: parseFloat(price) || 0,
+        salePrice: parseFloat(salePrice) || 0,
+        stock: parseInt(stock) || 0,
+        minStock: parseInt(minStock) || 0,
+      };
 
-    if (editingId) {
-      setInventory(inventory.map((i: any) => i.id === editingId ? newItem : i));
-    } else {
-      setInventory([...inventory, newItem]);
+      await setDoc(doc(db, 'estoque', idToSave), newItem);
+      setIsModalOpen(false);
+    } catch (error) {
+      console.error("Erro ao salvar produto no estoque:", error);
+      alert("Houve um erro ao salvar o item.");
     }
-    setIsModalOpen(false);
   };
 
-  const handleDelete = (id: string) => {
-    if (confirm('Tem certeza que deseja excluir este produto?')) {
-      setInventory(inventory.filter((i: any) => i.id !== id));
+  const handleDeleteRequest = (id: string) => {
+    setItemToDelete(id);
+    setIsDeleteModalOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (itemToDelete) {
+      try {
+        await deleteDoc(doc(db, 'estoque', itemToDelete));
+      } catch (error) {
+        console.error("Erro ao excluir produto do estoque:", error);
+        alert("Houve um erro ao excluir o item.");
+      }
     }
+    setIsDeleteModalOpen(false);
+    setItemToDelete(null);
+  };
+
+  const cancelDelete = () => {
+    setIsDeleteModalOpen(false);
+    setItemToDelete(null);
   };
 
   const formatCurrency = (value: number) => {
@@ -3343,7 +3580,7 @@ const EstoqueView = ({ inventory, setInventory, isDarkMode = true }: any) => {
                           <button onClick={() => handleOpenModal(item)} className={`text-zinc-500 hover:${isDarkMode ? "text-white" : "text-zinc-900"} transition-colors p-1`}>
                             <Pencil size={16} />
                           </button>
-                          <button onClick={() => handleDelete(item.id)} className="text-zinc-500 hover:text-red-500 transition-colors p-1">
+                          <button onClick={() => handleDeleteRequest(item.id)} className="text-zinc-500 hover:text-red-500 transition-colors p-1">
                             <Trash2 size={16} />
                           </button>
                         </div>
@@ -3482,14 +3719,163 @@ const EstoqueView = ({ inventory, setInventory, isDarkMode = true }: any) => {
           </div>
         </div>
       )}
+      {/* Delete Confirmation Modal */}
+      {isDeleteModalOpen && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
+          <div className={`${isDarkMode ? "bg-[#18181b] border-red-900/30 shadow-[0_0_40px_rgba(239,68,68,0.15)]" : "bg-white border-zinc-200 shadow-2xl"} rounded-3xl w-full max-w-sm border overflow-hidden animate-in zoom-in-95 duration-200`}>
+            <div className={`p-6 border-b ${isDarkMode ? "border-zinc-800/80" : "border-zinc-100"}`}>
+              <div className="flex items-center justify-center w-16 h-16 rounded-full bg-red-500/10 mb-6 mx-auto border border-red-500/20">
+                <AlertTriangle className="w-8 h-8 text-red-500" />
+              </div>
+              <h3 className={`text-xl font-bold text-center mb-2 tracking-tight ${isDarkMode ? 'text-white' : 'text-zinc-900'}`}>Excluir Produto</h3>
+              <p className={`text-center text-sm ${isDarkMode ? 'text-zinc-400' : 'text-zinc-500'}`}>
+                Tem certeza que deseja excluir? Esta ação é permanente e removerá o item do controle.
+              </p>
+            </div>
+            <div className={`p-4 gap-3 flex flex-col md:flex-row justify-end ${isDarkMode ? 'bg-[#0a0a0a]' : 'bg-zinc-50'}`}>
+              <button
+                onClick={cancelDelete}
+                className={`w-full md:w-auto px-5 py-2.5 text-sm font-semibold rounded-xl transition-all ${isDarkMode ? 'text-zinc-400 hover:text-white hover:bg-zinc-800' : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200'}`}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmDelete}
+                className="w-full md:w-auto px-5 py-2.5 text-sm font-semibold text-white bg-red-500 hover:bg-red-600 rounded-xl transition-all shadow-[0_0_15px_rgba(239,68,68,0.3)] hover:shadow-[0_0_20px_rgba(239,68,68,0.5)] flex items-center justify-center gap-2"
+              >
+                <Trash2 size={16} /> Excluir
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+const CustomDatePicker = ({
+  selectedDate,
+  onChange,
+  isDarkMode
+}: {
+  selectedDate: string,
+  onChange: (date: string) => void,
+  isDarkMode: boolean
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [viewDate, setViewDate] = useState(selectedDate ? new Date(selectedDate + 'T12:00:00') : new Date());
+
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    if (isOpen) document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isOpen]);
+
+  const getDaysInMonth = (year: number, month: number) => new Date(year, month + 1, 0).getDate();
+  const getFirstDayOfMonth = (year: number, month: number) => new Date(year, month, 1).getDay();
+
+  const handlePrevMonth = () => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() - 1, 1));
+  const handleNextMonth = () => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 1));
+
+  const handleSelectDate = (day: number) => {
+    const newDate = new Date(viewDate.getFullYear(), viewDate.getMonth(), day);
+    const formattedDate = newDate.toISOString().split('T')[0];
+    onChange(formattedDate);
+    setIsOpen(false);
+  };
+
+  const monthNames = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+  const weekDaysShort = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
+
+  const formatDisplayDate = (dateString: string) => {
+    if (!dateString) return 'dd/mm/aaaa';
+    const [year, month, day] = dateString.split('-');
+    return `${day}/${month}/${year}`;
+  };
+
+  return (
+    <div className="relative w-full" ref={containerRef}>
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className={`w-full flex items-center justify-between ${isDarkMode ? 'bg-[#050505] border-zinc-800 text-white' : 'bg-[var(--bg-surface)] border-[var(--border-default)] text-zinc-900'} border rounded-xl px-4 py-3 focus:outline-none focus:border-orange-500 transition-colors text-left text-sm whitespace-nowrap overflow-hidden text-ellipsis`}
+      >
+        <span className={!selectedDate ? (isDarkMode ? 'text-zinc-600' : 'text-zinc-400') : 'truncate'}>
+          {formatDisplayDate(selectedDate)}
+        </span>
+        <Calendar size={16} className="text-zinc-500 shrink-0 ml-2" />
+      </button>
+
+      {isOpen && (
+        <div className={`absolute z-50 top-full left-0 mt-2 p-4 rounded-2xl border shadow-2xl w-72 ${isDarkMode ? 'bg-[#0f0f11] border-zinc-800' : 'bg-white border-[var(--border-default)]'}`}>
+          <div className="flex items-center justify-between mb-4">
+            <button type="button" onClick={handlePrevMonth} className={`p-1.5 rounded-lg transition-colors ${isDarkMode ? 'hover:bg-zinc-800 text-zinc-400' : 'hover:bg-zinc-100 text-zinc-600'}`}>
+              <ChevronLeft size={16} />
+            </button>
+            <span className={`text-sm font-semibold capitalize ${isDarkMode ? 'text-white' : 'text-zinc-900'}`}>
+              {monthNames[viewDate.getMonth()]} {viewDate.getFullYear()}
+            </span>
+            <button type="button" onClick={handleNextMonth} className={`p-1.5 rounded-lg transition-colors ${isDarkMode ? 'hover:bg-zinc-800 text-zinc-400' : 'hover:bg-zinc-100 text-zinc-600'}`}>
+              <ChevronRight size={16} />
+            </button>
+          </div>
+
+          <div className="grid grid-cols-7 gap-1 mb-2">
+            {weekDaysShort.map((day, i) => (
+              <div key={i} className="text-center text-[10px] font-bold text-zinc-500">
+                {day}
+              </div>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-7 gap-1">
+            {Array.from({ length: getFirstDayOfMonth(viewDate.getFullYear(), viewDate.getMonth()) }).map((_, i) => (
+              <div key={`empty-${i}`} />
+            ))}
+            {Array.from({ length: getDaysInMonth(viewDate.getFullYear(), viewDate.getMonth()) }).map((_, i) => {
+              const day = i + 1;
+              const isSelected = selectedDate &&
+                new Date(selectedDate + 'T12:00:00').getDate() === day &&
+                new Date(selectedDate + 'T12:00:00').getMonth() === viewDate.getMonth() &&
+                new Date(selectedDate + 'T12:00:00').getFullYear() === viewDate.getFullYear();
+
+              const isToday = day === new Date().getDate() &&
+                viewDate.getMonth() === new Date().getMonth() &&
+                viewDate.getFullYear() === new Date().getFullYear();
+
+              return (
+                <button
+                  key={day}
+                  type="button"
+                  onClick={() => handleSelectDate(day)}
+                  className={`
+                    w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium transition-all
+                    ${isSelected ? 'bg-orange-500 text-white shadow-md shadow-orange-500/20' : ''}
+                    ${!isSelected && isToday ? (isDarkMode ? 'bg-zinc-800 text-white' : 'bg-zinc-100 text-zinc-900') : ''}
+                    ${!isSelected && !isToday ? (isDarkMode ? 'text-zinc-300 hover:bg-zinc-800' : 'text-zinc-600 hover:bg-zinc-100') : ''}
+                  `}
+                >
+                  {day}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
 
-
 const FinanceiroView = ({ expenses, setExpenses, isDarkMode = true }: any) => {
   const [activeTab, setActiveTab] = useState('Fluxo de Caixa');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState<string | null>(null);
 
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState('Outros');
@@ -3516,7 +3902,7 @@ const FinanceiroView = ({ expenses, setExpenses, isDarkMode = true }: any) => {
     setIsModalOpen(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!description.trim() || !value || !dueDate) return;
 
     const newExpense = {
@@ -3531,8 +3917,44 @@ const FinanceiroView = ({ expenses, setExpenses, isDarkMode = true }: any) => {
       type: 'Despesa'
     };
 
-    setExpenses([...expenses, newExpense]);
-    setIsModalOpen(false);
+    try {
+      await setDoc(doc(db, 'financeiro', newExpense.id), newExpense);
+      setIsModalOpen(false);
+    } catch (error) {
+      console.error("Erro ao salvar transação:", error);
+      alert("Erro ao salvar transação. Tente novamente.");
+    }
+  };
+
+  const handleDeleteExpense = (id: string) => {
+    setItemToDelete(id);
+    setIsDeleteModalOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (itemToDelete) {
+      try {
+        await deleteDoc(doc(db, 'financeiro', itemToDelete));
+        setIsDeleteModalOpen(false);
+        setItemToDelete(null);
+      } catch (error) {
+        console.error("Erro ao deletar transação:", error);
+      }
+    }
+  };
+
+  const cancelDelete = () => {
+    setIsDeleteModalOpen(false);
+    setItemToDelete(null);
+  };
+
+  const handleToggleStatus = async (item: any) => {
+    const newStatus = item.status === 'Pendente' ? 'Pago' : 'Pendente';
+    try {
+      await setDoc(doc(db, 'financeiro', item.id), { ...item, status: newStatus });
+    } catch (error) {
+      console.error("Erro ao atualizar status:", error);
+    }
   };
 
   const formatCurrency = (val: number) => {
@@ -3802,7 +4224,8 @@ const FinanceiroView = ({ expenses, setExpenses, isDarkMode = true }: any) => {
                       <th className="p-4">Categoria</th>
                       <th className="p-4">Data</th>
                       <th className="p-4">Status</th>
-                      <th className="p-4 pr-6 text-right">Valor</th>
+                      <th className="p-4 text-right">Valor</th>
+                      <th className="p-4 pr-6 text-right w-24">Ações</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -3816,7 +4239,13 @@ const FinanceiroView = ({ expenses, setExpenses, isDarkMode = true }: any) => {
                             {item.status.toUpperCase()}
                           </span>
                         </td>
-                        <td className="p-4 pr-6 text-right text-red-500 font-mono text-sm">-{formatCurrency(item.value)}</td>
+                        <td className="p-4 text-right text-red-500 font-mono text-sm">-{formatCurrency(item.value)}</td>
+                        <td className="p-4 pr-6 text-right">
+                          <div className="flex justify-end gap-2">
+                            <button onClick={() => handleToggleStatus(item)} className="p-1.5 rounded-lg bg-zinc-500/10 text-zinc-500 hover:bg-emerald-500/20 hover:text-emerald-500 transition-colors" title="Alternar Status"><CheckCircle2 size={16} /></button>
+                            <button onClick={() => handleDeleteExpense(item.id)} className="p-1.5 rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500/20 transition-colors" title="Excluir"><Trash2 size={16} /></button>
+                          </div>
+                        </td>
                       </tr>
                     )) : (
                       <tr>
@@ -3955,7 +4384,8 @@ const FinanceiroView = ({ expenses, setExpenses, isDarkMode = true }: any) => {
                       <th className="p-4">Vencimento</th>
                       <th className="p-4">Categoria</th>
                       <th className="p-4">Valor</th>
-                      <th className="p-4 pr-6 text-right">Status</th>
+                      <th className="p-4 text-right">Status</th>
+                      <th className="p-4 pr-6 text-right w-24">Ações</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -3965,10 +4395,16 @@ const FinanceiroView = ({ expenses, setExpenses, isDarkMode = true }: any) => {
                         <td className="p-4 text-zinc-400 text-sm">{item.dueDate}</td>
                         <td className="p-4 text-zinc-400 text-sm">{item.category}</td>
                         <td className="p-4 text-red-500 font-mono text-sm">{formatCurrency(item.value)}</td>
-                        <td className="p-4 pr-6 text-right">
+                        <td className="p-4 text-right">
                           <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full tracking-wider ${item.status === 'Pendente' ? 'bg-yellow-500/10 text-yellow-500 border border-yellow-500/20' : 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20'}`}>
                             {item.status.toUpperCase()}
                           </span>
+                        </td>
+                        <td className="p-4 pr-6 text-right">
+                          <div className="flex justify-end gap-2">
+                            <button onClick={() => handleToggleStatus(item)} className="p-1.5 rounded-lg bg-zinc-500/10 text-zinc-500 hover:bg-emerald-500/20 hover:text-emerald-500 transition-colors" title="Alternar Status"><CheckCircle2 size={16} /></button>
+                            <button onClick={() => handleDeleteExpense(item.id)} className="p-1.5 rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500/20 transition-colors" title="Excluir"><Trash2 size={16} /></button>
+                          </div>
                         </td>
                       </tr>
                     )) : (
@@ -4077,11 +4513,10 @@ const FinanceiroView = ({ expenses, setExpenses, isDarkMode = true }: any) => {
                 </div>
                 <div>
                   <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Vencimento</label>
-                  <input
-                    type="date"
-                    value={dueDate}
-                    onChange={(e) => setDueDate(e.target.value)}
-                    className={`w-full ${isDarkMode ? "bg-[#050505] border-zinc-800" : "bg-[var(--bg-surface)] border-[var(--border-default)]"} border rounded-xl px-4 py-3 ${isDarkMode ? "text-white" : "text-zinc-900"} focus:outline-none focus:border-orange-500 transition-colors`}
+                  <CustomDatePicker
+                    selectedDate={dueDate}
+                    onChange={(date: string) => setDueDate(date)}
+                    isDarkMode={isDarkMode}
                   />
                 </div>
               </div>
@@ -4090,15 +4525,17 @@ const FinanceiroView = ({ expenses, setExpenses, isDarkMode = true }: any) => {
                 <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Status</label>
                 <div className="grid grid-cols-2 gap-2">
                   <button
+                    type="button"
                     onClick={() => setStatus('Pendente')}
-                    className={`py-2.5 rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2 ${status === 'Pendente' ? 'premium-button-active' : (isDarkMode ? 'bg-[#050505] text-zinc-500 border border-zinc-800 hover:border-zinc-700' : 'bg-zinc-100 text-zinc-500 border border-zinc-200 hover:bg-zinc-200')}`}
+                    className={`py-2.5 rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2 ${status === 'Pendente' ? 'bg-orange-500/10 text-orange-500 border border-orange-500/50' : (isDarkMode ? 'bg-[#050505] text-zinc-500 border border-zinc-800 hover:border-zinc-700' : 'bg-zinc-100 text-zinc-500 border border-zinc-200 hover:bg-zinc-200')}`}
                   >
                     <Clock size={14} />
                     Pendente
                   </button>
                   <button
+                    type="button"
                     onClick={() => setStatus('Pago')}
-                    className={`py-2.5 rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2 ${status === 'Pago' ? 'premium-button-active' : (isDarkMode ? 'bg-[#050505] text-zinc-500 border border-zinc-800 hover:border-zinc-700' : 'bg-zinc-100 text-zinc-500 border border-zinc-200 hover:bg-zinc-200')}`}
+                    className={`py-2.5 rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2 ${status === 'Pago' ? 'bg-orange-500/10 text-orange-500 border border-orange-500/50' : (isDarkMode ? 'bg-[#050505] text-zinc-500 border border-zinc-800 hover:border-zinc-700' : 'bg-zinc-100 text-zinc-500 border border-zinc-200 hover:bg-zinc-200')}`}
                   >
                     <CheckCircle2 size={14} />
                     Pago
@@ -4112,8 +4549,9 @@ const FinanceiroView = ({ expenses, setExpenses, isDarkMode = true }: any) => {
                   {['Não', 'Mensal', 'Semanal'].map(rec => (
                     <button
                       key={rec}
+                      type="button"
                       onClick={() => setRecurrence(rec)}
-                      className={`py-2.5 rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2 ${recurrence === rec ? 'bg-zinc-800 text-white border border-zinc-700' : (isDarkMode ? 'bg-[#050505] text-zinc-500 border border-zinc-800 hover:border-zinc-700' : 'bg-zinc-100 text-zinc-500 border border-zinc-200 hover:bg-zinc-200 shadow-sm')}`}
+                      className={`py-2.5 rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2 ${recurrence === rec ? 'bg-orange-500/10 text-orange-500 border border-orange-500/50' : (isDarkMode ? 'bg-[#050505] text-zinc-500 border border-zinc-800 hover:border-zinc-700' : 'bg-zinc-100 text-zinc-500 border border-zinc-200 hover:bg-zinc-200 shadow-sm')}`}
                     >
                       {rec !== 'Não' && <TrendingUp size={14} className="rotate-90" />}
                       {rec}
@@ -4140,7 +4578,40 @@ const FinanceiroView = ({ expenses, setExpenses, isDarkMode = true }: any) => {
           </div>
         </div>
       )}
-    </div>
+
+      {/* Delete Confirmation Modal */}
+      {
+        isDeleteModalOpen && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
+            <div className={`${isDarkMode ? "bg-[#18181b] border-red-900/30 shadow-[0_0_40px_rgba(239,68,68,0.15)]" : "bg-white border-zinc-200 shadow-2xl"} rounded-3xl w-full max-w-sm border overflow-hidden animate-in zoom-in-95 duration-200`}>
+              <div className={`p-6 border-b ${isDarkMode ? "border-zinc-800/80" : "border-zinc-100"}`}>
+                <div className="flex items-center justify-center w-16 h-16 rounded-full bg-red-500/10 mb-6 mx-auto border border-red-500/20">
+                  <AlertTriangle className="w-8 h-8 text-red-500" />
+                </div>
+                <h3 className={`text-xl font-bold text-center mb-2 tracking-tight ${isDarkMode ? 'text-white' : 'text-zinc-900'}`}>Excluir Lançamento</h3>
+                <p className={`text-center text-sm ${isDarkMode ? 'text-zinc-400' : 'text-zinc-500'}`}>
+                  Deseja realmente excluir este lançamento? Esta ação é permanente e removerá o item do controle financeiro.
+                </p>
+              </div>
+              <div className={`p-4 gap-3 flex flex-col md:flex-row justify-end ${isDarkMode ? 'bg-[#0a0a0a]' : 'bg-zinc-50'}`}>
+                <button
+                  onClick={cancelDelete}
+                  className={`w-full md:w-auto px-5 py-2.5 text-sm font-semibold rounded-xl transition-all ${isDarkMode ? 'text-zinc-400 hover:text-white hover:bg-zinc-800' : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200'}`}
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={confirmDelete}
+                  className="w-full md:w-auto px-5 py-2.5 text-sm font-semibold text-white bg-red-500 hover:bg-red-600 rounded-xl transition-all shadow-[0_0_15px_rgba(239,68,68,0.3)] hover:shadow-[0_0_20px_rgba(239,68,68,0.5)] flex items-center justify-center gap-2"
+                >
+                  <Trash2 size={16} /> Excluir
+                </button>
+              </div>
+            </div>
+          </div>
+        )
+      }
+    </div >
   );
 };
 
@@ -4306,8 +4777,10 @@ A clínica apresenta um cenário de estabilidade no curto prazo, porém com opor
                   <div className="absolute left-8 right-0 top-0 bottom-6 flex flex-col justify-between pointer-events-none">
                     {[0, 1, 2, 3, 4, 5].map(i => <div key={i} className={`border-t ${isDarkMode ? "border-zinc-800/50" : "border-zinc-200/50"} border-dashed w-full h-0`}></div>)}
                   </div>
-                  {/* Chart Line */}
-                  <div className="absolute bottom-6 left-8 right-0 h-[2px] bg-emerald-500/50 shadow-[0_0_10px_rgba(16,185,129,0.5)]"></div>
+                  {/* Empty State */}
+                  <div className="absolute inset-0 left-8 bottom-6 flex items-center justify-center pointer-events-none">
+                    <span className="text-sm text-zinc-500 italic">Sem dados suficientes</span>
+                  </div>
                   {/* X Axis */}
                   <div className={`absolute bottom-0 left-8 right-0 flex justify-between text-[10px] text-zinc-600 border-t ${isDarkMode ? "border-zinc-800" : "border-zinc-200"} pt-2`}>
                     <span>set/25</span><span>out/25</span><span>nov/25</span><span>dez/25</span><span>jan/26</span><span>fev/26</span>
@@ -4415,7 +4888,7 @@ A clínica apresenta um cenário de estabilidade no curto prazo, porém com opor
                   </div>
                 </div>
                 <div>
-                  <h3 className={`text-3xl font-bold ${isDarkMode ? "text-white" : "text-zinc-900"} mb-1`}>5</h3>
+                  <h3 className={`text-3xl font-bold ${isDarkMode ? "text-white" : "text-zinc-900"} mb-1`}>0</h3>
                   <p className="text-[10px] font-bold text-zinc-500 tracking-wider uppercase">Novos Clientes <span className="font-normal normal-case block mt-1">Últimos 6 meses</span></p>
                 </div>
               </div>
@@ -4470,18 +4943,9 @@ A clínica apresenta um cenário de estabilidade no curto prazo, porém com opor
                     {[0, 1, 2, 3, 4].map(i => <div key={i} className={`border-t ${isDarkMode ? "border-zinc-800/50" : "border-zinc-200/50"} border-dashed w-full h-0`}></div>)}
                   </div>
 
-                  {/* Chart Line - Mocked SVG */}
-                  <div className="absolute inset-0 left-8 bottom-6 pointer-events-none">
-                    <svg width="100%" height="100%" preserveAspectRatio="none" viewBox="0 0 100 100">
-                      <path d="M 0 100 L 20 100 L 40 100 L 60 100 L 80 90 L 100 20" fill="none" stroke="#10b981" strokeWidth="1" vectorEffect="non-scaling-stroke" />
-                    </svg>
-                  </div>
-
-                  {/* Tooltip Mock */}
-                  <div className={`absolute left-[30%] top-[40%] ${isDarkMode ? "bg-[#121214]" : "bg-zinc-50"} border border-zinc-800 rounded-lg p-3 shadow-xl z-10`}>
-                    <div className="text-[10px] text-zinc-500 mb-1">set/25</div>
-                    <div className="text-xs font-bold text-blue-400">Novos: R$ 0,00</div>
-                    <div className="text-xs font-bold text-emerald-400">Recorrentes: R$ 0,00</div>
+                  {/* Empty State */}
+                  <div className="absolute inset-0 left-8 bottom-6 flex items-center justify-center pointer-events-none">
+                    <span className="text-sm text-zinc-500 italic">Sem dados suficientes</span>
                   </div>
 
                   {/* X Axis */}
@@ -4606,11 +5070,15 @@ const SettingsView = ({
   handleSave,
   isDarkMode = true,
   clinicConfig,
-  setClinicConfig
+  setClinicConfig,
+  aiConfig,
+  setAiConfig
 }: any) => {
-  const [faqs, setFaqs] = useState([{ q: 'Dói fazer botox?', a: 'Utilizamos pomada anestésica de alta eficácia para garantir o máximo de conforto.' }]);
+  const { nomeAssistente, tomDeVoz, systemPrompt, restricoes, diferenciais, faqs } = aiConfig || { nomeAssistente: '', tomDeVoz: 'Empático e Acolhedor', systemPrompt: '', restricoes: '', diferenciais: '', faqs: [] };
+  const [keyInput, setKeyInput] = useState('');
+  const [isProviderDropdownOpen, setIsProviderDropdownOpen] = useState(false);
+  const [isModelDropdownOpen, setIsModelDropdownOpen] = useState(false);
   const [workingDays, setWorkingDays] = useState([true, true, true, true, true, true, false]);
-  const [aiTone, setAiTone] = useState('Empático e Acolhedor');
   const [isToneDropdownOpen, setIsToneDropdownOpen] = useState(false);
   const [conselhoClasse, setConselhoClasse] = useState('CRM');
   const [isConselhoDropdownOpen, setIsConselhoDropdownOpen] = useState(false);
@@ -5046,7 +5514,7 @@ const SettingsView = ({
               </div>
 
               <div className="mt-6 flex justify-end">
-                <button onClick={() => alert('Perfil da clínica atualizado!')} className={`px-6 py-2 rounded-lg bg-orange-500 hover:bg-orange-600 ${isDarkMode ? "text-white" : "text-zinc-900"} text-sm font-medium transition-colors`}>
+                <button onClick={async () => { try { await setDoc(doc(db, 'configuracoes', 'conta_organizacao'), clinicConfig); alert('Perfil da clínica salvo com sucesso!'); } catch (e) { console.error(e); alert('Erro ao salvar.'); } }} className={`px-6 py-2 rounded-lg bg-orange-500 hover:bg-orange-600 ${isDarkMode ? "text-white" : "text-zinc-900"} text-sm font-medium transition-colors`}>
                   Salvar Perfil
                 </button>
               </div>
@@ -5141,7 +5609,7 @@ const SettingsView = ({
               </div>
 
               <div className="mt-6 flex justify-end">
-                <button onClick={() => alert('Informações de contato e endereço salvas!')} className={`px-6 py-2 rounded-lg bg-orange-500 hover:bg-orange-600 ${isDarkMode ? "text-white" : "text-zinc-900"} text-sm font-medium transition-colors`}>
+                <button onClick={async () => { try { await setDoc(doc(db, 'configuracoes', 'conta_organizacao'), clinicConfig); alert('Contato e endereço salvos com sucesso!'); } catch (e) { console.error(e); alert('Erro ao salvar.'); } }} className={`px-6 py-2 rounded-lg bg-orange-500 hover:bg-orange-600 ${isDarkMode ? "text-white" : "text-zinc-900"} text-sm font-medium transition-colors`}>
                   Salvar Contato
                 </button>
               </div>
@@ -5157,7 +5625,7 @@ const SettingsView = ({
               <div className="grid grid-cols-2 gap-4">
                 <div className="col-span-2">
                   <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Nome do Responsável</label>
-                  <input type="text" defaultValue="Dra. Ana Costa" className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800 text-white" : "bg-white border-zinc-200 text-zinc-900"} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors`} />
+                  <input type="text" value={clinicConfig.nomeResponsavel} onChange={e => setClinicConfig({ ...clinicConfig, nomeResponsavel: e.target.value })} placeholder="Ex: Dra. Ana Costa" className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800 text-white" : "bg-white border-zinc-200 text-zinc-900"} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors`} />
                 </div>
                 <div className="relative">
                   <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Conselho de Classe</label>
@@ -5170,7 +5638,7 @@ const SettingsView = ({
                           onClick={() => setIsConselhoDropdownOpen(!isConselhoDropdownOpen)}
                           className={`w-full flex items-center justify-between ${isDarkMode ? 'bg-[#121214] border-zinc-800 text-white' : 'bg-white border-zinc-200 text-zinc-900'} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors text-left`}
                         >
-                          <span>{conselhoClasse}</span>
+                          <span>{clinicConfig.conselhoClasse}</span>
                           <ChevronDown className={`w-4 h-4 text-zinc-400 transition-transform ${isConselhoDropdownOpen ? 'rotate-180' : ''}`} />
                         </button>
                         {isConselhoDropdownOpen && (
@@ -5179,8 +5647,8 @@ const SettingsView = ({
                               <button
                                 key={opt}
                                 type="button"
-                                onClick={() => { setConselhoClasse(opt); setIsConselhoDropdownOpen(false); }}
-                                className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${conselhoClasse === opt
+                                onClick={() => { setClinicConfig({ ...clinicConfig, conselhoClasse: opt }); setIsConselhoDropdownOpen(false); }}
+                                className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${clinicConfig.conselhoClasse === opt
                                   ? 'bg-gradient-to-r from-orange-600/30 to-transparent text-orange-500 font-medium'
                                   : isDarkMode ? 'text-white hover:bg-white/5' : 'text-zinc-900 hover:bg-zinc-100'
                                   }`}
@@ -5196,12 +5664,12 @@ const SettingsView = ({
                 </div>
                 <div>
                   <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Número de Registro</label>
-                  <input type="text" defaultValue="123456-SP" className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800 text-white" : "bg-white border-zinc-200 text-zinc-900"} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors`} />
+                  <input type="text" value={clinicConfig.registroConselho} onChange={e => setClinicConfig({ ...clinicConfig, registroConselho: e.target.value })} placeholder="Ex: 123456-SP" className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800 text-white" : "bg-white border-zinc-200 text-zinc-900"} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors`} />
                 </div>
               </div>
 
               <div className="mt-6 flex justify-end">
-                <button onClick={() => alert('Dados do Responsável Técnico registrados!')} className={`px-6 py-2 rounded-lg bg-orange-500 hover:bg-orange-600 ${isDarkMode ? "text-white" : "text-zinc-900"} text-sm font-medium transition-colors`}>
+                <button onClick={async () => { try { await setDoc(doc(db, 'configuracoes', 'conta_organizacao'), clinicConfig); alert('Responsável Técnico salvo com sucesso!'); } catch (e) { console.error(e); alert('Erro ao salvar.'); } }} className={`px-6 py-2 rounded-lg bg-orange-500 hover:bg-orange-600 ${isDarkMode ? "text-white" : "text-zinc-900"} text-sm font-medium transition-colors`}>
                   Salvar Responsável
                 </button>
               </div>
@@ -5309,6 +5777,139 @@ const SettingsView = ({
               <p className={`text-sm ${isDarkMode ? "text-zinc-400" : "text-zinc-500"}`}>Treinamento, comportamento e base de conhecimento da IA.</p>
             </div>
 
+            {/* Provedor de IA & API Key */}
+            <div className={` ${isDarkMode ? "bg-[#0c0c0e] border-zinc-800/80 shadow-black/50" : "bg-[var(--bg-card)] border-[var(--border-default)] shadow-[var(--card-shadow)]"} border rounded-xl p-6 mb-8 transition-colors duration-300 shrink-0 `}>
+              <div className="flex items-center gap-3 mb-6">
+                <Key className="text-zinc-400" size={20} />
+                <h3 className={`font-medium ${isDarkMode ? "text-white" : "text-zinc-900"}`}>Provedor de IA & Chave de API</h3>
+              </div>
+
+              <div className="flex flex-col gap-6">
+                {/* Provider Dropdown */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="relative">
+                    <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Provedor</label>
+                    <button
+                      type="button"
+                      onClick={() => setIsProviderDropdownOpen(!isProviderDropdownOpen)}
+                      className={`w-full flex items-center justify-between ${isDarkMode ? 'bg-[#121214] border-zinc-800 text-white' : 'bg-white border-zinc-200 text-zinc-900'} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors text-left`}
+                    >
+                      <span>{aiConfig?.apiProvider || 'Selecione o provedor'}</span>
+                      <ChevronDown className={`w-4 h-4 text-zinc-400 transition-transform ${isProviderDropdownOpen ? 'rotate-180' : ''}`} />
+                    </button>
+                    {isProviderDropdownOpen && (
+                      <div className={`absolute z-50 w-full mt-1 rounded-xl border shadow-2xl overflow-hidden ${isDarkMode ? 'border-zinc-700/50 bg-[#0a0a0a]' : 'border-zinc-200 bg-white'}`}>
+                        {['OpenAI', 'Anthropic (Claude)', 'Google (Gemini)'].map((prov) => (
+                          <button
+                            key={prov}
+                            type="button"
+                            onClick={() => { setAiConfig({ ...aiConfig, apiProvider: prov, aiModel: '' }); setIsProviderDropdownOpen(false); }}
+                            className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${aiConfig?.apiProvider === prov
+                              ? 'bg-gradient-to-r from-orange-600/30 to-transparent text-orange-500 font-medium'
+                              : isDarkMode ? 'text-white hover:bg-white/5' : 'text-zinc-900 hover:bg-zinc-100'
+                              }`}
+                          >
+                            {prov}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Model Dropdown */}
+                  <div className="relative">
+                    <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Modelo</label>
+                    {(() => {
+                      const modelMap: Record<string, string[]> = {
+                        'OpenAI': ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'gpt-3.5-turbo'],
+                        'Anthropic (Claude)': ['claude-sonnet-4-20250514', 'claude-3-5-haiku-20241022', 'claude-3-opus-20240229'],
+                        'Google (Gemini)': ['gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-2.0-flash'],
+                      };
+                      const models = modelMap[aiConfig?.apiProvider || ''] || [];
+                      return (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => models.length > 0 && setIsModelDropdownOpen(!isModelDropdownOpen)}
+                            className={`w-full flex items-center justify-between ${isDarkMode ? 'bg-[#121214] border-zinc-800 text-white' : 'bg-white border-zinc-200 text-zinc-900'} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors text-left ${models.length === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
+                          >
+                            <span>{aiConfig?.aiModel || (models.length === 0 ? 'Selecione o provedor primeiro' : 'Selecione o modelo')}</span>
+                            <ChevronDown className={`w-4 h-4 text-zinc-400 transition-transform ${isModelDropdownOpen ? 'rotate-180' : ''}`} />
+                          </button>
+                          {isModelDropdownOpen && models.length > 0 && (
+                            <div className={`absolute z-50 w-full mt-1 rounded-xl border shadow-2xl overflow-hidden ${isDarkMode ? 'border-zinc-700/50 bg-[#0a0a0a]' : 'border-zinc-200 bg-white'}`}>
+                              {models.map((model) => (
+                                <button
+                                  key={model}
+                                  type="button"
+                                  onClick={() => { setAiConfig({ ...aiConfig, aiModel: model }); setIsModelDropdownOpen(false); }}
+                                  className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${aiConfig?.aiModel === model
+                                    ? 'bg-gradient-to-r from-orange-600/30 to-transparent text-orange-500 font-medium'
+                                    : isDarkMode ? 'text-white hover:bg-white/5' : 'text-zinc-900 hover:bg-zinc-100'
+                                    }`}
+                                >
+                                  {model}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
+                  </div>
+                </div>
+
+                {/* API Key - Write Only */}
+                <div>
+                  <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Chave de API</label>
+                  {aiConfig?.apiKeyMasked ? (
+                    <div className={`flex items-center justify-between ${isDarkMode ? 'bg-[#121214] border-zinc-800' : 'bg-white border-zinc-200'} border rounded-xl px-4 py-3`}>
+                      <div className="flex items-center gap-3">
+                        <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></div>
+                        <span className={`text-sm font-mono ${isDarkMode ? 'text-zinc-300' : 'text-zinc-700'}`}>Chave vinculada: {aiConfig.apiKeyMasked}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const updated = { ...aiConfig, apiKey: '', apiKeyMasked: '' };
+                          setAiConfig(updated);
+                          try { await setDoc(doc(db, 'configuracoes', 'ia_automacao'), updated); } catch (e) { console.error(e); }
+                        }}
+                        className="text-xs text-red-500 hover:text-red-400 font-medium flex items-center gap-1 transition-colors"
+                      >
+                        <Trash2 size={14} /> Revogar e Substituir
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex gap-3">
+                      <input
+                        type="password"
+                        value={keyInput}
+                        onChange={(e) => setKeyInput(e.target.value)}
+                        placeholder="sk-proj-..."
+                        className={`flex-1 ${isDarkMode ? "bg-[#121214] border-zinc-800 text-white" : "bg-white border-zinc-200 text-zinc-900"} border rounded-xl px-4 py-2.5 text-sm font-mono focus:outline-none focus:border-orange-500 transition-colors`}
+                      />
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          if (!keyInput.trim() || !aiConfig?.apiProvider) { alert('Selecione um provedor e cole a chave.'); return; }
+                          const masked = keyInput.slice(0, 3) + '...' + keyInput.slice(-4);
+                          const updated = { ...aiConfig, apiKey: keyInput, apiKeyMasked: masked };
+                          setAiConfig(updated);
+                          setKeyInput('');
+                          try { await setDoc(doc(db, 'configuracoes', 'ia_automacao'), updated); alert('Chave vinculada com sucesso!'); } catch (e) { console.error(e); alert('Erro ao salvar.'); }
+                        }}
+                        className={`px-5 py-2.5 rounded-xl bg-gradient-to-r from-orange-400 to-orange-500 hover:from-orange-500 hover:to-orange-600 text-black text-sm font-semibold transition-all shadow-[0_0_15px_rgba(249,115,22,0.15)] flex items-center gap-2`}
+                      >
+                        <Key size={14} /> Vincular
+                      </button>
+                    </div>
+                  )}
+                  <p className="text-xs text-zinc-500 mt-2">A chave é salva de forma segura. Após vincular, ela não poderá ser visualizada ou copiada.</p>
+                </div>
+              </div>
+            </div>
+
             {/* Identidade e Comportamento */}
             <div className={` ${isDarkMode ? "bg-[#0c0c0e] border-zinc-800/80 shadow-black/50" : "bg-[var(--bg-card)] border-[var(--border-default)] shadow-[var(--card-shadow)]"} border rounded-xl p-6 mb-8 transition-colors duration-300 shrink-0 `}>
               <div className="flex items-center gap-3 mb-6">
@@ -5320,7 +5921,7 @@ const SettingsView = ({
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Nome do Assistente</label>
-                    <input type="text" defaultValue="Estetix AI" className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800 text-white" : "bg-white border-zinc-200 text-zinc-900"} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors`} />
+                    <input type="text" value={nomeAssistente} onChange={e => setAiConfig({ ...aiConfig, nomeAssistente: e.target.value })} placeholder="Ex: Estetix AI" className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800 text-white" : "bg-white border-zinc-200 text-zinc-900"} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors`} />
                   </div>
                   <div>
                     <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Tom de Voz</label>
@@ -5330,7 +5931,7 @@ const SettingsView = ({
                         onClick={() => setIsToneDropdownOpen(!isToneDropdownOpen)}
                         className={`w-full flex items-center justify-between ${isDarkMode ? "bg-[#121214] border-zinc-800 text-white" : "bg-white border-zinc-200 text-zinc-900"} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors relative z-10`}
                       >
-                        {aiTone}
+                        {tomDeVoz}
                         <ChevronDown size={16} className={`transition-transform duration-200 ${isToneDropdownOpen ? 'rotate-180' : ''} text-zinc-500`} />
                       </button>
                       {isToneDropdownOpen && (
@@ -5348,10 +5949,10 @@ const SettingsView = ({
                                 key={tone}
                                 type="button"
                                 onClick={() => {
-                                  setAiTone(tone);
+                                  setAiConfig({ ...aiConfig, tomDeVoz: tone });
                                   setIsToneDropdownOpen(false);
                                 }}
-                                className={`w-full text-left px-4 py-2.5 text-sm transition-colors relative z-50 ${aiTone === tone
+                                className={`w-full text-left px-4 py-2.5 text-sm transition-colors relative z-50 ${tomDeVoz === tone
                                   ? 'bg-gradient-to-r from-orange-600/30 to-transparent text-orange-500 font-medium'
                                   : (isDarkMode ? 'text-white hover:bg-white/5' : 'text-zinc-900 hover:bg-zinc-100')
                                   }`}
@@ -5368,18 +5969,18 @@ const SettingsView = ({
 
                 <div>
                   <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Instrução Base (System Prompt)</label>
-                  <textarea rows={4} defaultValue="Você é a assistente virtual da clínica EstéticaPro. Seu objetivo é tirar dúvidas sobre procedimentos, ser educada e incentivar o agendamento de avaliações." className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800" : "bg-[var(--bg-surface)] border-[var(--border-default)]"} border rounded-xl px-4 py-3 ${isDarkMode ? "text-white" : "text-zinc-900"} text-sm focus:outline-none focus:border-orange-500 transition-colors resize-none`}></textarea>
+                  <textarea rows={4} value={systemPrompt} onChange={e => setAiConfig({ ...aiConfig, systemPrompt: e.target.value })} placeholder="Defina o comportamento geral e o objetivo principal da IA." className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800" : "bg-[var(--bg-surface)] border-[var(--border-default)]"} border rounded-xl px-4 py-3 ${isDarkMode ? "text-white" : "text-zinc-900"} text-sm focus:outline-none focus:border-orange-500 transition-colors resize-none`}></textarea>
                   <p className="text-xs text-zinc-500 mt-2">Define o comportamento geral e o objetivo principal da IA.</p>
                 </div>
 
                 <div>
                   <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Restrições (O que NÃO fazer)</label>
-                  <textarea rows={3} defaultValue="- Nunca dê diagnósticos médicos.&#10;- Nunca prometa resultados 100% garantidos.&#10;- Não ofereça descontos além de 10%." className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800" : "bg-[var(--bg-surface)] border-[var(--border-default)]"} border rounded-xl px-4 py-3 ${isDarkMode ? "text-white" : "text-zinc-900"} text-sm focus:outline-none focus:border-orange-500 transition-colors resize-none`}></textarea>
+                  <textarea rows={3} value={restricoes} onChange={e => setAiConfig({ ...aiConfig, restricoes: e.target.value })} placeholder="- Nunca dê diagnósticos médicos.&#10;- Nunca prometa resultados 100% garantidos." className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800" : "bg-[var(--bg-surface)] border-[var(--border-default)]"} border rounded-xl px-4 py-3 ${isDarkMode ? "text-white" : "text-zinc-900"} text-sm focus:outline-none focus:border-orange-500 transition-colors resize-none`}></textarea>
                 </div>
               </div>
 
               <div className="mt-6 flex justify-end">
-                <button onClick={() => alert('Configurações de Identidade e Persona salvas com sucesso!')} className={`px-6 py-2 rounded-lg bg-orange-500 hover:bg-orange-600 ${isDarkMode ? "text-white" : "text-zinc-900"} text-sm font-medium transition-colors`}>
+                <button onClick={async () => { try { await setDoc(doc(db, 'configuracoes', 'ia_automacao'), aiConfig); alert('Persona da IA salva com sucesso!'); } catch (e) { console.error(e); alert('Erro ao salvar.'); } }} className={`px-6 py-2 rounded-lg bg-orange-500 hover:bg-orange-600 ${isDarkMode ? "text-white" : "text-zinc-900"} text-sm font-medium transition-colors`}>
                   Salvar Persona
                 </button>
               </div>
@@ -5411,7 +6012,7 @@ const SettingsView = ({
                 {/* Diferenciais */}
                 <div>
                   <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Diferenciais da Clínica</label>
-                  <textarea rows={3} defaultValue="- Estacionamento gratuito no local com manobrista.&#10;- Utilizamos apenas produtos importados e aprovados pela ANVISA.&#10;- Oferecemos café expresso e capuccino para todos os clientes." className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800" : "bg-[var(--bg-surface)] border-[var(--border-default)]"} border rounded-xl px-4 py-3 ${isDarkMode ? "text-white" : "text-zinc-900"} text-sm focus:outline-none focus:border-orange-500 transition-colors resize-none`}></textarea>
+                  <textarea rows={3} value={diferenciais} onChange={e => setAiConfig({ ...aiConfig, diferenciais: e.target.value })} placeholder="- Estacionamento gratuito.&#10;- Produtos importados." className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800" : "bg-[var(--bg-surface)] border-[var(--border-default)]"} border rounded-xl px-4 py-3 ${isDarkMode ? "text-white" : "text-zinc-900"} text-sm focus:outline-none focus:border-orange-500 transition-colors resize-none`}></textarea>
                 </div>
 
                 {/* FAQ */}
@@ -5419,7 +6020,7 @@ const SettingsView = ({
                   <div className="flex items-center justify-between mb-3">
                     <label className="block text-[10px] font-bold text-zinc-500 tracking-wider uppercase">Perguntas Frequentes (FAQ)</label>
                     <button
-                      onClick={() => setFaqs([...faqs, { q: '', a: '' }])}
+                      onClick={() => setAiConfig({ ...aiConfig, faqs: [...faqs, { q: '', a: '' }] })}
                       className="text-xs text-orange-500 hover:text-orange-400 font-medium flex items-center gap-1"
                     >
                       <Plus size={14} /> Adicionar Pergunta
@@ -5433,17 +6034,17 @@ const SettingsView = ({
                           <input type="text" placeholder="Pergunta (Ex: Dói fazer botox?)" value={faq.q} onChange={(e) => {
                             const newFaqs = [...faqs];
                             newFaqs[index].q = e.target.value;
-                            setFaqs(newFaqs);
+                            setAiConfig({ ...aiConfig, faqs: newFaqs });
                           }} className={`w-full bg-transparent border-b ${isDarkMode ? "border-zinc-800" : "border-zinc-200"} pb-2 ${isDarkMode ? "text-white" : "text-zinc-900"} text-sm focus:outline-none focus:border-orange-500 transition-colors`} />
                           <input type="text" placeholder="Resposta da IA" value={faq.a} onChange={(e) => {
                             const newFaqs = [...faqs];
                             newFaqs[index].a = e.target.value;
-                            setFaqs(newFaqs);
+                            setAiConfig({ ...aiConfig, faqs: newFaqs });
                           }} className={`w-full bg-transparent text-zinc-400 text-sm focus:outline-none focus:${isDarkMode ? "text-zinc-300" : "text-zinc-900"} transition-colors`} />
                         </div>
                         <button onClick={() => {
-                          const newFaqs = faqs.filter((_, i) => i !== index);
-                          setFaqs(newFaqs);
+                          const newFaqs = faqs.filter((_: any, i: number) => i !== index);
+                          setAiConfig({ ...aiConfig, faqs: newFaqs });
                         }} className="p-2 text-zinc-600 hover:text-red-500 transition-colors">
                           <Trash2 size={16} />
                         </button>
@@ -5454,7 +6055,7 @@ const SettingsView = ({
               </div>
 
               <div className="mt-8 flex justify-end">
-                <button onClick={() => alert('Documentos de treinamento e Diferenciais salvos na Base de Conhecimento!')} className={`px-6 py-2 rounded-lg bg-orange-500 hover:bg-orange-600 ${isDarkMode ? "text-white" : "text-zinc-900"} text-sm font-medium transition-colors`}>
+                <button onClick={async () => { try { await setDoc(doc(db, 'configuracoes', 'ia_automacao'), aiConfig); alert('Base de Conhecimento salva com sucesso!'); } catch (e) { console.error(e); alert('Erro ao salvar.'); } }} className={`px-6 py-2 rounded-lg bg-orange-500 hover:bg-orange-600 ${isDarkMode ? "text-white" : "text-zinc-900"} text-sm font-medium transition-colors`}>
                   Salvar Base de Conhecimento
                 </button>
               </div>
@@ -6014,21 +6615,65 @@ export default function App() {
   ]);
   const [clinicConfig, setClinicConfig] = useState({
     logoUrl: null as string | null,
-    nomeFantasia: 'EstéticaPro',
-    razaoSocial: 'EstéticaPro Clínica LTDA',
-    cnpj: '00.000.000/0001-00',
+    nomeFantasia: '',
+    razaoSocial: '',
+    cnpj: '',
     inscricaoMunicipal: '',
     inscricaoEstadual: '',
-    email: 'contato@esteticapro.com',
-    telefone: '(11) 99999-9999',
-    cep: '00000-000',
-    logradouro: 'Av. Paulista',
-    numero: '1000',
-    complemento: 'Sala 101',
-    bairro: 'Bela Vista',
-    cidade: 'São Paulo',
-    estado: 'SP'
+    email: '',
+    telefone: '',
+    cep: '',
+    logradouro: '',
+    numero: '',
+    complemento: '',
+    bairro: '',
+    cidade: '',
+    estado: 'SP',
+    nomeResponsavel: '',
+    conselhoClasse: 'CRM',
+    registroConselho: ''
   });
+
+  // Sync clinicConfig from Firestore
+  useEffect(() => {
+    if (isAuthenticated) {
+      const docRef = doc(db, 'configuracoes', 'conta_organizacao');
+      const unsub = onSnapshot(docRef, (snap) => {
+        if (snap.exists()) {
+          const data = snap.data();
+          setClinicConfig(prev => ({ ...prev, ...data }));
+        }
+      });
+      return () => unsub();
+    }
+  }, [isAuthenticated]);
+
+  const [aiConfig, setAiConfig] = useState({
+    nomeAssistente: '',
+    tomDeVoz: 'Empático e Acolhedor',
+    systemPrompt: '',
+    restricoes: '',
+    diferenciais: '',
+    faqs: [] as { q: string; a: string }[],
+    apiProvider: '',
+    apiKeyMasked: '',
+    apiKey: '',
+    aiModel: ''
+  });
+
+  // Sync aiConfig from Firestore
+  useEffect(() => {
+    if (isAuthenticated) {
+      const docRef = doc(db, 'configuracoes', 'ia_automacao');
+      const unsub = onSnapshot(docRef, (snap) => {
+        if (snap.exists()) {
+          const data = snap.data();
+          setAiConfig(prev => ({ ...prev, ...data }));
+        }
+      });
+      return () => unsub();
+    }
+  }, [isAuthenticated]);
 
   // Sync theme class on <html> element for CSS custom properties
   React.useEffect(() => {
@@ -6044,27 +6689,129 @@ export default function App() {
   }, [isDarkMode]);
   // isAuthLoading removed from here to follow hook order
   const [patients, setPatients] = useState<any[]>([]);
-  const [professionals, setProfessionals] = useState([
-    { id: '1', name: 'Dr. Rafael Costa', specialty: '', color: '#ef4444', active: true },
-    { id: '2', name: 'Dr. Teste Upload', specialty: 'Dermatologista', color: '#10b981', active: true },
-    { id: '3', name: 'Dra. Ana Oliveira', specialty: '', color: '#8b5cf6', active: true },
-    { id: '4', name: 'Dra. Camila Santos', specialty: '', color: '#0ea5e9', active: true },
-  ]);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      try {
+        const colRef = collection(db, 'clientes');
+        onSnapshot(colRef, (snapshot) => {
+          const data = snapshot.docs.map(d => d.data());
+          setPatients(data);
+        });
+      } catch (error) {
+        console.error("Erro ao sincronizar clientes:", error);
+      }
+    }
+  }, [isAuthenticated]);
+  const [professionals, setProfessionals] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      try {
+        const colRef = collection(db, 'profissionais');
+        onSnapshot(colRef, (snapshot) => {
+          const data = snapshot.docs.map(d => d.data());
+          setProfessionals(data);
+        });
+      } catch (error) {
+        console.error("Erro ao sincronizar profissionais:", error);
+      }
+    }
+  }, [isAuthenticated]);
   const [columns, setColumns] = useState<{ id: string, title: string, cardIds: string[] }[]>([]);
-  const [services, setServices] = useState([
-    { id: '1', name: 'Botox', category: 'Injetáveis', duration: 30, price: 1200, tax: 0, description: 'Sem descrição.', items: [{ id: '1', itemId: 'inv1', quantity: 1 }] },
-    { id: '2', name: 'Harmonização Facial', category: 'Outros', duration: 90, price: 2500, tax: 0, description: 'Conjunto de procedimentos para equilibrar e realçar os traços do rosto.', items: [] },
-    { id: '3', name: 'Limpeza de Pele', category: 'Facial', duration: 60, price: 250, tax: 0, description: 'Limpeza profunda com extração e hidratação para uma pele renovada e radiante.', items: [] }
-  ]);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      const initCrmDb = async () => {
+        try {
+          const colRef = collection(db, 'crm_columns');
+          const snap = await getDocs(colRef);
+
+          if (snap.empty) {
+            console.log("Inicializando colunas do CRM com padrão...");
+            const batch = writeBatch(db);
+            const defaultCols = [
+              { id: 'col-1', title: 'Novos Leads', cardIds: [], order: 0 },
+              { id: 'col-2', title: 'Em Atendimento', cardIds: [], order: 1 },
+              { id: 'col-3', title: 'Agendados', cardIds: [], order: 2 },
+              { id: 'col-4', title: 'Concluídos', cardIds: [], order: 3 },
+              { id: 'col-5', title: 'Perdidos', cardIds: [], order: 4 },
+            ];
+
+            defaultCols.forEach(col => {
+              const docRef = doc(db, 'crm_columns', col.id);
+              batch.set(docRef, col);
+            });
+            await batch.commit();
+          }
+
+          const unsubscribe = onSnapshot(colRef, (snapshot) => {
+            const data = snapshot.docs.map(d => d.data() as any);
+            console.log("CRM Columns from Firestore:", data);
+
+            // Ordene em memória para evitar problemas com documentos sem o campo 'order'
+            data.sort((a, b) => (a.order || 0) - (b.order || 0));
+
+            setColumns(data);
+          }, (error) => {
+            console.error("Erro fatal no onSnapshot de crm_columns:", error);
+          });
+
+          return () => unsubscribe();
+        } catch (error) {
+          console.error("Erro ao sincronizar colunas do CRM:", error);
+        }
+      };
+      initCrmDb();
+    }
+  }, [isAuthenticated]);
+  const [services, setServices] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      try {
+        const colRef = collection(db, 'servicos');
+        onSnapshot(colRef, (snapshot) => {
+          const data = snapshot.docs.map(d => d.data());
+          setServices(data);
+        });
+      } catch (error) {
+        console.error("Erro ao sincronizar serviços:", error);
+      }
+    }
+  }, [isAuthenticated]);
   const [expenses, setExpenses] = useState<any[]>([]);
-  const [inventory, setInventory] = useState([
-    { id: 'inv1', name: 'Toxina Botulínica (100U)', category: 'Insumos', price: 850, salePrice: 0, stock: 15, minStock: 5 },
-    { id: 'inv2', name: 'Ácido Hialurônico (1ml)', category: 'Insumos', price: 350, salePrice: 0, stock: 8, minStock: 10 },
-    { id: 'inv3', name: 'Seringa Descartável', category: 'Materiais', price: 0.35, salePrice: 0, stock: 250, minStock: 50 },
-    { id: 'inv4', name: 'Agulha 30G', category: 'Materiais', price: 0.15, salePrice: 0, stock: 400, minStock: 100 },
-    { id: 'inv5', name: 'Fios de PDO (un)', category: 'Insumos', price: 80, salePrice: 200, stock: 30, minStock: 10 },
-    { id: 'inv6', name: 'Gaze Estéril (pacote)', category: 'Materiais', price: 0.50, salePrice: 0, stock: 15, minStock: 20 }
-  ]);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      try {
+        const colRef = collection(db, 'financeiro');
+        const q = query(colRef);
+        onSnapshot(q, (snapshot) => {
+          const data = snapshot.docs.map(d => d.data());
+          setExpenses(data);
+        });
+      } catch (error) {
+        console.error("Erro ao sincronizar financeiro:", error);
+      }
+    }
+  }, [isAuthenticated]);
+
+  const [inventory, setInventory] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      try {
+        const colRef = collection(db, 'estoque');
+        onSnapshot(colRef, (snapshot) => {
+          const data = snapshot.docs.map(d => d.data());
+          setInventory(data);
+        });
+      } catch (error) {
+        console.error("Erro ao sincronizar estoque:", error);
+      }
+    }
+  }, [isAuthenticated]);
 
   const [profissionalPermissions, setProfissionalPermissions] = useState<ModulePermissions>({
     dashboard: { view: true, create: false, edit: false, delete: false },
@@ -6313,6 +7060,8 @@ export default function App() {
             isDarkMode={isDarkMode}
             clinicConfig={clinicConfig}
             setClinicConfig={setClinicConfig}
+            aiConfig={aiConfig}
+            setAiConfig={setAiConfig}
           />
         ) : activeMenu === 'Dashboard' ? (
           <DashboardView inventory={inventory} setActiveMenu={setActiveMenu} isDarkMode={isDarkMode} />
@@ -6321,7 +7070,7 @@ export default function App() {
         ) : activeMenu === 'CRM' ? (
           <CrmView patients={patients} setPatients={setPatients} columns={columns} setColumns={setColumns} onGenerateReceituario={handleGenerateReceituario} isDarkMode={isDarkMode} />
         ) : activeMenu === 'Clientes' ? (
-          <ClientesView patients={patients} setPatients={setPatients} onGenerateReceituario={handleGenerateReceituario} isDarkMode={isDarkMode} />
+          <ClientesView patients={patients} setPatients={setPatients} columns={columns} onGenerateReceituario={handleGenerateReceituario} isDarkMode={isDarkMode} />
         ) : activeMenu === 'Receituário' ? (
           <ReceituarioView patients={patients} professionals={professionals} selectedPatientId={selectedPatientForReceituario} isDarkMode={isDarkMode} clinicConfig={clinicConfig} />
         ) : activeMenu === 'Profissionais' ? (
