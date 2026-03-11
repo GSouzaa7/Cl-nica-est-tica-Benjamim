@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
+import * as XLSX from 'xlsx';
 import { HexColorPicker } from 'react-colorful';
 import {
   LayoutDashboard,
@@ -62,12 +63,15 @@ import {
   Moon
 } from 'lucide-react';
 
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
+
 import { useAuth } from './contexts/AuthContext';
 import { signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import { auth, db } from './lib/firebase';
 import { doc, getDoc, setDoc, collection, getDocs, onSnapshot, writeBatch, deleteDoc, query, orderBy, arrayRemove, arrayUnion } from 'firebase/firestore';
 import { registrarNovoUsuario } from './lib/authService';
 import { ReceituarioView } from './ReceituarioView';
+import { SaveButton } from './components/SaveButton';
 // @ts-ignore
 import videoBg from '../Flow_delpmaspu_.mp4';
 
@@ -310,9 +314,7 @@ const LoginScreen = ({ onLogin, isDarkMode = true }: { onLogin: (email: string) 
                 </button>
               </form>
 
-              <div className="mt-8 text-center text-[11px] !text-neutral-500 font-sans border-t !border-white/5 pt-6 w-full">
-                Dica de Navegação: Use <strong className="!text-white font-semibold">admin</strong> no email para privilégios totais ou entre como <strong className="!text-white font-semibold">Profissional</strong>.
-              </div>
+
             </div>
           </div>
         </div>
@@ -375,10 +377,16 @@ type AccessStatus = 'pending' | 'approved' | 'denied';
 const DashboardView = ({
   inventory,
   setActiveMenu,
+  appointments = [],
+  services = [],
+  expenses = [],
   isDarkMode = true
 }: {
   inventory: any[],
   setActiveMenu: (tab: string) => void,
+  appointments?: any[],
+  services?: any[],
+  expenses?: any[],
   isDarkMode?: boolean
 }) => {
   const [faqs, setFaqs] = useState([{ q: 'Dói fazer botox?', a: 'Utilizamos pomada anestésica de alta eficácia para garantir o máximo de conforto.' }]);
@@ -386,13 +394,6 @@ const DashboardView = ({
   // Agrupamento para Laranjas e Críticos
   const lowStockItems = inventory.filter((item: any) => item.stock <= item.minStock && item.stock > 0);
   const criticalStockItems = inventory.filter((item: any) => item.stock === 0);
-
-  const [finCategories, setFinCategories] = useState([
-    { id: '1', name: 'Procedimentos Injetáveis', type: 'Receita' },
-    { id: '2', name: 'Estética Facial', type: 'Receita' },
-    { id: '3', name: 'Fornecedores (Botox/Preenchedores)', type: 'Despesa' },
-    { id: '4', name: 'Aluguel & Condomínio', type: 'Despesa' }
-  ]);
 
   return (
     <div className="flex-1 flex flex-col relative overflow-hidden">
@@ -410,67 +411,90 @@ const DashboardView = ({
         <div className="flex flex-col gap-6 max-w-6xl">
 
           {/* Top Stats Row */}
-          <div className="grid grid-cols-4 gap-6">
-            {/* Faturamento */}
-            <div className="bg-[var(--bg-card)] border border-[var(--border-default)] rounded-2xl p-6 shadow-[var(--card-shadow)] transition-colors duration-300">
-              <div className="flex justify-between items-start mb-4">
-                <h3 className="text-xs font-bold text-neutral-500 tracking-wider">FATURAMENTO<br />TOTAL</h3>
-                <div className="w-8 h-8 rounded-full border border-emerald-900/50 flex items-center justify-center text-emerald-500">
-                  <DollarSign size={16} />
+          {(() => {
+            const now = new Date();
+            const currMonth = now.getMonth();
+            const currYear = now.getFullYear();
+            
+            const totalFaturamento = (expenses || [])
+              .filter(e => e.type === 'Receita' && e.status === 'Pago' && new Date(e.date).getMonth() === currMonth && new Date(e.date).getFullYear() === currYear)
+              .reduce((sum, e) => sum + Number(e.value || e.valor || 0), 0);
+              
+            const totalDespesas = (expenses || [])
+              .filter(e => e.type === 'Despesa' && new Date(e.date).getMonth() === currMonth && new Date(e.date).getFullYear() === currYear)
+              .reduce((sum, e) => sum + Number(e.value || e.valor || 0), 0);
+              
+            const currentAppointments = (appointments || []).length; // Since appointments are local state and usually "current"
+            
+            return (
+              <div className="grid grid-cols-4 gap-6">
+                {/* Faturamento */}
+                <div className="bg-[var(--bg-card)] border border-[var(--border-default)] rounded-2xl p-6 shadow-[var(--card-shadow)] transition-colors duration-300">
+                  <div className="flex justify-between items-start mb-4">
+                    <h3 className="text-xs font-bold text-neutral-500 tracking-wider">FATURAMENTO<br />DO MÊS</h3>
+                    <div className="w-8 h-8 rounded-full border border-emerald-900/50 flex items-center justify-center text-emerald-500">
+                      <DollarSign size={16} />
+                    </div>
+                  </div>
+                  <div className={`text-3xl font-bold ${isDarkMode ? 'text-white' : 'text-zinc-900'} mb-2`}>
+                    R$ {totalFaturamento.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </div>
+                  <div className="flex items-center gap-1 text-xs font-medium text-emerald-500">
+                    <TrendingUp size={14} />
+                    <span>Calculado em tempo real</span>
+                  </div>
                 </div>
-              </div>
-              <div className="text-3xl font-bold text-white mb-2">R$ 0,00</div>
-              <div className="flex items-center gap-1 text-xs font-medium text-neutral-500">
-                <TrendingUp size={14} />
-                <span>+0% vs mês anterior</span>
-              </div>
-            </div>
 
-            {/* Agendamentos */}
-            <div className="bg-[var(--bg-card)] border border-[var(--border-default)] rounded-2xl p-6 shadow-[var(--card-shadow)] transition-colors duration-300">
-              <div className="flex justify-between items-start mb-4">
-                <h3 className="text-xs font-bold text-neutral-500 tracking-wider">AGENDAMENTOS</h3>
-                <div className="w-8 h-8 rounded-full border border-orange-900/50 flex items-center justify-center text-orange-500">
-                  <Calendar size={16} />
+                {/* Agendamentos */}
+                <div className="bg-[var(--bg-card)] border border-[var(--border-default)] rounded-2xl p-6 shadow-[var(--card-shadow)] transition-colors duration-300">
+                  <div className="flex justify-between items-start mb-4">
+                    <h3 className="text-xs font-bold text-neutral-500 tracking-wider">AGENDAMENTOS</h3>
+                    <div className="w-8 h-8 rounded-full border border-orange-900/50 flex items-center justify-center text-orange-500">
+                      <Calendar size={16} />
+                    </div>
+                  </div>
+                  <div className={`text-3xl font-bold ${isDarkMode ? 'text-white' : 'text-zinc-900'} mb-2`}>{currentAppointments}</div>
+                  <div className="flex items-center gap-1 text-xs font-medium text-orange-500">
+                    <TrendingUp size={14} />
+                    <span>Agendamentos ativos</span>
+                  </div>
                 </div>
-              </div>
-              <div className="text-3xl font-bold text-white mb-2">0</div>
-              <div className="flex items-center gap-1 text-xs font-medium text-neutral-500">
-                <TrendingUp size={14} />
-                <span>+0% vs mês anterior</span>
-              </div>
-            </div>
 
-            {/* Novos Leads */}
-            <div className="bg-[var(--bg-card)] border border-[var(--border-default)] rounded-2xl p-6 shadow-[var(--card-shadow)] transition-colors duration-300">
-              <div className="flex justify-between items-start mb-4">
-                <h3 className="text-xs font-bold text-neutral-500 tracking-wider">NOVOS LEADS</h3>
-                <div className="w-8 h-8 rounded-full border border-blue-900/50 flex items-center justify-center text-blue-500">
-                  <Users size={16} />
+                {/* Novos Leads */}
+                <div className="bg-[var(--bg-card)] border border-[var(--border-default)] rounded-2xl p-6 shadow-[var(--card-shadow)] transition-colors duration-300">
+                  <div className="flex justify-between items-start mb-4">
+                    <h3 className="text-xs font-bold text-neutral-500 tracking-wider">NOVOS LEADS</h3>
+                    <div className="w-8 h-8 rounded-full border border-blue-900/50 flex items-center justify-center text-blue-500">
+                      <Users size={16} />
+                    </div>
+                  </div>
+                  <div className={`text-3xl font-bold ${isDarkMode ? 'text-white' : 'text-zinc-900'} mb-2`}>0</div>
+                  <div className="flex items-center gap-1 text-xs font-medium text-neutral-500">
+                    <TrendingDown size={14} />
+                    <span>Módulo CRM em breve</span>
+                  </div>
                 </div>
-              </div>
-              <div className="text-3xl font-bold text-white mb-2">0</div>
-              <div className="flex items-center gap-1 text-xs font-medium text-neutral-500">
-                <TrendingDown size={14} />
-                <span>0% vs mês anterior</span>
-              </div>
-            </div>
 
-            {/* Despesas */}
-            <div className="bg-neutral-900 border-white/10 border rounded-2xl p-6 shadow-xl transition-colors duration-300">
-              <div className="flex justify-between items-start mb-4">
-                <h3 className="text-xs font-bold text-neutral-500 tracking-wider">DESPESAS DO MÊS</h3>
-                <div className="w-8 h-8 rounded-full border border-purple-900/50 flex items-center justify-center text-purple-500">
-                  <BarChart3 size={16} />
+                {/* Despesas */}
+                <div className={`${isDarkMode ? 'bg-neutral-900 border-white/10' : 'bg-red-50 border-red-200'} border rounded-2xl p-6 shadow-xl transition-colors duration-300`}>
+                  <div className="flex justify-between items-start mb-4">
+                    <h3 className="text-xs font-bold text-neutral-500 tracking-wider">DESPESAS DO MÊS</h3>
+                    <div className="w-8 h-8 rounded-full border border-purple-900/50 flex items-center justify-center text-purple-500">
+                      <BarChart3 size={16} />
+                    </div>
+                  </div>
+                  <div className={`text-3xl font-bold ${isDarkMode ? 'text-white' : 'text-red-700'} mb-2`}>
+                    R$ {totalDespesas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </div>
+                  <div className="flex items-center gap-1 text-xs font-medium text-neutral-500">
+                    <TrendingUp size={14} />
+                    <span>Calculado em tempo real</span>
+                  </div>
                 </div>
               </div>
-              <div className="text-3xl font-bold text-white mb-2">R$ 0,00</div>
-              <div className="flex items-center gap-1 text-xs font-medium text-neutral-500">
-                <TrendingUp size={14} />
-                <span>+0% vs mês anterior</span>
-              </div>
-            </div>
-          </div>
+            );
+          })()}
+
 
           {/* Alerts Row */}
           <div className="grid grid-cols-2 gap-6">
@@ -523,30 +547,77 @@ const DashboardView = ({
                 </div>
 
                 {/* Bars */}
-                {[
-                  { month: 'SET', val1: 0, val2: 0 },
-                  { month: 'OUT', val1: 0, val2: 0 },
-                  { month: 'NOV', val1: 0, val2: 0 },
-                  { month: 'DEZ', val1: 0, val2: 0 },
-                  { month: 'JAN', val1: 0, val2: 0 },
-                  { month: 'FEV', val1: 0, val2: 0 },
-                ].map((data, i) => (
-                  <div key={i} className="flex flex-col items-center gap-3 z-10 w-full">
-                    <div className="w-full max-w-[48px] h-full flex items-end relative group">
-                      {/* Background Bar (Faturamento Bruto) */}
-                      <div
-                        className={`absolute bottom-0 w-full ${isDarkMode ? 'bg-zinc-800/50 group-hover:bg-zinc-700/50' : 'bg-zinc-100 group-hover:bg-zinc-200'} rounded-t-lg transition-all duration-300`}
-                        style={{ height: `${data.val1}%` }}
-                      />
-                      {/* Foreground Bar (Margem Líquida) */}
-                      <div
-                        className="absolute bottom-0 w-full bg-gradient-to-t from-orange-600 to-orange-400 rounded-t-lg shadow-[0_0_15px_rgba(249,115,22,0.3)] transition-all duration-300 group-hover:shadow-[0_0_20px_rgba(249,115,22,0.5)]"
-                        style={{ height: `${data.val2}%` }}
-                      />
+                {(() => {
+                  const now = new Date();
+                  const chartData = [];
+                  for (let i = 5; i >= 0; i--) {
+                    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+                    const monthName = d.toLocaleDateString('pt-BR', { month: 'short' }).toUpperCase().replace('.', '');
+                    // Faturamento Bruto (Receitas Pagas)
+                    const faturamentoBruto = (expenses || [])
+                      .filter(e => {
+                        if (e.type !== 'Receita' || e.status !== 'Pago') return false;
+                        if (!e.date) return false;
+                        const expDate = new Date(e.date);
+                        return expDate.getMonth() === d.getMonth() && expDate.getFullYear() === d.getFullYear();
+                      })
+                      .reduce((sum, e) => sum + (Number(e.value || e.valor || 0)), 0);
+
+                    // Faturamento em Aberto (Apenas no mês atual, pois a projeção futura não tem passado, ou usa receitas pendentes)
+                    // Calcula com base nos agendamentos futuros não concluídos para o mês atual
+                    let faturamentoEmAberto = 0;
+                    if (i === 0) { // Current month
+                      // Agendamentos + Procedimentos => Receita Pendente
+                      const appointmentsRevenue = (appointments || []).reduce((sum, app) => {
+                        const svc = (services || []).find((s: any) => s.id === app.service || s.name === app.service);
+                        return sum + Number(svc?.price || svc?.valor || svc?.value || 0);
+                      }, 0);
+                      
+                      const pendingExpensesRevenue = (expenses || [])
+                        .filter(e => {
+                          if (e.type !== 'Receita' || e.status !== 'Pendente') return false;
+                          if (!e.date) return false;
+                          const expDate = new Date(e.date);
+                          return expDate.getMonth() === d.getMonth() && expDate.getFullYear() === d.getFullYear();
+                        })
+                        .reduce((sum, e) => sum + (Number(e.value || e.valor || 0)), 0);
+                        
+                      faturamentoEmAberto = appointmentsRevenue + pendingExpensesRevenue;
+                    }
+
+                    // Define the maximum value to scale (avoid division by 0)
+                    const maxVal = 50000; // default safe max
+                    const scale1 = Math.min((faturamentoBruto / maxVal) * 100, 100);
+                    const scale2 = Math.min((faturamentoEmAberto / maxVal) * 100, 100);
+
+                    chartData.push({ month: monthName, val1: scale1, val2: scale2, raw1: faturamentoBruto, raw2: faturamentoEmAberto });
+                  }
+
+                  return chartData.map((data, i) => (
+                    <div key={i} className="flex flex-col items-center gap-3 z-10 w-full group relative">
+                      <div className="w-full max-w-[48px] h-full flex items-end relative overflow-hidden rounded-t-lg">
+                        {/* Background Bar (Faturamento Bruto) */}
+                        <div
+                          className={`absolute bottom-0 w-full ${isDarkMode ? 'bg-zinc-800' : 'bg-zinc-200'} transition-all duration-500 rounded-t-lg`}
+                          style={{ height: `${data.val1 || 2}%` }}
+                        />
+                        {/* Foreground Bar (Faturamento Em Aberto) - stacked or overlay */}
+                        <div
+                          className="absolute bottom-0 w-full bg-gradient-to-t from-orange-600 to-orange-400 opacity-90 transition-all duration-500 rounded-t-lg"
+                          style={{ height: `${data.val2}%` }}
+                        />
+                      </div>
+                      
+                      {/* Tooltip Hover */}
+                      <div className="absolute -top-12 opacity-0 group-hover:opacity-100 transition-opacity bg-black text-white text-[10px] py-1 px-2 rounded pointer-events-none whitespace-nowrap z-50">
+                        Total: R$ {data.raw1.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}<br/>
+                        Aberto: R$ {data.raw2.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </div>
+
+                      <span className={`text-xs font-medium ${isDarkMode ? 'text-zinc-500' : 'text-zinc-400'}`}>{data.month}</span>
                     </div>
-                    <span className={`text-xs font-medium ${isDarkMode ? 'text-zinc-500' : 'text-zinc-400'}`}>{data.month}</span>
-                  </div>
-                ))}
+                  ));
+                })()}
               </div>
 
               {/* Legend */}
@@ -558,6 +629,10 @@ const DashboardView = ({
                 <div className="flex items-center gap-2">
                   <div className="w-3 h-3 rounded bg-orange-500"></div>
                   <span className={`text-xs ${isDarkMode ? 'text-zinc-400' : 'text-zinc-600'}`}>Margem Líquida</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded bg-orange-400"></div>
+                  <span className={`text-xs ${isDarkMode ? 'text-zinc-400' : 'text-zinc-600'}`}>Faturamento em aberto</span>
                 </div>
               </div>
             </div>
@@ -638,7 +713,7 @@ const SERVICE_INVENTORY_MAP: Record<string, string> = {
   'default': 'Kit Descartável Padrão, Gel Condutor, Luvas Nitrílicas'
 };
 
-const AgendaView = ({ professionals, services = [], onCompleteService, isDarkMode = true }: any) => {
+const AgendaView = ({ professionals, services = [], appointments = [], setAppointments, onCompleteService, isDarkMode = true }: any) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedTime, setSelectedTime] = useState('08:00');
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -651,7 +726,7 @@ const AgendaView = ({ professionals, services = [], onCompleteService, isDarkMod
   const [isTimeDropdownOpen, setIsTimeDropdownOpen] = useState(false);
   const [isServiceDropdownOpen, setIsServiceDropdownOpen] = useState(false);
   const [patientName, setPatientName] = useState('');
-  const [appointments, setAppointments] = useState<any[]>([]);
+  // appointments state moved to App.tsx
   const [selectedAppDetails, setSelectedAppDetails] = useState<any | null>(null);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
 
@@ -3885,7 +3960,14 @@ const FinanceiroView = ({ expenses, setExpenses, isDarkMode = true }: any) => {
   const [dueDate, setDueDate] = useState('');
   const [status, setStatus] = useState('Pendente');
   const [recurrence, setRecurrence] = useState('Não');
-  const [periodo, setPeriodo] = useState('Diário');
+  
+  const currentYearStr = new Date().getFullYear().toString();
+  const [viewPeriod, setViewPeriod] = useState('Mensal');
+  const [viewYear, setViewYear] = useState(currentYearStr);
+  const [isViewYearDropdownOpen, setIsViewYearDropdownOpen] = useState(false);
+  const [viewRange, setViewRange] = useState(new Date().getMonth()); // For mensals (0-11), Trimestrais (0-3), Semestrais (0-1)
+  const [isViewRangeDropdownOpen, setIsViewRangeDropdownOpen] = useState(false);
+
   const [searchQuery, setSearchQuery] = useState('');
   const [transactionFilter, setTransactionFilter] = useState('Todos');
 
@@ -3961,9 +4043,166 @@ const FinanceiroView = ({ expenses, setExpenses, isDarkMode = true }: any) => {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
   };
 
-  const totalExpenses = expenses.reduce((sum: number, exp: any) => sum + exp.value, 0);
-  const pendingExpenses = expenses.filter((exp: any) => exp.status === 'Pendente');
-  const totalPending = pendingExpenses.reduce((sum: number, exp: any) => sum + exp.value, 0);
+  const dataAtual = new Date();
+  const mesAtualHoje = dataAtual.getMonth();
+  const anoAtualHoje = dataAtual.getFullYear();
+  const diaAtualHoje = dataAtual.getDate();
+  const numViewYear = parseInt(viewYear);
+
+  let periodStartMonth = 0;
+  let periodEndMonth = 11;
+  let isDailyView = false;
+  
+  // Logic to determine range of months or days
+  if (viewPeriod === 'Mensal') {
+    periodStartMonth = viewRange;
+    periodEndMonth = viewRange;
+    isDailyView = true;
+  } else if (viewPeriod === 'Trimestral') {
+    periodStartMonth = viewRange * 3;
+    periodEndMonth = periodStartMonth + 2;
+  } else if (viewPeriod === 'Semestral') {
+    periodStartMonth = viewRange * 6;
+    periodEndMonth = periodStartMonth + 5;
+  }
+
+  // Calculate generic historical Revenue/Expense for average (Always look to the past 12 months)
+  let past12MAcumReceita = 0;
+  expenses.forEach((exp: any) => {
+    if (exp.type === 'Receita') past12MAcumReceita += exp.value;
+  });
+  // Simplified average for projection
+  const avgReceitaMensal = past12MAcumReceita > 0 ? (past12MAcumReceita / 12) : 0;
+  const avgReceitaDiaria = past12MAcumReceita > 0 ? (past12MAcumReceita / 365) : 0;
+
+  // Aggregate Data for the View
+  let totalReceitaView = 0;
+  let totalDespesaView = 0;
+  let totalPendenteView = 0;
+  let pendentesLengthView = 0;
+  const chartData = [];
+  let projecaoFimView = 0;
+
+  if (isDailyView) {
+    // === MENSAL LOGIC (Eixo X = Dias) ===
+    const diasNoMes = new Date(numViewYear, periodStartMonth + 1, 0).getDate();
+    const isCurrentMonth = numViewYear === anoAtualHoje && periodStartMonth === mesAtualHoje;
+    const isPastMonth = numViewYear < anoAtualHoje || (numViewYear === anoAtualHoje && periodStartMonth < mesAtualHoje);
+    
+    const transacoesPorDia: Record<number, { receita: number, despesa: number }> = {};
+    for (let i = 1; i <= diasNoMes; i++) transacoesPorDia[i] = { receita: 0, despesa: 0 };
+
+    expenses.forEach((exp: any) => {
+      const [yearStr, monthStr, dayStr] = (exp.dueDate || '').split('-');
+      if (yearStr && parseInt(yearStr) === numViewYear) {
+        if (parseInt(monthStr) - 1 === periodStartMonth) {
+          const day = parseInt(dayStr);
+          const isReceita = exp.type === 'Receita';
+          const isDespesa = exp.type === 'Despesa' || !isReceita;
+          
+          if (isReceita) {
+             totalReceitaView += exp.value;
+             transacoesPorDia[day].receita += exp.value;
+          } else {
+             totalDespesaView += exp.value;
+             transacoesPorDia[day].despesa += exp.value;
+          }
+
+          if (exp.status === 'Pendente' && isDespesa) {
+            totalPendenteView += exp.value;
+            pendentesLengthView++;
+          }
+        }
+      }
+    });
+
+    const currDay = isCurrentMonth ? diaAtualHoje : (isPastMonth ? diasNoMes : 0);
+    const taxaDiariaReal = isCurrentMonth && diaAtualHoje > 0 ? (totalReceitaView / diaAtualHoje) : avgReceitaDiaria;
+    projecaoFimView = totalReceitaView + (isPastMonth ? 0 : (taxaDiariaReal * (diasNoMes - currDay)));
+
+    let acumuladoReceita = 0;
+    
+    for (let i = 1; i <= diasNoMes; i++) {
+        acumuladoReceita += transacoesPorDia[i].receita;
+        if (isPastMonth) {
+           chartData.push({ axis: String(i).padStart(2, '0'), Realizado: acumuladoReceita, Projetado: acumuladoReceita });
+        } else if (isCurrentMonth) {
+           if (i <= currDay) {
+              chartData.push({ axis: String(i).padStart(2, '0'), Realizado: acumuladoReceita, Projetado: acumuladoReceita });
+           } else {
+              const prevProj = chartData[i-2].Projetado;
+              chartData.push({ axis: String(i).padStart(2, '0'), Projetado: prevProj + taxaDiariaReal });
+           }
+        } else {
+           // Future month completely
+           const projectedValue = (i * avgReceitaDiaria);
+           chartData.push({ axis: String(i).padStart(2, '0'), Projetado: projectedValue });
+        }
+    }
+
+  } else {
+    // === MACRO LOGIC (Trimestral, Semestral, Anual - Eixo X = Meses) ===
+    const namesMeses = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+    const transacoesPorMes: Record<number, { receita: number, despesa: number }> = {};
+    for (let m = periodStartMonth; m <= periodEndMonth; m++) transacoesPorMes[m] = { receita: 0, despesa: 0 };
+
+    expenses.forEach((exp: any) => {
+      const [yearStr, monthStr] = (exp.dueDate || '').split('-');
+      if (yearStr && parseInt(yearStr) === numViewYear) {
+        const month = parseInt(monthStr) - 1;
+        if (month >= periodStartMonth && month <= periodEndMonth) {
+          const isReceita = exp.type === 'Receita';
+          const isDespesa = exp.type === 'Despesa' || !isReceita;
+          
+          if (isReceita) {
+             totalReceitaView += exp.value;
+             transacoesPorMes[month].receita += exp.value;
+          } else {
+             totalDespesaView += exp.value;
+             transacoesPorMes[month].despesa += exp.value;
+          }
+
+          if (exp.status === 'Pendente' && isDespesa) {
+            totalPendenteView += exp.value;
+            pendentesLengthView++;
+          }
+        }
+      }
+    });
+
+    let acumuladoReceita = 0;
+    let projGeralAnterior = 0;
+
+    for (let m = periodStartMonth; m <= periodEndMonth; m++) {
+      const isPastMonth = numViewYear < anoAtualHoje || (numViewYear === anoAtualHoje && m < mesAtualHoje);
+      const isCurrentMonth = numViewYear === anoAtualHoje && m === mesAtualHoje;
+      
+      acumuladoReceita += transacoesPorMes[m].receita;
+
+      if (isPastMonth) {
+         chartData.push({ axis: namesMeses[m], Realizado: acumuladoReceita, Projetado: acumuladoReceita });
+         projGeralAnterior = acumuladoReceita;
+      } else if (isCurrentMonth) {
+         // Current month blends realized till today + projected till end of month
+         const diasNoMes = new Date(numViewYear, m + 1, 0).getDate();
+         const taxaDiariaReal = diaAtualHoje > 0 ? (transacoesPorMes[m].receita / diaAtualHoje) : avgReceitaDiaria;
+         const projMesCorrente = acumuladoReceita + (taxaDiariaReal * (diasNoMes - diaAtualHoje));
+         
+         chartData.push({ axis: namesMeses[m], Realizado: acumuladoReceita, Projetado: projMesCorrente });
+         projGeralAnterior = projMesCorrente;
+      } else {
+         // Future month
+         projGeralAnterior += avgReceitaMensal;
+         chartData.push({ axis: namesMeses[m], Projetado: projGeralAnterior });
+      }
+    }
+    projecaoFimView = projGeralAnterior;
+  }
+
+  const saldoLiquido = totalReceitaView - totalDespesaView;
+  const margem = totalReceitaView > 0 ? ((saldoLiquido / totalReceitaView) * 100).toFixed(1) : '0.0';
+
+
 
   const filteredExpenses = expenses.filter((exp: any) => {
     const matchesSearch = exp.description.toLowerCase().includes(searchQuery.toLowerCase()) || exp.category.toLowerCase().includes(searchQuery.toLowerCase());
@@ -3974,40 +4213,31 @@ const FinanceiroView = ({ expenses, setExpenses, isDarkMode = true }: any) => {
     return matchesSearch && matchesFilter;
   });
 
-  const handleExportCSV = () => {
+  const handleExportExcel = () => {
     if (filteredExpenses.length === 0) {
       alert('Nenhum dado para exportar com os filtros atuais.');
       return;
     }
 
-    const headers = ['ID', 'Descrição', 'Categoria', 'Tipo', 'Quantidade', 'Valor', 'Vencimento', 'Status', 'Recorrência'];
-    const csvRows = [headers.join(',')];
+    const dataToExport = filteredExpenses.map((exp: any) => ({
+      ID: exp.id,
+      Descrição: exp.description || '',
+      Categoria: exp.category || '',
+      Tipo: exp.type || '',
+      Quantidade: exp.quantity || 1,
+      Valor: exp.value || 0,
+      Vencimento: exp.dueDate || '',
+      Status: exp.status || '',
+      Recorrência: exp.recurrence || ''
+    }));
 
-    filteredExpenses.forEach((exp: any) => {
-      const row = [
-        exp.id,
-        `"${(exp.description || '').replace(/"/g, '""')}"`,
-        `"${exp.category || ''}"`,
-        exp.type || '',
-        exp.quantity || 1,
-        exp.value || 0,
-        exp.dueDate || '',
-        exp.status || '',
-        exp.recurrence || ''
-      ];
-      csvRows.push(row.join(','));
-    });
+    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Resumo Financeiro');
 
-    const csvData = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
-    const csvUrl = URL.createObjectURL(csvData);
-    const hiddenElement = document.createElement('a');
-    hiddenElement.href = csvUrl;
-    hiddenElement.target = '_blank';
-    hiddenElement.download = 'relatorio_financeiro.csv';
-    hiddenElement.click();
-    URL.revokeObjectURL(csvUrl);
+    // Generate Excel file and trigger download
+    XLSX.writeFile(workbook, 'relatorio_financeiro.xlsx');
   };
-
   return (
     <div className="flex-1 flex flex-col relative overflow-hidden">
 
@@ -4025,7 +4255,7 @@ const FinanceiroView = ({ expenses, setExpenses, isDarkMode = true }: any) => {
 
           <div className="flex items-center gap-4">
             <button
-              onClick={handleExportCSV}
+              onClick={handleExportExcel}
               className={`bg-transparent border ${isDarkMode ? "border-zinc-800 hover:bg-zinc-900 text-white" : "border-[var(--border-default)] hover:bg-zinc-100 text-zinc-900"} font-semibold px-6 py-2.5 rounded-full flex items-center gap-2 transition-colors`}
             >
               <Download size={18} />
@@ -4062,124 +4292,291 @@ const FinanceiroView = ({ expenses, setExpenses, isDarkMode = true }: any) => {
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6 shrink-0">
               <div className="bg-[var(--bg-card)] border border-[var(--border-default)] rounded-2xl p-6 shrink-0 shadow-[var(--card-shadow)]">
                 <div className="flex items-center justify-between mb-4">
-                  <span className="text-[10px] font-bold text-zinc-500 tracking-wider uppercase">Receita Total</span>
+                  <span className="text-[10px] font-bold text-zinc-500 tracking-wider uppercase">Receita no {viewPeriod}</span>
                   <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-500">
                     <TrendingUp size={16} />
                   </div>
                 </div>
                 <div>
-                  <h3 className={`text-3xl font-bold ${isDarkMode ? "text-white" : "text-zinc-900"} mb-1`}>R$ 0,00</h3>
-                  <p className="text-emerald-500 text-xs font-medium">+0.0% <span className="text-zinc-500 font-normal">mês anterior</span></p>
+                  <h3 className={`text-3xl font-bold ${isDarkMode ? "text-white" : "text-zinc-900"} mb-1`}>{formatCurrency(totalReceitaView)}</h3>
+                  <p className="text-zinc-500 text-xs font-medium">Acumulado no período</p>
                 </div>
               </div>
 
               <div className="bg-[var(--bg-card)] border border-[var(--border-default)] rounded-2xl p-6 shrink-0 shadow-[var(--card-shadow)]">
                 <div className="flex items-center justify-between mb-4">
-                  <span className="text-[10px] font-bold text-zinc-500 tracking-wider uppercase">Despesas Totais</span>
+                  <span className="text-[10px] font-bold text-zinc-500 tracking-wider uppercase">Despesas no {viewPeriod}</span>
                   <div className="w-8 h-8 rounded-lg bg-red-500/10 flex items-center justify-center text-red-500">
                     <TrendingDown size={16} />
                   </div>
                 </div>
                 <div>
-                  <h3 className={`text-3xl font-bold ${isDarkMode ? "text-white" : "text-zinc-900"} mb-1`}>{formatCurrency(totalExpenses)}</h3>
-                  <p className="text-emerald-500 text-xs font-medium">+0.0% <span className="text-zinc-500 font-normal">mês anterior</span></p>
+                  <h3 className={`text-3xl font-bold ${isDarkMode ? "text-white" : "text-zinc-900"} mb-1`}>{formatCurrency(totalDespesaView)}</h3>
+                  <p className="text-zinc-500 text-xs font-medium">Total de saídas</p>
                 </div>
               </div>
 
               <div className="bg-[var(--bg-card)] border border-[var(--border-default)] rounded-2xl p-6 shrink-0 shadow-[var(--card-shadow)]">
                 <div className="flex items-center justify-between mb-4">
                   <span className="text-[10px] font-bold text-zinc-500 tracking-wider uppercase">Saldo Líquido</span>
-                  <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-500">
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${saldoLiquido >= 0 ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500'}`}>
                     <DollarSign size={16} />
                   </div>
                 </div>
                 <div>
-                  <h3 className="text-3xl font-bold text-emerald-500 mb-1">{formatCurrency(-totalExpenses)}</h3>
+                  <h3 className={`text-3xl font-bold mb-1 ${saldoLiquido >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>{formatCurrency(saldoLiquido)}</h3>
                 </div>
               </div>
 
               <div className="bg-[var(--bg-card)] border border-[var(--border-default)] rounded-2xl p-6 shrink-0 shadow-[var(--card-shadow)]">
                 <div className="flex items-center justify-between mb-4">
-                  <span className="text-[10px] font-bold text-zinc-500 tracking-wider uppercase">Margem</span>
+                  <span className="text-[10px] font-bold text-zinc-500 tracking-wider uppercase">Margem Atual</span>
                   <div className="w-8 h-8 rounded-lg bg-orange-500/10 flex items-center justify-center text-orange-500">
                     <PieChart size={16} />
                   </div>
                 </div>
                 <div>
-                  <h3 className={`text-3xl font-bold ${isDarkMode ? "text-white" : "text-zinc-900"} mb-1`}>0.0%</h3>
+                  <h3 className={`text-3xl font-bold ${isDarkMode ? "text-white" : "text-zinc-900"} mb-1`}>{margem}%</h3>
                 </div>
               </div>
             </div>
 
-            {/* Chart Area */}
             <div className="bg-[var(--bg-card)] border border-[var(--border-default)] rounded-2xl p-6 shrink-0 shadow-[var(--card-shadow)]">
               <div className="flex items-center justify-between mb-8">
-                <h3 className={`${isDarkMode ? "text-white" : "text-zinc-900"} font-bold text-lg`}>Receita x Despesa</h3>
+                <div className="flex items-center gap-4">
+                   <h3 className={`${isDarkMode ? "text-white" : "text-zinc-900"} font-bold text-lg`}>Acumulado: Histórico e Projeção</h3>
+                   {/* YEAR SELECTOR */}
+                   <div className="relative">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsViewYearDropdownOpen(!isViewYearDropdownOpen);
+                          setIsViewRangeDropdownOpen(false);
+                        }}
+                        className={`flex items-center gap-2 pl-3 pr-8 py-1.5 text-sm font-medium rounded-lg border focus:ring-2 focus:ring-orange-500 focus:outline-none transition-colors ${
+                          isDarkMode 
+                            ? "border-zinc-800 text-zinc-300 hover:border-zinc-700 hover:bg-zinc-800/50" 
+                            : "border-zinc-200 text-zinc-700 hover:border-zinc-300 hover:bg-zinc-50"
+                        }`}
+                      >
+                        <span>{viewYear}</span>
+                      </button>
+                      <ChevronDown size={14} className={`absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none transition-transform ${isViewYearDropdownOpen ? 'rotate-180' : ''}`} />
+                      
+                      {isViewYearDropdownOpen && (
+                        <div className={`absolute z-50 top-full mt-1 w-full min-w-[100px] rounded-xl border shadow-2xl overflow-hidden max-h-[250px] overflow-y-auto custom-scrollbar ${isDarkMode ? 'border-zinc-700/50 bg-[#0a0a0a]' : 'border-zinc-200 bg-white'}`}>
+                          {Array.from({ length: 21 }, (_, i) => (parseInt(currentYearStr) - 10 + i).toString()).map((yr) => (
+                            <button
+                              key={yr}
+                              type="button"
+                              onClick={() => { setViewYear(yr); setIsViewYearDropdownOpen(false); }}
+                              className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${viewYear === yr
+                                ? 'bg-gradient-to-r from-orange-600/30 to-transparent text-orange-500 font-medium'
+                                : isDarkMode ? 'text-white hover:bg-white/5' : 'text-zinc-900 hover:bg-zinc-100'
+                              }`}
+                            >
+                              {yr}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                   </div>
+                   
+                   {/* RANGE SELECTOR */}
+                   {viewPeriod !== 'Anual' && (
+                     <div className="relative">
+                        <button
+                           type="button"
+                           onClick={() => {
+                             setIsViewRangeDropdownOpen(!isViewRangeDropdownOpen);
+                             setIsViewYearDropdownOpen(false);
+                           }}
+                           className={`flex items-center gap-2 pl-3 pr-8 py-1.5 text-sm font-medium rounded-lg border focus:ring-2 focus:ring-orange-500 focus:outline-none transition-colors ${
+                             isDarkMode 
+                               ? "border-zinc-800 text-zinc-300 hover:border-zinc-700 hover:bg-zinc-800/50" 
+                               : "border-zinc-200 text-zinc-700 hover:border-zinc-300 hover:bg-zinc-50"
+                           }`}
+                        >
+                           <span>
+                             {viewPeriod === 'Mensal' && ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'][viewRange]}
+                             {viewPeriod === 'Trimestral' && ['1º Trimestre (Jan-Mar)', '2º Trimestre (Abr-Jun)', '3º Trimestre (Jul-Set)', '4º Trimestre (Out-Dez)'][viewRange]}
+                             {viewPeriod === 'Semestral' && ['1º Semestre (Jan-Jun)', '2º Semestre (Jul-Dez)'][viewRange]}
+                           </span>
+                        </button>
+                        <ChevronDown size={14} className={`absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none transition-transform ${isViewRangeDropdownOpen ? 'rotate-180' : ''}`} />
+
+                        {isViewRangeDropdownOpen && (
+                          <div className={`absolute z-50 top-full mt-1 min-w-[150px] rounded-xl border shadow-2xl overflow-hidden max-h-[300px] overflow-y-auto custom-scrollbar ${isDarkMode ? 'border-zinc-700/50 bg-[#0a0a0a]' : 'border-zinc-200 bg-white'}`}>
+                            {viewPeriod === 'Mensal' && ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'].map((m, i) => (
+                              <button
+                                key={i}
+                                type="button"
+                                onClick={() => { setViewRange(i); setIsViewRangeDropdownOpen(false); }}
+                                className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${viewRange === i
+                                  ? 'bg-gradient-to-r from-orange-600/30 to-transparent text-orange-500 font-medium'
+                                  : isDarkMode ? 'text-white hover:bg-white/5' : 'text-zinc-900 hover:bg-zinc-100'
+                                }`}
+                              >
+                                {m}
+                              </button>
+                            ))}
+                            {viewPeriod === 'Trimestral' && ['1º Trimestre (Jan-Mar)', '2º Trimestre (Abr-Jun)', '3º Trimestre (Jul-Set)', '4º Trimestre (Out-Dez)'].map((m, i) => (
+                              <button
+                                key={i}
+                                type="button"
+                                onClick={() => { setViewRange(i); setIsViewRangeDropdownOpen(false); }}
+                                className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${viewRange === i
+                                  ? 'bg-gradient-to-r from-orange-600/30 to-transparent text-orange-500 font-medium'
+                                  : isDarkMode ? 'text-white hover:bg-white/5' : 'text-zinc-900 hover:bg-zinc-100'
+                                }`}
+                              >
+                                {m}
+                              </button>
+                            ))}
+                            {viewPeriod === 'Semestral' && ['1º Semestre (Jan-Jun)', '2º Semestre (Jul-Dez)'].map((m, i) => (
+                              <button
+                                key={i}
+                                type="button"
+                                onClick={() => { setViewRange(i); setIsViewRangeDropdownOpen(false); }}
+                                className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${viewRange === i
+                                  ? 'bg-gradient-to-r from-orange-600/30 to-transparent text-orange-500 font-medium'
+                                  : isDarkMode ? 'text-white hover:bg-white/5' : 'text-zinc-900 hover:bg-zinc-100'
+                                }`}
+                              >
+                                {m}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                     </div>
+                   )}
+                </div>
+
                 <div className="segmented-control">
-                  {['Geral', 'Diário', 'Semanal', 'Mensal'].map(p => (
+                  {['Mensal', 'Trimestral', 'Semestral', 'Anual'].map(p => (
                     <button
                       key={p}
-                      onClick={() => setPeriodo(p)}
-                      className={`segmented-control-item ${periodo === p ? 'active' : ''}`}
+                      onClick={() => {
+                        setViewPeriod(p); 
+                        // Reset range to sensible defaults when switching periods
+                        if (p === 'Mensal') setViewRange(new Date().getMonth());
+                        else if (p === 'Trimestral') setViewRange(Math.floor(new Date().getMonth() / 3));
+                        else if (p === 'Semestral') setViewRange(Math.floor(new Date().getMonth() / 6));
+                      }}
+                      className={`segmented-control-item ${viewPeriod === p ? 'active' : ''}`}
                     >
                       {p}
                     </button>
                   ))}
                 </div>
               </div>
-              <div className="h-64 flex items-end justify-between gap-2 relative">
-                {/* Mock Chart Lines */}
-                <div className="absolute inset-0 flex flex-col justify-between pointer-events-none">
-                  {[50, 40, 30, 20, 10, 0].map(val => (
-                    <div key={val} className="flex items-center gap-4">
-                      <span className="text-[10px] text-zinc-600 w-8 text-right">R${val}K</span>
-                      <div className={`flex-1 border-t ${isDarkMode ? "border-zinc-800/50" : "border-zinc-200/50"} border-dashed`}></div>
-                    </div>
-                  ))}
-                </div>
-                {/* Mock Chart Bars */}
-                <div className="absolute bottom-6 left-12 right-0 h-[2px] bg-red-500/50 shadow-[0_0_10px_rgba(239,68,68,0.5)]"></div>
-
-                {/* X Axis Labels */}
-                <div className="absolute bottom-0 left-12 right-0 flex justify-between text-[10px] text-zinc-600">
-                  <span>01</span><span>03</span><span>05</span><span>07</span><span>09</span><span>11</span><span>13</span><span>15</span><span>17</span><span>19</span><span>21</span><span>23</span><span>25</span><span>28</span>
-                </div>
+              <div className="h-64 w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="colorRealizado" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
+                        <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                      </linearGradient>
+                      <linearGradient id="colorProjetado" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.2}/>
+                        <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke={isDarkMode ? '#27272a' : '#e4e4e7'} vertical={false} />
+                    <XAxis 
+                      dataKey="axis" 
+                      axisLine={false} 
+                      tickLine={false} 
+                      tick={{ fill: '#71717a', fontSize: 10 }} 
+                    />
+                    <YAxis 
+                      axisLine={false} 
+                      tickLine={false} 
+                      tick={{ fill: '#71717a', fontSize: 10 }}
+                      tickFormatter={(value) => `R$${value >= 1000 ? (value/1000).toFixed(1) + 'k' : value}`}
+                    />
+                    <Tooltip 
+                      contentStyle={{ backgroundColor: isDarkMode ? '#18181b' : '#ffffff', borderColor: isDarkMode ? '#27272a' : '#e4e4e7', borderRadius: '8px' }}
+                      itemStyle={{ fontSize: '12px' }}
+                      labelStyle={{ color: '#71717a', fontSize: '10px', marginBottom: '4px' }}
+                      formatter={(value: number) => formatCurrency(value)}
+                      labelFormatter={(label) => isDailyView ? `Dia ${label}` : label}
+                    />
+                    <Area 
+                      type="monotone" 
+                      dataKey="Projetado" 
+                      stroke="#8b5cf6" 
+                      strokeDasharray="5 5"
+                      fillOpacity={1} 
+                      fill="url(#colorProjetado)" 
+                      name="Projeção"
+                    />
+                    <Area 
+                      type="monotone" 
+                      dataKey="Realizado" 
+                      stroke="#10b981" 
+                      strokeWidth={2}
+                      fillOpacity={1} 
+                      fill="url(#colorRealizado)" 
+                      name="Faturado Real"
+                    />
+                    {isDailyView && numViewYear === anoAtualHoje && periodStartMonth === mesAtualHoje && (
+                      <ReferenceLine x={diaAtualHoje.toString().padStart(2, '0')} stroke={isDarkMode ? '#52525b' : '#a1a1aa'} strokeDasharray="3 3" label={{ position: 'top', value: 'Hoje', fill: '#71717a', fontSize: 10 }} />
+                    )}
+                  </AreaChart>
+                </ResponsiveContainer>
               </div>
             </div>
 
             {/* Bottom Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 shrink-0">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 shrink-0">
               <div className="bg-[var(--bg-card)] border border-[var(--border-default)] rounded-2xl p-6 flex flex-col justify-between shadow-[var(--card-shadow)]">
                 <div className="flex items-center justify-between mb-6">
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-500">
                       <CheckCircle2 size={16} />
                     </div>
-                    <h3 className={`${isDarkMode ? "text-white" : "text-zinc-900"} font-bold`}>Previsão Financeira</h3>
+                    <h3 className={`${isDarkMode ? "text-white" : "text-zinc-900"} font-bold`}>Desempenho no Período</h3>
                   </div>
-                  <span className="text-[10px] font-bold bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 px-2 py-1 rounded-md uppercase tracking-wider">Saudável</span>
+                  <span className={`text-[10px] font-bold px-2 py-1 rounded-md uppercase tracking-wider ${projecaoFimView > totalDespesaView ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' : 'bg-orange-500/10 text-orange-500 border border-orange-500/20'}`}>
+                    {projecaoFimView > totalDespesaView ? 'Positivo' : 'Atenção'}
+                  </span>
                 </div>
                 <div className="space-y-4">
                   <div className={`flex items-center justify-between border-b ${isDarkMode ? "border-zinc-800/50" : "border-zinc-200/50"} pb-4`}>
-                    <span className="text-sm text-zinc-400">Receita média (3m)</span>
-                    <span className={`text-sm font-bold ${isDarkMode ? "text-white" : "text-zinc-900"}`}>R$ 0,00</span>
+                    <span className="text-sm text-zinc-400">Total Faturado</span>
+                    <span className={`text-sm font-bold ${isDarkMode ? "text-white" : "text-zinc-900"}`}>{formatCurrency(totalReceitaView)}</span>
                   </div>
                   <div className={`flex items-center justify-between border-b ${isDarkMode ? "border-zinc-800/50" : "border-zinc-200/50"} pb-4`}>
-                    <span className="text-sm text-zinc-400">Despesa média (3m)</span>
-                    <span className={`text-sm font-bold ${isDarkMode ? "text-white" : "text-zinc-900"}`}>R$ 0,00</span>
+                    <span className="text-sm text-zinc-400">Média (12m)</span>
+                    <span className={`text-sm font-bold ${isDarkMode ? "text-white" : "text-zinc-900"}`}>{isDailyView ? `${formatCurrency(avgReceitaDiaria)}/dia` : `${formatCurrency(avgReceitaMensal)}/mês`}</span>
                   </div>
                   <div className={`flex items-center justify-between border-b ${isDarkMode ? "border-zinc-800/50" : "border-zinc-200/50"} pb-4`}>
-                    <span className="text-sm text-zinc-400">Despesas recorrentes</span>
-                    <span className={`text-sm font-bold ${isDarkMode ? "text-white" : "text-zinc-900"}`}>R$ 0,00</span>
+                    <span className="text-sm text-zinc-400">Despesas aplicadas</span>
+                    <span className={`text-sm font-bold text-red-500`}>{formatCurrency(totalDespesaView)}</span>
                   </div>
                   <div className="flex items-center justify-between pt-2">
-                    <span className={`text-sm font-bold ${isDarkMode ? "text-white" : "text-zinc-900"}`}>Projeção 30 dias</span>
-                    <span className="text-sm font-bold text-emerald-500">R$ 0,00</span>
+                    <span className={`text-sm font-bold ${isDarkMode ? "text-white" : "text-zinc-900"}`}>Projeção Fechamento</span>
+                    <span className="text-[16px] font-black text-emerald-500">{formatCurrency(projecaoFimView)}</span>
                   </div>
                 </div>
               </div>
 
-              <div className={`md:col-span-2 bg-[var(--bg-card)] border border-[var(--border-default)] rounded-2xl p-6 flex flex-col shadow-[var(--card-shadow)]`}>
+              <div className="bg-[var(--bg-card)] border border-[var(--border-default)] rounded-2xl p-6 flex flex-col justify-between shadow-[var(--card-shadow)]">
+                <div className="flex items-center justify-between mb-4">
+                  <span className="text-[10px] font-bold text-zinc-500 tracking-wider uppercase">Total Pendente</span>
+                  <div className="w-8 h-8 rounded-lg bg-yellow-500/10 flex items-center justify-center text-yellow-500">
+                    <Clock size={16} />
+                  </div>
+                </div>
+                <div>
+                  <h3 className="text-3xl font-bold text-yellow-500 mb-1">{formatCurrency(totalPendenteView)}</h3>
+                  <p className="text-zinc-500 text-xs">{pendentesLengthView} despesa(s) p/ este período</p>
+                </div>
+              </div>
+
+              <div className={`lg:col-span-2 bg-[var(--bg-card)] border border-[var(--border-default)] rounded-2xl p-6 flex flex-col shadow-[var(--card-shadow)]`}>
                 <h3 className={`${isDarkMode ? "text-white" : "text-zinc-900"} font-bold mb-6`}>Despesas por Categoria</h3>
                 <div className="flex-1 flex items-center justify-center">
                   <span className="text-sm text-zinc-500 italic">Sem despesas no período</span>
@@ -4271,8 +4668,8 @@ const FinanceiroView = ({ expenses, setExpenses, isDarkMode = true }: any) => {
                   </div>
                 </div>
                 <div>
-                  <h3 className="text-3xl font-bold text-yellow-500 mb-1">{formatCurrency(totalPending)}</h3>
-                  <p className="text-zinc-500 text-xs">{pendingExpenses.length} contas a pagar</p>
+                  <h3 className="text-3xl font-bold text-yellow-500 mb-1">{formatCurrency(totalPendenteView)}</h3>
+                  <p className="text-zinc-500 text-xs">{pendentesLengthView} despesa(s) a pagar neste período</p>
                 </div>
               </div>
 
@@ -5072,7 +5469,9 @@ const SettingsView = ({
   clinicConfig,
   setClinicConfig,
   aiConfig,
-  setAiConfig
+  setAiConfig,
+  timeoutConfig,
+  setTimeoutConfig
 }: any) => {
   const { nomeAssistente, tomDeVoz, systemPrompt, restricoes, diferenciais, faqs } = aiConfig || { nomeAssistente: '', tomDeVoz: 'Empático e Acolhedor', systemPrompt: '', restricoes: '', diferenciais: '', faqs: [] };
   const [keyInput, setKeyInput] = useState('');
@@ -5090,6 +5489,7 @@ const SettingsView = ({
   const [isComissaoDropdownOpen, setIsComissaoDropdownOpen] = useState(false);
   const [regimeTributario, setRegimeTributario] = useState('Simples Nacional');
   const [isRegimeDropdownOpen, setIsRegimeDropdownOpen] = useState(false);
+  const [isTimeoutDropdownOpen, setIsTimeoutDropdownOpen] = useState(false);
   const [paymentMethods, setPaymentMethods] = useState([
     { name: 'PIX', tax: '0.00', days: '0', active: true },
     { name: 'Cartão de Débito', tax: '1.99', days: '1', active: true },
@@ -5106,6 +5506,95 @@ const SettingsView = ({
     { id: '3', name: 'Fornecedores (Botox/Preenchedores)', type: 'Despesa' },
     { id: '4', name: 'Aluguel & Condomínio', type: 'Despesa' }
   ]);
+  const [valorComissao, setValorComissao] = useState('30');
+  const [aliquotaIss, setAliquotaIss] = useState('5.00');
+
+  // ── Financeiro & Fiscal ────────────────────────────────────
+  useEffect(() => {
+    const docRef = doc(db, 'configuracoes', 'financeiro_fiscal');
+    const unsub = onSnapshot(docRef, (snap) => {
+      if (!snap.exists()) return;
+      const d = snap.data();
+      if (d.paymentMethods) setPaymentMethods(d.paymentMethods);
+      if (d.finCategories) setFinCategories(d.finCategories);
+      if (d.discountCardTax !== undefined) setDiscountCardTax(d.discountCardTax);
+      if (d.discountProductCost !== undefined) setDiscountProductCost(d.discountProductCost);
+      if (d.tipoComissao) setTipoComissao(d.tipoComissao);
+      if (d.valorComissao) setValorComissao(d.valorComissao);
+      if (d.regimeTributario) setRegimeTributario(d.regimeTributario);
+      if (d.aliquotaIss) setAliquotaIss(d.aliquotaIss);
+      if (d.autoEmission !== undefined) setAutoEmission(d.autoEmission);
+    });
+    return () => unsub();
+  }, []);
+
+  const handleSavePayments = async () => {
+    await setDoc(doc(db, 'configuracoes', 'financeiro_fiscal'), { paymentMethods }, { merge: true });
+  };
+
+  const handleSaveCategories = async () => {
+    await setDoc(doc(db, 'configuracoes', 'financeiro_fiscal'), { finCategories }, { merge: true });
+  };
+
+  const handleSaveCommission = async () => {
+    await setDoc(doc(db, 'configuracoes', 'financeiro_fiscal'), {
+      discountCardTax, discountProductCost, tipoComissao, valorComissao
+    }, { merge: true });
+  };
+
+  const handleSaveFiscal = async () => {
+    await setDoc(doc(db, 'configuracoes', 'financeiro_fiscal'), {
+      regimeTributario, aliquotaIss, autoEmission
+    }, { merge: true });
+  };
+  // ──────────────────────────────────────────────────────────
+
+  // ── Integrações & API ──────────────────────────────────────
+  const [integrationConfig, setIntegrationConfig] = useState<any>({
+    webhookUrl: '',
+    webhookEvents: {
+      novoAgendamento: false,
+      agendamentoCancelado: false,
+      novoCliente: false,
+      pagamentoConfirmado: false,
+    },
+    connectedServices: {
+      whatsapp: false,
+      stripe: false,
+      googleCalendar: false,
+      rdStation: false,
+    }
+  });
+
+  useEffect(() => {
+    const docRef = doc(db, 'configuracoes', 'api_integracoes');
+    const unsub = onSnapshot(docRef, (snap) => {
+      if (snap.exists()) {
+        setIntegrationConfig((prev: any) => ({ ...prev, ...snap.data() }));
+      }
+    });
+    return () => unsub();
+  }, []);
+
+  const handleSaveIntegration = async () => {
+    await setDoc(doc(db, 'configuracoes', 'api_integracoes'), integrationConfig, { merge: true });
+  };
+
+  const toggleWebhookEvent = (key: string) => {
+    setIntegrationConfig((prev: any) => ({
+      ...prev,
+      webhookEvents: { ...prev.webhookEvents, [key]: !prev.webhookEvents[key] }
+    }));
+  };
+
+  const toggleConnectedService = (key: string) => {
+    setIntegrationConfig((prev: any) => ({
+      ...prev,
+      connectedServices: { ...prev.connectedServices, [key]: !prev.connectedServices[key] }
+    }));
+  };
+  // ───────────────────────────────────────────────────────────
+
 
   return (
     <div className="flex-1 flex flex-col relative overflow-hidden">
@@ -5127,6 +5616,9 @@ const SettingsView = ({
           <SettingsNavItem icon={<Bot size={20} />} title="IA & Automação" subtitle="Assistente, governança e logs" active={activeSettingsMenu === 'IA & Automação'} onClick={() => setActiveSettingsMenu('IA & Automação')} isDarkMode={isDarkMode} />
           <SettingsNavItem icon={<Webhook size={20} />} title="API & Integrações" subtitle="Chaves, webhooks e conexões" active={activeSettingsMenu === 'API & Integrações'} onClick={() => setActiveSettingsMenu('API & Integrações')} isDarkMode={isDarkMode} />
           <SettingsNavItem icon={<DollarSign size={20} />} title="Financeiro & Fiscal" subtitle="Categorias e configuração contábil" active={activeSettingsMenu === 'Financeiro & Fiscal'} onClick={() => setActiveSettingsMenu('Financeiro & Fiscal')} isDarkMode={isDarkMode} />
+          {role === 'admin' && (
+            <SettingsNavItem icon={<Shield size={20} />} title="Segurança & Acessos" subtitle="Timeout e políticas de sessão" active={activeSettingsMenu === 'Segurança & Acessos'} onClick={() => setActiveSettingsMenu('Segurança & Acessos')} isDarkMode={isDarkMode} />
+          )}
         </div>
 
         {/* Settings Content */}
@@ -5217,23 +5709,12 @@ const SettingsView = ({
                   <span className={`font-semibold ${isDarkMode ? "text-zinc-300" : "text-zinc-900"}`}>Bloqueado</span>
                   <span className="text-zinc-500">Admin sempre possui todas as permissões.</span>
                 </div>
-                <button
+                <SaveButton
+                  defaultText="Salvar Configuração"
+                  savedText="Configuração Salva"
                   onClick={handleSave}
-                  disabled={isSaving}
-                  className={`px-6 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${isSaving
-                    ? 'bg-emerald-500/20 text-emerald-500 border border-emerald-500/50 cursor-default'
-                    : 'bg-orange-500 hover:bg-orange-600 text-white'
-                    }`}
-                >
-                  {isSaving ? (
-                    <>
-                      <CheckCircle2 size={16} />
-                      Configuração Salva
-                    </>
-                  ) : (
-                    'Salvar Configuração'
-                  )}
-                </button>
+                  isDarkMode={isDarkMode}
+                />
               </div>
             </div>
 
@@ -5514,9 +5995,14 @@ const SettingsView = ({
               </div>
 
               <div className="mt-6 flex justify-end">
-                <button onClick={async () => { try { await setDoc(doc(db, 'configuracoes', 'conta_organizacao'), clinicConfig); alert('Perfil da clínica salvo com sucesso!'); } catch (e) { console.error(e); alert('Erro ao salvar.'); } }} className={`px-6 py-2 rounded-lg bg-orange-500 hover:bg-orange-600 ${isDarkMode ? "text-white" : "text-zinc-900"} text-sm font-medium transition-colors`}>
-                  Salvar Perfil
-                </button>
+                <SaveButton
+                  onClick={async () => {
+                    await setDoc(doc(db, 'configuracoes', 'conta_organizacao'), clinicConfig);
+                  }}
+                  defaultText="Salvar Perfil"
+                  savedText="Perfil Salvo"
+                  isDarkMode={isDarkMode}
+                />
               </div>
             </div>
 
@@ -5609,9 +6095,14 @@ const SettingsView = ({
               </div>
 
               <div className="mt-6 flex justify-end">
-                <button onClick={async () => { try { await setDoc(doc(db, 'configuracoes', 'conta_organizacao'), clinicConfig); alert('Contato e endereço salvos com sucesso!'); } catch (e) { console.error(e); alert('Erro ao salvar.'); } }} className={`px-6 py-2 rounded-lg bg-orange-500 hover:bg-orange-600 ${isDarkMode ? "text-white" : "text-zinc-900"} text-sm font-medium transition-colors`}>
-                  Salvar Contato
-                </button>
+                <SaveButton
+                  onClick={async () => {
+                    await setDoc(doc(db, 'configuracoes', 'conta_organizacao'), clinicConfig);
+                  }}
+                  defaultText="Salvar Contato"
+                  savedText="Contato Salvo"
+                  isDarkMode={isDarkMode}
+                />
               </div>
             </div>
 
@@ -5669,9 +6160,14 @@ const SettingsView = ({
               </div>
 
               <div className="mt-6 flex justify-end">
-                <button onClick={async () => { try { await setDoc(doc(db, 'configuracoes', 'conta_organizacao'), clinicConfig); alert('Responsável Técnico salvo com sucesso!'); } catch (e) { console.error(e); alert('Erro ao salvar.'); } }} className={`px-6 py-2 rounded-lg bg-orange-500 hover:bg-orange-600 ${isDarkMode ? "text-white" : "text-zinc-900"} text-sm font-medium transition-colors`}>
-                  Salvar Responsável
-                </button>
+                <SaveButton
+                  onClick={async () => {
+                    await setDoc(doc(db, 'configuracoes', 'conta_organizacao'), clinicConfig);
+                  }}
+                  defaultText="Salvar Responsável"
+                  savedText="Responsável Salvo"
+                  isDarkMode={isDarkMode}
+                />
               </div>
             </div>
 
@@ -5762,9 +6258,14 @@ const SettingsView = ({
               </div>
 
               <div className="mt-6 flex justify-end">
-                <button onClick={() => alert('Grade de horários e fuso horário configurados!')} className={`px-6 py-2 rounded-lg bg-orange-500 hover:bg-orange-600 ${isDarkMode ? "text-white" : "text-zinc-900"} text-sm font-medium transition-colors`}>
-                  Salvar Configurações
-                </button>
+                <SaveButton
+                  onClick={async () => {
+                    await new Promise(r => setTimeout(r, 500)); // Simulating API call
+                  }}
+                  defaultText="Salvar Configurações"
+                  savedText="Configurações Salvas"
+                  isDarkMode={isDarkMode}
+                />
               </div>
             </div>
           </div>
@@ -5873,7 +6374,8 @@ const SettingsView = ({
                         onClick={async () => {
                           const updated = { ...aiConfig, apiKey: '', apiKeyMasked: '' };
                           setAiConfig(updated);
-                          try { await setDoc(doc(db, 'configuracoes', 'ia_automacao'), updated); } catch (e) { console.error(e); }
+                          const { apiKey: _removed, ...safeData } = updated;
+                          try { await setDoc(doc(db, 'configuracoes', 'ia_automacao'), safeData); } catch (e) { console.error(e); }
                         }}
                         className="text-xs text-red-500 hover:text-red-400 font-medium flex items-center gap-1 transition-colors"
                       >
@@ -5897,7 +6399,8 @@ const SettingsView = ({
                           const updated = { ...aiConfig, apiKey: keyInput, apiKeyMasked: masked };
                           setAiConfig(updated);
                           setKeyInput('');
-                          try { await setDoc(doc(db, 'configuracoes', 'ia_automacao'), updated); alert('Chave vinculada com sucesso!'); } catch (e) { console.error(e); alert('Erro ao salvar.'); }
+                          const { apiKey: _removed, ...safeData } = updated;
+                          try { await setDoc(doc(db, 'configuracoes', 'ia_automacao'), safeData); alert('Chave vinculada com sucesso!'); } catch (e) { console.error(e); alert('Erro ao salvar.'); }
                         }}
                         className={`px-5 py-2.5 rounded-xl bg-gradient-to-r from-orange-400 to-orange-500 hover:from-orange-500 hover:to-orange-600 text-black text-sm font-semibold transition-all shadow-[0_0_15px_rgba(249,115,22,0.15)] flex items-center gap-2`}
                       >
@@ -5905,7 +6408,7 @@ const SettingsView = ({
                       </button>
                     </div>
                   )}
-                  <p className="text-xs text-zinc-500 mt-2">A chave é salva de forma segura. Após vincular, ela não poderá ser visualizada ou copiada.</p>
+                  <p className="text-xs text-zinc-500 mt-2">A chave é mantida apenas na sessão atual por segurança. Após recarregar a página, será necessário reinserí-la.</p>
                 </div>
               </div>
             </div>
@@ -5980,9 +6483,14 @@ const SettingsView = ({
               </div>
 
               <div className="mt-6 flex justify-end">
-                <button onClick={async () => { try { await setDoc(doc(db, 'configuracoes', 'ia_automacao'), aiConfig); alert('Persona da IA salva com sucesso!'); } catch (e) { console.error(e); alert('Erro ao salvar.'); } }} className={`px-6 py-2 rounded-lg bg-orange-500 hover:bg-orange-600 ${isDarkMode ? "text-white" : "text-zinc-900"} text-sm font-medium transition-colors`}>
-                  Salvar Persona
-                </button>
+                <SaveButton
+                  onClick={async () => {
+                    await setDoc(doc(db, 'configuracoes', 'ia_automacao'), aiConfig);
+                  }}
+                  defaultText="Salvar Persona"
+                  savedText="Persona Salva"
+                  isDarkMode={isDarkMode}
+                />
               </div>
             </div>
 
@@ -6055,9 +6563,14 @@ const SettingsView = ({
               </div>
 
               <div className="mt-8 flex justify-end">
-                <button onClick={async () => { try { await setDoc(doc(db, 'configuracoes', 'ia_automacao'), aiConfig); alert('Base de Conhecimento salva com sucesso!'); } catch (e) { console.error(e); alert('Erro ao salvar.'); } }} className={`px-6 py-2 rounded-lg bg-orange-500 hover:bg-orange-600 ${isDarkMode ? "text-white" : "text-zinc-900"} text-sm font-medium transition-colors`}>
-                  Salvar Base de Conhecimento
-                </button>
+                <SaveButton
+                  onClick={async () => {
+                    await setDoc(doc(db, 'configuracoes', 'ia_automacao'), aiConfig);
+                  }}
+                  defaultText="Salvar Base de Conhecimento"
+                  savedText="Base Salva"
+                  isDarkMode={isDarkMode}
+                />
               </div>
             </div>
           </div>
@@ -6090,11 +6603,22 @@ const SettingsView = ({
                         <p className="text-[10px] text-zinc-500">Meta API Oficial</p>
                       </div>
                     </div>
-                    <span className="text-[10px] font-bold bg-emerald-500/10 text-emerald-500 px-2 py-1 rounded">CONECTADO</span>
+                    <span className={`text-[10px] font-bold px-2 py-1 rounded ${
+                      integrationConfig.connectedServices?.whatsapp
+                        ? 'bg-emerald-500/10 text-emerald-500'
+                        : 'bg-zinc-800 text-zinc-500'
+                    }`}>{integrationConfig.connectedServices?.whatsapp ? 'CONECTADO' : 'DESCONECTADO'}</span>
                   </div>
                   <p className="text-xs text-zinc-400 mb-4 line-clamp-2">Envio automático de lembretes, confirmações de agendamento e atendimento via IA.</p>
-                  <button onClick={() => alert('Abrindo painel de configuração do WhatsApp Business...')} className={`w-full py-2 rounded-lg border ${isDarkMode ? "border-zinc-700 hover:bg-zinc-800" : "border-zinc-200 hover:bg-zinc-100"} ${isDarkMode ? "text-zinc-300" : "text-zinc-900"} text-xs font-medium transition-colors`}>
-                    Configurar
+                  <button
+                    onClick={() => toggleConnectedService('whatsapp')}
+                    className={`w-full py-2 rounded-lg ${
+                      integrationConfig.connectedServices?.whatsapp
+                        ? `border ${isDarkMode ? 'border-zinc-700 hover:bg-zinc-800' : 'border-zinc-200 hover:bg-zinc-100'} ${isDarkMode ? 'text-zinc-300' : 'text-zinc-900'}`
+                        : 'bg-orange-500 hover:bg-orange-600 text-white'
+                    } text-xs font-medium transition-colors`}
+                  >
+                    {integrationConfig.connectedServices?.whatsapp ? 'Gerenciar' : 'Conectar'}
                   </button>
                 </div>
 
@@ -6110,11 +6634,22 @@ const SettingsView = ({
                         <p className="text-[10px] text-zinc-500">Gateway de Pagamento</p>
                       </div>
                     </div>
-                    <span className="text-[10px] font-bold bg-zinc-800 text-zinc-500 px-2 py-1 rounded">DESCONECTADO</span>
+                    <span className={`text-[10px] font-bold px-2 py-1 rounded ${
+                      integrationConfig.connectedServices?.stripe
+                        ? 'bg-emerald-500/10 text-emerald-500'
+                        : 'bg-zinc-800 text-zinc-500'
+                    }`}>{integrationConfig.connectedServices?.stripe ? 'CONECTADO' : 'DESCONECTADO'}</span>
                   </div>
                   <p className="text-xs text-zinc-400 mb-4 line-clamp-2">Processe pagamentos online, gere links de cobrança e gerencie assinaturas.</p>
-                  <button onClick={() => alert('Iniciando autenticação com o Stripe...')} className={`w-full py-2 rounded-lg bg-orange-500 hover:bg-orange-600 ${isDarkMode ? "text-white" : "text-zinc-900"} text-xs font-medium transition-colors`}>
-                    Conectar
+                  <button
+                    onClick={() => toggleConnectedService('stripe')}
+                    className={`w-full py-2 rounded-lg ${
+                      integrationConfig.connectedServices?.stripe
+                        ? `border ${isDarkMode ? 'border-zinc-700 hover:bg-zinc-800' : 'border-zinc-200 hover:bg-zinc-100'} ${isDarkMode ? 'text-zinc-300' : 'text-zinc-900'}`
+                        : 'bg-orange-500 hover:bg-orange-600 text-white'
+                    } text-xs font-medium transition-colors`}
+                  >
+                    {integrationConfig.connectedServices?.stripe ? 'Gerenciar' : 'Conectar'}
                   </button>
                 </div>
 
@@ -6130,11 +6665,22 @@ const SettingsView = ({
                         <p className="text-[10px] text-zinc-500">Sincronização de Agenda</p>
                       </div>
                     </div>
-                    <span className="text-[10px] font-bold bg-zinc-800 text-zinc-500 px-2 py-1 rounded">DESCONECTADO</span>
+                    <span className={`text-[10px] font-bold px-2 py-1 rounded ${
+                      integrationConfig.connectedServices?.googleCalendar
+                        ? 'bg-emerald-500/10 text-emerald-500'
+                        : 'bg-zinc-800 text-zinc-500'
+                    }`}>{integrationConfig.connectedServices?.googleCalendar ? 'CONECTADO' : 'DESCONECTADO'}</span>
                   </div>
                   <p className="text-xs text-zinc-400 mb-4 line-clamp-2">Sincronize a agenda do sistema com o calendário pessoal dos profissionais.</p>
-                  <button onClick={() => alert('Solicitando permissões do Google Calendar...')} className={`w-full py-2 rounded-lg bg-orange-500 hover:bg-orange-600 ${isDarkMode ? "text-white" : "text-zinc-900"} text-xs font-medium transition-colors`}>
-                    Conectar
+                  <button
+                    onClick={() => toggleConnectedService('googleCalendar')}
+                    className={`w-full py-2 rounded-lg ${
+                      integrationConfig.connectedServices?.googleCalendar
+                        ? `border ${isDarkMode ? 'border-zinc-700 hover:bg-zinc-800' : 'border-zinc-200 hover:bg-zinc-100'} ${isDarkMode ? 'text-zinc-300' : 'text-zinc-900'}`
+                        : 'bg-orange-500 hover:bg-orange-600 text-white'
+                    } text-xs font-medium transition-colors`}
+                  >
+                    {integrationConfig.connectedServices?.googleCalendar ? 'Gerenciar' : 'Conectar'}
                   </button>
                 </div>
 
@@ -6150,13 +6696,32 @@ const SettingsView = ({
                         <p className="text-[10px] text-zinc-500">Automação de Marketing</p>
                       </div>
                     </div>
-                    <span className="text-[10px] font-bold bg-zinc-800 text-zinc-500 px-2 py-1 rounded">DESCONECTADO</span>
+                    <span className={`text-[10px] font-bold px-2 py-1 rounded ${
+                      integrationConfig.connectedServices?.rdStation
+                        ? 'bg-emerald-500/10 text-emerald-500'
+                        : 'bg-zinc-800 text-zinc-500'
+                    }`}>{integrationConfig.connectedServices?.rdStation ? 'CONECTADO' : 'DESCONECTADO'}</span>
                   </div>
                   <p className="text-xs text-zinc-400 mb-4 line-clamp-2">Sincronize leads do CRM e envie campanhas de e-mail marketing direcionadas.</p>
-                  <button onClick={() => alert('Iniciando integração com RD Station Marketing...')} className={`w-full py-2 rounded-lg bg-orange-500 hover:bg-orange-600 ${isDarkMode ? "text-white" : "text-zinc-900"} text-xs font-medium transition-colors`}>
-                    Conectar
+                  <button
+                    onClick={() => toggleConnectedService('rdStation')}
+                    className={`w-full py-2 rounded-lg ${
+                      integrationConfig.connectedServices?.rdStation
+                        ? `border ${isDarkMode ? 'border-zinc-700 hover:bg-zinc-800' : 'border-zinc-200 hover:bg-zinc-100'} ${isDarkMode ? 'text-zinc-300' : 'text-zinc-900'}`
+                        : 'bg-orange-500 hover:bg-orange-600 text-white'
+                    } text-xs font-medium transition-colors`}
+                  >
+                    {integrationConfig.connectedServices?.rdStation ? 'Gerenciar' : 'Conectar'}
                   </button>
                 </div>
+              </div>
+              <div className="mt-6 flex justify-end">
+                <SaveButton
+                  onClick={handleSaveIntegration}
+                  defaultText="Salvar Integrações"
+                  savedText="Integrações Salvas"
+                  isDarkMode={isDarkMode}
+                />
               </div>
             </div>
 
@@ -6231,36 +6796,34 @@ const SettingsView = ({
 
                 <div>
                   <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">URL do Webhook (Endpoint)</label>
-                  <input type="url" placeholder="https://sua-api.com/webhook" className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800 text-white" : "bg-white border-zinc-200 text-zinc-900"} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors`} />
+                  <input
+                    type="url"
+                    placeholder="https://sua-api.com/webhook"
+                    value={integrationConfig.webhookUrl || ''}
+                    onChange={(e) => setIntegrationConfig((p: any) => ({ ...p, webhookUrl: e.target.value }))}
+                    className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800 text-white" : "bg-white border-zinc-200 text-zinc-900"} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors`}
+                  />
                 </div>
 
                 <div>
                   <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-3 uppercase">Eventos a serem enviados</label>
                   <div className={`grid grid-cols-1 md:grid-cols-2 gap-3 ${isDarkMode ? "bg-[#121214] border-zinc-800" : "bg-[var(--bg-surface)] border-[var(--border-default)]"} border rounded-xl p-4`}>
-                    <label className="flex items-center gap-3 cursor-pointer group">
-                      <div className={`w-4 h-4 rounded border ${isDarkMode ? "border-zinc-700 bg-zinc-900" : "border-zinc-300 bg-white"} flex items-center justify-center group-hover:border-orange-500 transition-colors`}>
-                        <CheckCircle2 size={12} className="text-orange-500 opacity-0" />
-                      </div>
-                      <span className={`text-sm ${isDarkMode ? "text-zinc-300" : "text-zinc-900"}`}>Novo Agendamento Criado</span>
-                    </label>
-                    <label className="flex items-center gap-3 cursor-pointer group">
-                      <div className={`w-4 h-4 rounded border ${isDarkMode ? "border-zinc-700 bg-zinc-900" : "border-zinc-300 bg-white"} flex items-center justify-center group-hover:border-orange-500 transition-colors`}>
-                        <CheckCircle2 size={12} className="text-orange-500 opacity-0" />
-                      </div>
-                      <span className={`text-sm ${isDarkMode ? "text-zinc-300" : "text-zinc-900"}`}>Agendamento Cancelado</span>
-                    </label>
-                    <label className="flex items-center gap-3 cursor-pointer group">
-                      <div className={`w-4 h-4 rounded border ${isDarkMode ? "border-zinc-700 bg-zinc-900" : "border-zinc-300 bg-white"} flex items-center justify-center group-hover:border-orange-500 transition-colors`}>
-                        <CheckCircle2 size={12} className="text-orange-500 opacity-0" />
-                      </div>
-                      <span className={`text-sm ${isDarkMode ? "text-zinc-300" : "text-zinc-900"}`}>Novo Cliente Cadastrado</span>
-                    </label>
-                    <label className="flex items-center gap-3 cursor-pointer group">
-                      <div className={`w-4 h-4 rounded border ${isDarkMode ? "border-zinc-700 bg-zinc-900" : "border-zinc-300 bg-white"} flex items-center justify-center group-hover:border-orange-500 transition-colors`}>
-                        <CheckCircle2 size={12} className="text-orange-500 opacity-0" />
-                      </div>
-                      <span className={`text-sm ${isDarkMode ? "text-zinc-300" : "text-zinc-900"}`}>Pagamento Confirmado</span>
-                    </label>
+                    {[
+                      { key: 'novoAgendamento', label: 'Novo Agendamento Criado' },
+                      { key: 'agendamentoCancelado', label: 'Agendamento Cancelado' },
+                      { key: 'novoCliente', label: 'Novo Cliente Cadastrado' },
+                      { key: 'pagamentoConfirmado', label: 'Pagamento Confirmado' },
+                    ].map(({ key, label }) => {
+                      const isChecked = integrationConfig.webhookEvents?.[key] ?? false;
+                      return (
+                        <label key={key} onClick={() => toggleWebhookEvent(key)} className="flex items-center gap-3 cursor-pointer group">
+                          <div className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${isChecked ? 'bg-orange-500 border-orange-500' : isDarkMode ? 'border-zinc-700 bg-zinc-900 group-hover:border-orange-500' : 'border-zinc-300 bg-white group-hover:border-orange-500'}`}>
+                            {isChecked && <CheckCircle2 size={10} className="text-white" />}
+                          </div>
+                          <span className={`text-sm ${isDarkMode ? "text-zinc-300" : "text-zinc-900"}`}>{label}</span>
+                        </label>
+                      );
+                    })}
                   </div>
                 </div>
               </div>
@@ -6270,9 +6833,12 @@ const SettingsView = ({
                   <Zap size={16} />
                   Testar Webhook
                 </button>
-                <button onClick={() => alert('Endpoint e configurações de Webhook salvos com sucesso!')} className={`px-6 py-2 rounded-lg bg-orange-500 hover:bg-orange-600 ${isDarkMode ? "text-white" : "text-zinc-900"} text-sm font-medium transition-colors`}>
-                  Salvar Webhook
-                </button>
+                <SaveButton
+                  onClick={handleSaveIntegration}
+                  defaultText="Salvar Webhook"
+                  savedText="Webhook Salvo"
+                  isDarkMode={isDarkMode}
+                />
               </div>
             </div>
           </div>
@@ -6305,8 +6871,32 @@ const SettingsView = ({
                     <div className={`col-span-4 text-sm ${isDarkMode ? "text-zinc-300" : "text-zinc-900"} font-medium`}>{method.name}</div>
                     <div className="col-span-3 flex justify-center">
                       <div className="relative w-24">
-                        <input type="text" defaultValue={method.days} className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800" : "bg-[var(--bg-surface)] border-[var(--border-default)]"} border rounded-lg px-3 py-1.5 ${isDarkMode ? "text-white" : "text-zinc-900"} text-xs text-center focus:outline-none focus:border-orange-500 transition-colors`} />
-                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-zinc-500 text-xs">D</span>
+                        <input
+                          type="text"
+                          value={method.tax}
+                          onChange={(e) => {
+                            const newMethods = [...paymentMethods];
+                            newMethods[index] = { ...newMethods[index], tax: e.target.value };
+                            setPaymentMethods(newMethods);
+                          }}
+                          className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800" : "bg-[var(--bg-surface)] border-[var(--border-default)]"} border rounded-lg px-3 py-1.5 ${isDarkMode ? "text-white" : "text-zinc-900"} text-xs text-center focus:outline-none focus:border-orange-500 transition-colors`}
+                        />
+                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-zinc-500">%</span>
+                      </div>
+                    </div>
+                    <div className="col-span-3 flex justify-center">
+                      <div className="relative w-24">
+                        <input
+                          type="text"
+                          value={method.days}
+                          onChange={(e) => {
+                            const newMethods = [...paymentMethods];
+                            newMethods[index] = { ...newMethods[index], days: e.target.value };
+                            setPaymentMethods(newMethods);
+                          }}
+                          className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800" : "bg-[var(--bg-surface)] border-[var(--border-default)]"} border rounded-lg px-3 py-1.5 ${isDarkMode ? "text-white" : "text-zinc-900"} text-xs text-center focus:outline-none focus:border-orange-500 transition-colors`}
+                        />
+                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-zinc-500">D</span>
                       </div>
                     </div>
                     <div className="col-span-2 flex justify-center">
@@ -6326,9 +6916,12 @@ const SettingsView = ({
               </div>
 
               <div className="mt-6 flex justify-end">
-                <button onClick={() => alert('Taxas salvas com sucesso!')} className={`px-6 py-2 rounded-lg bg-orange-500 hover:bg-orange-600 ${isDarkMode ? "text-white" : "text-zinc-900"} text-sm font-medium transition-colors`}>
-                  Salvar Taxas
-                </button>
+                <SaveButton
+                  onClick={handleSavePayments}
+                  defaultText="Salvar Taxas"
+                  savedText="Taxas Salvas"
+                  isDarkMode={isDarkMode}
+                />
               </div>
             </div>
 
@@ -6408,9 +7001,12 @@ const SettingsView = ({
               </div>
 
               <div className="mt-6 flex justify-end">
-                <button onClick={() => alert('Categorias salvas com sucesso!')} className={`px-6 py-2 rounded-lg bg-orange-500 hover:bg-orange-600 ${isDarkMode ? "text-white" : "text-zinc-900"} text-sm font-medium transition-colors`}>
-                  Salvar Categorias
-                </button>
+                <SaveButton
+                  onClick={handleSaveCategories}
+                  defaultText="Salvar Categorias"
+                  savedText="Categorias Salvas"
+                  isDarkMode={isDarkMode}
+                />
               </div>
             </div>
 
@@ -6476,15 +7072,23 @@ const SettingsView = ({
                   </div>
                   <div>
                     <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Valor/Porcentagem Padrão</label>
-                    <input type="text" defaultValue="30" className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800 text-white" : "bg-white border-zinc-200 text-zinc-900"} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors`} />
+                    <input
+                      type="text"
+                      value={valorComissao}
+                      onChange={(e) => setValorComissao(e.target.value)}
+                      className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800 text-white" : "bg-white border-zinc-200 text-zinc-900"} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors`}
+                    />
                   </div>
                 </div>
               </div>
 
               <div className="mt-6 flex justify-end">
-                <button onClick={() => alert('Regras salvas com sucesso!')} className={`px-6 py-2 rounded-lg bg-orange-500 hover:bg-orange-600 ${isDarkMode ? "text-white" : "text-zinc-900"} text-sm font-medium transition-colors`}>
-                  Salvar Regras
-                </button>
+                <SaveButton
+                  onClick={handleSaveCommission}
+                  defaultText="Salvar Regras"
+                  savedText="Regras Salvas"
+                  isDarkMode={isDarkMode}
+                />
               </div>
             </div>
 
@@ -6534,7 +7138,12 @@ const SettingsView = ({
                   </div>
                   <div>
                     <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Alíquota de ISS (%)</label>
-                    <input type="text" defaultValue="5.00" className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800 text-white" : "bg-white border-zinc-200 text-zinc-900"} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors`} />
+                    <input
+                      type="text"
+                      value={aliquotaIss}
+                      onChange={(e) => setAliquotaIss(e.target.value)}
+                      className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800 text-white" : "bg-white border-zinc-200 text-zinc-900"} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors`}
+                    />
                   </div>
                 </div>
 
@@ -6567,16 +7176,99 @@ const SettingsView = ({
               </div>
 
               <div className="mt-6 flex justify-end">
-                <button onClick={() => alert('Dados Fiscais salvos com sucesso!')} className={`px-6 py-2 rounded-lg bg-orange-500 hover:bg-orange-600 ${isDarkMode ? "text-white" : "text-zinc-900"} text-sm font-medium transition-colors`}>
-                  Salvar Dados Fiscais
-                </button>
+                <SaveButton
+                  onClick={handleSaveFiscal}
+                  defaultText="Salvar Dados Fiscais"
+                  savedText="Dados Salvos"
+                  isDarkMode={isDarkMode}
+                />
               </div>
             </div>
           </div>
         )}
 
+        {activeSettingsMenu === 'Segurança & Acessos' && role === 'admin' && (
+          <div className="flex-1 flex flex-col max-w-4xl overflow-y-auto pr-4 custom-scrollbar">
+            <div className="mb-8 shrink-0">
+              <h2 className={`text-xl font-semibold ${isDarkMode ? "text-white" : "text-zinc-900"} mb-1`}>Segurança & Acessos</h2>
+              <p className={`text-sm ${isDarkMode ? "text-zinc-400" : "text-zinc-500"}`}>Controle de tempo de sessão e políticas de segurança globais.</p>
+            </div>
 
+            <div className={` ${isDarkMode ? "bg-[#0c0c0e] border-zinc-800/80 shadow-black/50" : "bg-[var(--bg-card)] border-[var(--border-default)] shadow-[var(--card-shadow)]"} border rounded-xl p-6 mb-8 transition-colors duration-300 shrink-0 `}>
+              <div className="flex items-center gap-3 mb-6">
+                <Shield className="text-zinc-400" size={20} />
+                <h3 className={`font-medium ${isDarkMode ? "text-white" : "text-zinc-900"}`}>Inatividade e Logout Automático</h3>
+              </div>
+              
+              <div className="flex flex-col gap-4">
+                <p className="text-sm text-zinc-400">Proteja a clínica de acessos indevidos definindo um tempo máximo de inatividade. O sistema deslogará todos os usuários (incluindo admins) automaticamente ao bater esse limite.</p>
+                
+                <div className="w-64 mt-2">
+                  <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Tempo Limite Global</label>
+                  <div className="relative">
+                    {(() => {
+                      const timeoutOptions = [
+                        { value: 15, label: '15 minutos (Recomendado)' },
+                        { value: 30, label: '30 minutos' },
+                        { value: 60, label: '1 hora' },
+                        { value: 120, label: '2 horas' },
+                        { value: 0, label: 'Desativado (Nunca deslogar)' }
+                      ];
+                      const selectedOpt = timeoutOptions.find(opt => opt.value === timeoutConfig.inactivityTimeout);
+                      const displayLabel = selectedOpt ? selectedOpt.label : 'Selecione';
+                      
+                      return (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => setIsTimeoutDropdownOpen(!isTimeoutDropdownOpen)}
+                            className={`w-full flex items-center justify-between ${isDarkMode ? 'bg-[#121214] border-zinc-800 text-white' : 'bg-white border-zinc-200 text-zinc-900'} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors text-left`}
+                          >
+                            <span>{displayLabel}</span>
+                            <ChevronDown className={`w-4 h-4 text-zinc-400 transition-transform ${isTimeoutDropdownOpen ? 'rotate-180' : ''}`} />
+                          </button>
+                          {isTimeoutDropdownOpen && (
+                            <div className={`absolute z-50 w-full mt-1 rounded-xl border shadow-2xl overflow-hidden ${isDarkMode ? 'border-zinc-700/50 bg-[#0a0a0a]' : 'border-zinc-200 bg-white'}`}>
+                              {timeoutOptions.map((opt) => (
+                                <button
+                                  key={opt.value}
+                                  type="button"
+                                  onClick={() => { setTimeoutConfig({ inactivityTimeout: opt.value }); setIsTimeoutDropdownOpen(false); }}
+                                  className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${timeoutConfig.inactivityTimeout === opt.value
+                                    ? 'bg-gradient-to-r from-orange-600/30 to-transparent text-orange-500 font-medium'
+                                    : isDarkMode ? 'text-white hover:bg-white/5' : 'text-zinc-900 hover:bg-zinc-100'
+                                    }`}
+                                >
+                                  {opt.label}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
+                  </div>
+                </div>
+              </div>
 
+              <div className="mt-8 flex justify-end">
+                <SaveButton
+                  onClick={async () => {
+                    try {
+                      await setDoc(doc(db, 'configuracoes', 'seguranca'), timeoutConfig);
+                    } catch (e) {
+                      console.error('Erro ao salvar segurança:', e);
+                      throw e; // throw unhandled so SaveButton fails, though handle is mostly UI here
+                    }
+                  }}
+                  defaultText="Salvar Configurações"
+                  savedText="Configurações Salvas"
+                  isDarkMode={isDarkMode}
+                />
+              </div>
+            </div>
+          </div>
+        )}
 
       </div>
     </div>
@@ -6675,6 +7367,24 @@ export default function App() {
     }
   }, [isAuthenticated]);
 
+  const [timeoutConfig, setTimeoutConfig] = useState({ inactivityTimeout: 30 });
+
+  // Sync timeoutConfig from Firestore
+  useEffect(() => {
+    if (isAuthenticated && role === 'admin') {
+      const docRef = doc(db, 'configuracoes', 'seguranca');
+      const unsub = onSnapshot(docRef, (snap) => {
+        if (snap.exists()) {
+          const data = snap.data();
+          if (data.inactivityTimeout !== undefined) {
+             setTimeoutConfig({ inactivityTimeout: data.inactivityTimeout });
+          }
+        }
+      });
+      return () => unsub();
+    }
+  }, [isAuthenticated, role]);
+
   // Sync theme class on <html> element for CSS custom properties
   React.useEffect(() => {
     if (isDarkMode) {
@@ -6766,6 +7476,7 @@ export default function App() {
     }
   }, [isAuthenticated]);
   const [services, setServices] = useState<any[]>([]);
+  const [appointments, setAppointments] = useState<any[]>([]);
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -7062,11 +7773,13 @@ export default function App() {
             setClinicConfig={setClinicConfig}
             aiConfig={aiConfig}
             setAiConfig={setAiConfig}
+            timeoutConfig={timeoutConfig}
+            setTimeoutConfig={setTimeoutConfig}
           />
         ) : activeMenu === 'Dashboard' ? (
-          <DashboardView inventory={inventory} setActiveMenu={setActiveMenu} isDarkMode={isDarkMode} />
+          <DashboardView inventory={inventory} setActiveMenu={setActiveMenu} appointments={appointments} services={services} expenses={expenses} isDarkMode={isDarkMode} />
         ) : activeMenu === 'Agenda' ? (
-          <AgendaView professionals={professionals} services={services} onCompleteService={handleCompleteService} isDarkMode={isDarkMode} />
+          <AgendaView professionals={professionals} services={services} appointments={appointments} setAppointments={setAppointments} onCompleteService={handleCompleteService} isDarkMode={isDarkMode} />
         ) : activeMenu === 'CRM' ? (
           <CrmView patients={patients} setPatients={setPatients} columns={columns} setColumns={setColumns} onGenerateReceituario={handleGenerateReceituario} isDarkMode={isDarkMode} />
         ) : activeMenu === 'Clientes' ? (

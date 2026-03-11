@@ -12,7 +12,7 @@ const firebaseConfig = {
     appId: import.meta.env.VITE_FIREBASE_APP_ID || "dummy",
 };
 
-console.log("🔥 [DEBUG] API KEY:", import.meta.env.VITE_FIREBASE_API_KEY ? "EXISTS" : "IS EMPTY/UNDEFINED");
+
 
 let app;
 try {

@@ -1,33 +1,36 @@
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth";
-import { collection, getDocs, limit, setDoc, doc, serverTimestamp, query } from "firebase/firestore";
+import { createUserWithEmailAndPassword } from "firebase/auth";
+import { collection, getDocs, limit, setDoc, doc, getDoc, serverTimestamp, query } from "firebase/firestore";
 import { auth, db } from "./firebase";
 
 export const registrarNovoUsuario = async (email: string, senha: string, nome?: string) => {
     try {
-        let user;
-        try {
-            const userCredential = await createUserWithEmailAndPassword(auth, email, senha);
-            user = userCredential.user;
-        } catch (createError: any) {
-            // Se a conta já existe no Authentication, tentamos logar com ela
-            if (createError.code === 'auth/email-already-in-use') {
-                console.log("⚠️ A conta Auth já existe. Tentando autenticar p/ restaurar Firestore vinculada...");
-                const userCredential = await signInWithEmailAndPassword(auth, email, senha);
-                user = userCredential.user;
-            } else {
-                throw createError;
-            }
+        // 1. Cria a conta no Firebase Authentication
+        //    Se o email já existir, lança o erro imediatamente — sem fallback de login.
+        //    Isso evita que alguém que saiba o email + senha de uma conta existente
+        //    acione o fluxo de atribuição de perfil novamente.
+        const userCredential = await createUserWithEmailAndPassword(auth, email, senha);
+        const user = userCredential.user;
+
+        // 2. Verifica se já existe um documento no Firestore para esse UID.
+        //    (Camada de proteção extra: mesmo que o Auth falhe na barreira acima,
+        //     jamais sobrescrevemos um perfil já existente.)
+        const userDocRef = doc(db, "usuarios", user.uid);
+        const existingDoc = await getDoc(userDocRef);
+
+        if (existingDoc.exists()) {
+            // Documento já existe — não mexemos no perfil de forma alguma.
+            console.warn("⚠️ Documento Firestore já existe para esse UID. Nenhuma alteração de perfil feita.");
+            return user;
         }
 
-        // 2. Consulta a coleção "usuarios" para ver se está vazia
+        // 3. Consulta a coleção "usuarios" para saber se é o primeiro usuário
         const usuariosRef = collection(db, "usuarios");
         const q = query(usuariosRef, limit(1));
         const querySnapshot = await getDocs(q);
 
-        // 3. Verifica se é o primeiro usuário
         if (querySnapshot.empty) {
-            // SE VAZIA (Primeiro usuário do sistema):
-            await setDoc(doc(db, "usuarios", user.uid), {
+            // Primeiro usuário do sistema → recebe perfil "admin"
+            await setDoc(userDocRef, {
                 uid: user.uid,
                 email,
                 nome: nome || email.split('@')[0],
@@ -36,7 +39,7 @@ export const registrarNovoUsuario = async (email: string, senha: string, nome?: 
                 criadoEm: serverTimestamp()
             });
 
-            // Cria o documento regras_acesso na coleção configuracoes liberando todas as permissões para "profissional"
+            // Cria as regras de acesso padrão para o perfil "profissional"
             await setDoc(doc(db, "configuracoes", "regras_acesso"), {
                 profissional: {
                     dashboard: { view: true, create: true, edit: true, delete: true },
@@ -53,8 +56,8 @@ export const registrarNovoUsuario = async (email: string, senha: string, nome?: 
                 criadoEm: serverTimestamp()
             });
         } else {
-            // Salva o documento na coleção usuarios com perfil "profissional" e status "PENDING"
-            await setDoc(doc(db, "usuarios", user.uid), {
+            // Demais usuários → recebe perfil "profissional" e aguarda aprovação
+            await setDoc(userDocRef, {
                 uid: user.uid,
                 email,
                 nome: nome || email.split('@')[0],

@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import DOMPurify from 'dompurify';
 import { WordEditor } from './components/Receituario/WordEditor';
 import {
   FileText,
@@ -1239,7 +1240,7 @@ export const ReceituarioView = ({
       `}</style>
 
       <div className="hidden print:block print-area w-[210mm] min-h-[297mm] bg-[#ffffff] text-zinc-900 p-[20mm]">
-        <div dangerouslySetInnerHTML={{ __html: prescricao }} />
+        <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(prescricao) }} />
       </div>
     </div>
   );

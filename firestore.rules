@@ -1,0 +1,137 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ─────────────────────────────────────────────
+    // HELPER FUNCTIONS
+    // ─────────────────────────────────────────────
+
+    // Returns true if the caller is authenticated
+    function isAuth() {
+      return request.auth != null;
+    }
+
+    // Returns the caller's Firestore user document
+    function getUserData() {
+      return get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data;
+    }
+
+    // Returns true if the caller is an admin
+    function isAdmin() {
+      return isAuth() && getUserData().perfil == 'admin';
+    }
+
+    // Returns true if the caller's user status is "APPROVED"
+    function isApproved() {
+      return isAuth() && getUserData().status == 'APPROVED';
+    }
+
+    // ─────────────────────────────────────────────
+    // 1. USUARIOS
+    //    - Logged-in users can read their own document
+    //    - Any authenticated user can read all users (needed for admin panel and user list)
+    //    - Only admins can write (approve/reject users, change roles)
+    //    - Exception: createUserWithEmailAndPassword flow needs to CREATE its own doc
+    // ─────────────────────────────────────────────
+    match /usuarios/{uid} {
+      allow read: if isAuth();
+
+      // Allow create only if the user is creating their OWN document
+      allow create: if isAuth() && request.auth.uid == uid;
+
+      // Only admins can update/delete other users' docs
+      // A user can update their own doc ONLY if they are admin
+      allow update, delete: if isAdmin();
+    }
+
+    // ─────────────────────────────────────────────
+    // 2. CONFIGURACOES
+    //    - All authenticated + approved users can read configs
+    //    - Only admins can write configs
+    //    - Exception: "regras_acesso" is created during first user registration
+    // ─────────────────────────────────────────────
+    match /configuracoes/{docId} {
+      allow read: if isAuth();
+      allow write: if isAdmin();
+
+      // Special case: first user creates regras_acesso during registration
+      // This is handled by the fact that the first user IS the admin
+    }
+
+    // ─────────────────────────────────────────────
+    // 3. CLIENTES (Patients)
+    //    - Authenticated + approved users can read
+    //    - Authenticated + approved users can create and update
+    //    - Only admins can delete
+    // ─────────────────────────────────────────────
+    match /clientes/{docId} {
+      allow read: if isAuth() && isApproved();
+      allow create, update: if isAuth() && isApproved();
+      allow delete: if isAdmin();
+    }
+
+    // ─────────────────────────────────────────────
+    // 4. PROFISSIONAIS
+    //    - Authenticated + approved users can read
+    //    - Only admins can create, update, delete
+    // ─────────────────────────────────────────────
+    match /profissionais/{docId} {
+      allow read: if isAuth() && isApproved();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // ─────────────────────────────────────────────
+    // 5. SERVICOS
+    //    - Authenticated + approved users can read
+    //    - Only admins can create, update, delete
+    // ─────────────────────────────────────────────
+    match /servicos/{docId} {
+      allow read: if isAuth() && isApproved();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // ─────────────────────────────────────────────
+    // 6. FINANCEIRO
+    //    - Authenticated + approved users can read
+    //    - Authenticated + approved users can create, update
+    //    - Only admins can delete
+    // ─────────────────────────────────────────────
+    match /financeiro/{docId} {
+      allow read: if isAuth() && isApproved();
+      allow create, update: if isAuth() && isApproved();
+      allow delete: if isAdmin();
+    }
+
+    // ─────────────────────────────────────────────
+    // 7. ESTOQUE
+    //    - Authenticated + approved users can read
+    //    - Authenticated + approved users can create, update
+    //    - Only admins can delete
+    // ─────────────────────────────────────────────
+    match /estoque/{docId} {
+      allow read: if isAuth() && isApproved();
+      allow create, update: if isAuth() && isApproved();
+      allow delete: if isAdmin();
+    }
+
+    // ─────────────────────────────────────────────
+    // 8. CRM_COLUMNS
+    //    - Authenticated + approved users can read
+    //    - Authenticated + approved users can create, update
+    //    - Only admins can delete
+    // ─────────────────────────────────────────────
+    match /crm_columns/{docId} {
+      allow read: if isAuth() && isApproved();
+      allow create, update: if isAuth() && isApproved();
+      allow delete: if isAdmin();
+    }
+
+    // ─────────────────────────────────────────────
+    // DENY ALL — Anything not matched above is blocked
+    // ─────────────────────────────────────────────
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

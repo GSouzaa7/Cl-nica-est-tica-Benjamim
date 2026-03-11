@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useConfig } from './ConfigContext';
-import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { onAuthStateChanged, signOut, setPersistence, browserSessionPersistence } from 'firebase/auth';
 import { doc, getDoc, onSnapshot, setDoc, collection, limit, query, getDocs } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
 
@@ -35,6 +35,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isAuthLoading, setIsAuthLoading] = useState(true);
 
   useEffect(() => {
+    // Definir persistência para fechar junto com a aba
+    setPersistence(auth, browserSessionPersistence).catch(console.error);
+
     // 1. Escuta Ativa e Consulta ao Firestore
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       try {
