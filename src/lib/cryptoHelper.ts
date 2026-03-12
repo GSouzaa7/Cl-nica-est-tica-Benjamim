@@ -1,28 +1,33 @@
 import CryptoJS from 'crypto-js';
 
-const SECRET_KEY = import.meta.env.VITE_MASTER_KEY || 'default_local_master_key_123!@#';
+const SECRET_KEY = import.meta.env.VITE_MASTER_KEY;
+
+if (!SECRET_KEY) {
+  console.error('[SECURITY] VITE_MASTER_KEY não está definida. A criptografia de campos sensíveis não funcionará.');
+}
 
 export const encryptField = (text: string): string => {
-  if (!text) return text;
-  if (text.startsWith('U2FsdGVkX1')) return text; // Já encriptado
+  if (!text || typeof text !== 'string') return text ?? '';
+  if (!SECRET_KEY) return text;
+  if (text.startsWith('U2FsdGVkX1')) return text;
   try {
     return CryptoJS.AES.encrypt(text, SECRET_KEY).toString();
-  } catch (e) {
-    console.error("Erro ao encriptar campo:", e);
+  } catch {
     return text;
   }
 };
 
 export const decryptField = (cipherText: string): string => {
-  if (!cipherText) return cipherText;
-  if (!cipherText.startsWith('U2FsdGVkX1')) return cipherText; // Dado legado / limpo
-  
+  if (!cipherText || typeof cipherText !== 'string') return cipherText ?? '';
+  if (!cipherText.startsWith('U2FsdGVkX1')) return cipherText;
+  if (!SECRET_KEY) return '[Chave de descriptografia ausente]';
+
   try {
     const bytes = CryptoJS.AES.decrypt(cipherText, SECRET_KEY);
     const originalText = bytes.toString(CryptoJS.enc.Utf8);
-    return originalText || cipherText; // Fallback se a chave estiver errada
-  } catch (e) {
-    console.error("Erro ao decriptar campo:", e);
-    return cipherText;
+    if (!originalText) return '[Erro de descriptografia — chave incorreta]';
+    return originalText;
+  } catch {
+    return '[Erro de descriptografia]';
   }
 };

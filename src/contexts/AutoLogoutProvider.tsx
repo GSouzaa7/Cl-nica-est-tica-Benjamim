@@ -44,7 +44,6 @@ export const AutoLogoutProvider = ({ children }: { children: ReactNode }) => {
     }
 
     const logoutUser = async () => {
-      console.log(`⏳ Auto logout devido a inatividade de ${config.inactivityTimeout} minutos.`);
       await logout();
       window.location.href = '/login'; // Force redirect to login
     };

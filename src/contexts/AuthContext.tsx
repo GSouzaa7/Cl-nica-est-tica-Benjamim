@@ -36,13 +36,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     // Definir persistência para fechar junto com a aba
-    setPersistence(auth, browserSessionPersistence).catch(console.error);
+    setPersistence(auth, browserSessionPersistence).catch(() => {});
+
+    let cleanupInner: (() => void) | undefined;
 
     // 1. Escuta Ativa e Consulta ao Firestore
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      // Limpar listeners do ciclo anterior
+      if (cleanupInner) {
+        cleanupInner();
+        cleanupInner = undefined;
+      }
+
       try {
         if (firebaseUser) {
-          // Usando onSnapshot para reagir instantaneamente quando o registro (setDoc) finalizar
           const userDocRef = doc(db, 'usuarios', firebaseUser.uid);
           let unsubscribeUsers: (() => void) | undefined;
           
@@ -57,7 +64,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 status: (data.status as AccessStatus) || 'APPROVED'
               });
               
-              // Se for admin, escuta global para a lista de usuários
               if (data.perfil === 'admin') {
                 if (!unsubscribeUsers) {
                   unsubscribeUsers = onSnapshot(collection(db, 'usuarios'), (snapshot) => {
@@ -76,7 +82,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                   });
                 }
               } else {
-                 // Se não for admin, garante que não escuta a lista toda e limpa os dados
                  if (unsubscribeUsers) {
                    unsubscribeUsers();
                    unsubscribeUsers = undefined;
@@ -86,7 +91,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               
               setIsAuthLoading(false);
             } else {
-              console.log("⚠️ Perfil deletado ou não existente no Firestore. Definindo status como REJECTED virtual.");
               setUser({
                 id: firebaseUser.uid,
                 name: firebaseUser.email?.split('@')[0] || 'Usuário',
@@ -101,16 +105,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               setUsers([]);
               setIsAuthLoading(false);
             }
-          }, (err) => {
-            console.error("Erro no onSnapshot do usuário:", err);
+          }, () => {
             setUser(null);
             if (unsubscribeUsers) unsubscribeUsers();
             setUsers([]);
             setIsAuthLoading(false);
           });
 
-          // Precisamos retornar o unsubscribe para limpar quando o authState mudar
-          return () => {
+          cleanupInner = () => {
             unsubscribeSnapshot();
             if (unsubscribeUsers) unsubscribeUsers();
           };
@@ -119,8 +121,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setUsers([]);
           setIsAuthLoading(false);
         }
-      } catch (err) {
-        console.error("Erro ao configurar listener do usuário", err);
+      } catch {
         setUser(null);
         setIsAuthLoading(false);
       }
@@ -128,13 +129,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     return () => {
       unsubscribe();
+      if (cleanupInner) cleanupInner();
     };
   }, []);
 
   const login = async (email: string, password?: string) => {
     // O login real agora é feito nos componentes (ex: Login.tsx) usando signInWithEmailAndPassword,
     // mas mantemos compatibilidade de tipagem, ou apenas log para debug.
-    console.warn('O login deve ser chamado diretamente das páginas com Firebase.');
+
   };
 
   const logout = async () => {
@@ -143,15 +145,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const register = async (name: string, email: string, password?: string, role?: Role) => {
-    console.warn('O registro deve ser chamado do authService.ts mapeado nas páginas.');
+
     return { user: null };
   };
 
   const updateUserStatus = async (userId: string, newStatus: AccessStatus) => {
+    if (user?.role !== 'admin') return;
     try {
       await setDoc(doc(db, 'usuarios', userId), { status: newStatus }, { merge: true });
-    } catch (error) {
-      console.error("Erro ao atualizar status do usuário", error);
+    } catch {
+      // Firestore rules enforce admin-only, silently fail on frontend
     }
   };
 

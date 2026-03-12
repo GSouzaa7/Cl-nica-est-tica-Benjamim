@@ -1,13 +1,26 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useAuth } from './AuthContext';
-import { useConfig } from './ConfigContext';
+import { doc, onSnapshot } from 'firebase/firestore';
+import { db } from '../lib/firebase';
 
 interface PermissionContextType {
   permissions: string[];
   hasPermission: (code: string) => boolean;
-  refreshPermissions: () => Promise<void>;
+  refreshPermissions: () => void;
   isLoading: boolean;
 }
+
+const ALL_MODULES = [
+  'dashboard', 'agenda', 'crm', 'clientes', 'profissionais',
+  'servicos', 'estoque', 'financeiro', 'relatorios'
+];
+
+const ADMIN_PERMISSIONS = [
+  ...ALL_MODULES.map(m => `access_${m}`),
+  'access_configuracoes',
+  'manage_roles',
+  'manage_permissions'
+];
 
 const PermissionContext = createContext<PermissionContextType | undefined>(undefined);
 
@@ -16,55 +29,53 @@ export const PermissionProvider = ({ children }: { children: ReactNode }) => {
   const [permissions, setPermissions] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  const fetchPermissions = async () => {
+  useEffect(() => {
     if (!user) {
       setPermissions([]);
       return;
     }
 
-    setIsLoading(true);
-    try {
-      if (user.role === 'admin') {
-        setPermissions([
-          'access_dashboard',
-          'access_agenda',
-          'access_crm',
-          'access_clientes',
-          'access_profissionais',
-          'access_servicos',
-          'access_estoque',
-          'access_financeiro',
-          'access_relatorios',
-          'access_configuracoes',
-          'manage_roles',
-          'manage_permissions'
-        ]);
-      } else {
-        setPermissions([
-          'access_dashboard',
-          'access_agenda',
-          'access_crm',
-          'access_clientes'
-        ]);
-      }
-    } catch (error) {
-      console.error('Unexpected error fetching permissions:', error);
-      setPermissions([]);
-    } finally {
-      setIsLoading(false);
+    if (user.role === 'admin') {
+      setPermissions(ADMIN_PERMISSIONS);
+      return;
     }
-  };
 
-  useEffect(() => {
-    fetchPermissions();
+    // Profissional: buscar permissões reais do Firestore
+    setIsLoading(true);
+    const unsub = onSnapshot(
+      doc(db, 'configuracoes', 'regras_acesso'),
+      (snap) => {
+        if (snap.exists()) {
+          const rules = snap.data()?.profissional;
+          if (rules) {
+            const derived: string[] = [];
+            for (const module of ALL_MODULES) {
+              if (rules[module]?.view) {
+                derived.push(`access_${module}`);
+              }
+            }
+            setPermissions(derived);
+          } else {
+            setPermissions([]);
+          }
+        } else {
+          setPermissions([]);
+        }
+        setIsLoading(false);
+      },
+      () => {
+        setPermissions([]);
+        setIsLoading(false);
+      }
+    );
+
+    return () => unsub();
   }, [user]);
 
-  const hasPermission = (code: string) => {
-    return permissions.includes(code);
-  };
+  const hasPermission = (code: string) => permissions.includes(code);
 
   return (
-    <PermissionContext.Provider value={{ permissions, hasPermission, refreshPermissions: fetchPermissions, isLoading }}>
+    <PermissionContext.Provider value={{ permissions, hasPermission, refreshPermissions: () => {}, isLoading }}>
       {children}
     </PermissionContext.Provider>
   );
@@ -81,7 +92,7 @@ export const usePermissions = () => {
 export const PermissionGuard = ({ permission, children, fallback = null }: { permission: string, children: ReactNode, fallback?: ReactNode }) => {
   const { hasPermission, isLoading } = usePermissions();
 
-  if (isLoading) return null; // Or a spinner
+  if (isLoading) return null;
 
   if (hasPermission(permission)) {
     return <>{children}</>;

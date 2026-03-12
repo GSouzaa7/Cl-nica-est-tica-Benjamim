@@ -75,6 +75,7 @@ import { SaveButton } from './components/SaveButton';
 import { logAuditEvent } from './lib/auditLogger';
 import { AuditLogPanel } from './components/settings/AuditLogPanel';
 import { encryptField, decryptField } from './lib/cryptoHelper';
+import { useDynamicPWA } from './hooks/useDynamicPWA';
 // @ts-ignore
 import videoBg from '../Flow_delpmaspu_.mp4';
 
@@ -155,22 +156,22 @@ const LoginScreen = ({ onLogin, isDarkMode = true }: { onLogin: (email: string) 
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("🔘 [DEBUG] Botão de formulário clicado! Registrando:", isRegistering);
+
     try {
       if (isRegistering) {
         if (email && name && password) {
-          console.log("👉 Tentando criar usuário no Firebase...");
+
           const user = await registrarNovoUsuario(email, password, name);
-          console.log("✅ Usuário criado com sucesso!", user.uid);
+
           setShowSuccessModal(true);
         } else {
           alert("Preencha todos os campos para registrar.");
         }
       } else {
         if (email && password) {
-          console.log("👉 Tentando login no Firebase...");
+
           const result = await signInWithEmailAndPassword(auth, email, password);
-          console.log("✅ Login aceito pelo Firebase Auth!", result.user.uid);
+
         } else {
           alert("Preencha email e senha para entrar.");
         }
@@ -662,18 +663,12 @@ const DashboardView = ({
   );
 };
 
-const CurrentTimeIndicator = () => {
+const CurrentTimeIndicator = ({ selectedDate }: { selectedDate: Date }) => {
   const [now, setNow] = useState(new Date());
-  const [slotHeight, setSlotHeight] = useState(41); // fallback height
+  const [topPx, setTopPx] = useState<number | null>(null);
 
+  // Atualiza relógio a cada minuto
   useEffect(() => {
-    // Get actual height of a row from DOM for precise calculation
-    const slotEl = document.querySelector('.time-slot-row');
-    if (slotEl) {
-      setSlotHeight(slotEl.clientHeight);
-    }
-
-    // Set minimal timeout to sync with next clock minute
     const msToNextMinute = 60000 - (new Date().getSeconds() * 1000 + new Date().getMilliseconds());
     let interval: any;
 
@@ -688,15 +683,58 @@ const CurrentTimeIndicator = () => {
     };
   }, []);
 
-  const hours = now.getHours();
-  const minutes = now.getMinutes();
-  const minutesFromStart = (hours - 8) * 60 + minutes;
+  // Calcula posição com base nos slots DOM reais
+  useEffect(() => {
+    const calculate = () => {
+      const slots = document.querySelectorAll('.time-slot-row');
+      if (slots.length === 0) return;
 
-  // Assuming calendar hours: 08:00 to 20:00 (which is 12 hours * 60 mins = 720 mins)
-  if (minutesFromStart < 0 || minutesFromStart > 720) return null;
+      const hours = now.getHours();
+      const minutes = now.getMinutes();
+      const minutesFromStart = (hours - 8) * 60 + minutes;
+      if (minutesFromStart < 0 || minutesFromStart > 720) {
+        setTopPx(null);
+        return;
+      }
 
-  // Each slot represents 30 minutes
-  const topPx = (minutesFromStart / 30) * slotHeight;
+      // Índice do slot atual e fração dentro dele
+      const slotIndex = Math.floor(minutesFromStart / 30);
+      const fraction = (minutesFromStart % 30) / 30;
+
+      if (slotIndex >= slots.length) {
+        setTopPx(null);
+        return;
+      }
+
+      const currentSlot = slots[slotIndex] as HTMLElement;
+      const position = currentSlot.offsetTop + (fraction * currentSlot.offsetHeight);
+      setTopPx(position);
+    };
+
+    // Aguardar layout flex completar
+    requestAnimationFrame(() => {
+      requestAnimationFrame(calculate);
+    });
+
+    // Re-calcular ao redimensionar
+    window.addEventListener('resize', calculate);
+    const observer = new ResizeObserver(calculate);
+    const firstSlot = document.querySelector('.time-slot-row');
+    if (firstSlot) observer.observe(firstSlot);
+
+    return () => {
+      window.removeEventListener('resize', calculate);
+      observer.disconnect();
+    };
+  }, [now]);
+
+  // Visibilidade: só renderizar se selectedDate === hoje
+  const today = new Date();
+  const isToday = selectedDate.getDate() === today.getDate()
+    && selectedDate.getMonth() === today.getMonth()
+    && selectedDate.getFullYear() === today.getFullYear();
+
+  if (!isToday || topPx === null) return null;
 
   return (
     <div
@@ -926,7 +964,7 @@ const AgendaView = ({ professionals, services = [], appointments = [], setAppoin
 
           {/* Time Slots */}
           <div className="flex-1 overflow-y-auto custom-scrollbar relative">
-            <CurrentTimeIndicator />
+            <CurrentTimeIndicator selectedDate={selectedCalendarDate} />
             {timeSlots.map(time => (
               <div key={time} className={`time-slot-row flex border-b ${isDarkMode ? "border-zinc-800/50" : "border-zinc-200/50"} transition-colors`}>
                 <div className={`w-16 p-3 text-xs font-medium text-zinc-500 border-r ${isDarkMode ? "border-zinc-800/80" : "border-zinc-200/80"} flex items-center justify-center`}>
@@ -7311,6 +7349,7 @@ const SettingsView = ({
 };
 
 export default function App() {
+  useDynamicPWA();
   const { user, users, updateUserStatus, isAuthLoading } = useAuth();
 
   const [isDarkMode, setIsDarkMode] = useState(() => {
@@ -7322,11 +7361,8 @@ export default function App() {
   });
 
   const isAuthenticated = !!user;
-  const setIsAuthenticated = (v: boolean) => { }; // Dummy setter
   const currentUserEmail = user?.email || '';
-  const setCurrentUserEmail = (v: string) => { }; // Dummy setter
   const role = user?.role || 'profissional';
-  const setRole = (v: any) => { }; // Dummy setter
 
   const [userStatuses, setUserStatuses] = useState<Record<string, any>>({});
   const [activeMenu, setActiveMenu] = useState('Dashboard');
@@ -7452,10 +7488,8 @@ export default function App() {
             };
           });
           setPatients(data);
-        });
-      } catch (error) {
-        console.error("Erro ao sincronizar clientes:", error);
-      }
+        }, () => { setPatients([]); });
+      } catch {}
     }
   }, [isAuthenticated]);
   const [professionals, setProfessionals] = useState<any[]>([]);
@@ -7467,10 +7501,8 @@ export default function App() {
         onSnapshot(colRef, (snapshot) => {
           const data = snapshot.docs.map(d => d.data());
           setProfessionals(data);
-        });
-      } catch (error) {
-        console.error("Erro ao sincronizar profissionais:", error);
-      }
+        }, () => { setProfessionals([]); });
+      } catch {}
     }
   }, [isAuthenticated]);
   const [columns, setColumns] = useState<{ id: string, title: string, cardIds: string[] }[]>([]);
@@ -7483,7 +7515,7 @@ export default function App() {
           const snap = await getDocs(colRef);
 
           if (snap.empty) {
-            console.log("Inicializando colunas do CRM com padrão...");
+
             const batch = writeBatch(db);
             const defaultCols = [
               { id: 'col-1', title: 'Novos Leads', cardIds: [], order: 0 },
@@ -7502,20 +7534,16 @@ export default function App() {
 
           const unsubscribe = onSnapshot(colRef, (snapshot) => {
             const data = snapshot.docs.map(d => d.data() as any);
-            console.log("CRM Columns from Firestore:", data);
+
 
             // Ordene em memória para evitar problemas com documentos sem o campo 'order'
             data.sort((a, b) => (a.order || 0) - (b.order || 0));
 
             setColumns(data);
-          }, (error) => {
-            console.error("Erro fatal no onSnapshot de crm_columns:", error);
-          });
+          }, () => {});
 
           return () => unsubscribe();
-        } catch (error) {
-          console.error("Erro ao sincronizar colunas do CRM:", error);
-        }
+        } catch {}
       };
       initCrmDb();
     }
@@ -7530,10 +7558,8 @@ export default function App() {
         onSnapshot(colRef, (snapshot) => {
           const data = snapshot.docs.map(d => d.data());
           setServices(data);
-        });
-      } catch (error) {
-        console.error("Erro ao sincronizar serviços:", error);
-      }
+        }, () => { setServices([]); });
+      } catch {}
     }
   }, [isAuthenticated]);
   const [expenses, setExpenses] = useState<any[]>([]);
@@ -7546,10 +7572,8 @@ export default function App() {
         onSnapshot(q, (snapshot) => {
           const data = snapshot.docs.map(d => d.data());
           setExpenses(data);
-        });
-      } catch (error) {
-        console.error("Erro ao sincronizar financeiro:", error);
-      }
+        }, () => { setExpenses([]); });
+      } catch {}
     }
   }, [isAuthenticated]);
 
@@ -7562,10 +7586,8 @@ export default function App() {
         onSnapshot(colRef, (snapshot) => {
           const data = snapshot.docs.map(d => d.data());
           setInventory(data);
-        });
-      } catch (error) {
-        console.error("Erro ao sincronizar estoque:", error);
-      }
+        }, () => { setInventory([]); });
+      } catch {}
     }
   }, [isAuthenticated]);
 
@@ -7592,9 +7614,7 @@ export default function App() {
           if (docSnap.exists() && docSnap.data().profissional) {
             setProfissionalPermissions(docSnap.data().profissional as ModulePermissions);
           }
-        } catch (error) {
-          console.error("Erro ao buscar as regras de acesso no Firestore:", error);
-        }
+        } catch {}
       }
     };
     fetchPermissions();
@@ -7629,9 +7649,7 @@ export default function App() {
     try {
       await signOut(auth);
       setActiveMenu('Dashboard');
-    } catch (error) {
-      console.error("Erro ao desconectar:", error);
-    }
+    } catch {}
   };
 
   if (isAuthLoading) {
