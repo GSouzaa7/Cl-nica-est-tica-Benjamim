@@ -10,6 +10,8 @@ import { PermissionProvider } from './contexts/PermissionContext';
 import { ToastProvider } from './contexts/ToastContext';
 import { PwaInstallPrompt } from './components/pwa/PwaInstallPrompt';
 import { IosInstallPrompt } from './components/pwa/IosInstallPrompt';
+import { MissingConfigScreen } from './components/MissingConfigScreen';
+import { isFirebaseConfigured } from './lib/firebase';
 import { registerSW } from 'virtual:pwa-register';
 
 if ('serviceWorker' in navigator) {
@@ -24,22 +26,28 @@ if ('serviceWorker' in navigator) {
   });
 }
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <AuthProvider>
-      <AutoLogoutProvider>
-        <ConfigProvider>
-          <ThemeProvider>
-            <PermissionProvider>
-              <ToastProvider>
-                <App />
-                <PwaInstallPrompt />
-                <IosInstallPrompt />
-              </ToastProvider>
-            </PermissionProvider>
-          </ThemeProvider>
-        </ConfigProvider>
-      </AutoLogoutProvider>
-    </AuthProvider>
-  </StrictMode>,
-);
+const rootElement = document.getElementById('root')!;
+
+if (!isFirebaseConfigured) {
+  createRoot(rootElement).render(<MissingConfigScreen />);
+} else {
+  createRoot(rootElement).render(
+    <StrictMode>
+      <AuthProvider>
+        <AutoLogoutProvider>
+          <ConfigProvider>
+            <ThemeProvider>
+              <PermissionProvider>
+                <ToastProvider>
+                  <App />
+                  <PwaInstallPrompt />
+                  <IosInstallPrompt />
+                </ToastProvider>
+              </PermissionProvider>
+            </ThemeProvider>
+          </ConfigProvider>
+        </AutoLogoutProvider>
+      </AuthProvider>
+    </StrictMode>,
+  );
+}
