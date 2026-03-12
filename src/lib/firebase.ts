@@ -15,17 +15,11 @@ const firebaseConfig = {
 const requiredKeys = ['apiKey', 'authDomain', 'projectId'] as const;
 const missing = requiredKeys.filter(k => !firebaseConfig[k]);
 
-let app;
-try {
-    if (missing.length > 0) {
-        throw new Error(`Variáveis de ambiente ausentes: ${missing.join(', ')}`);
-    }
-    app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
-} catch (error) {
-    console.error("[FIREBASE] Falha na inicialização:", error);
-    // Em caso de erro crítico, criamos um mock mínimo para evitar crash no import
-    app = { options: firebaseConfig } as any;
+if (missing.length > 0) {
+    console.error(`[FIREBASE] Variáveis de ambiente ausentes: ${missing.join(', ')}. Configure o .env.local.`);
 }
+
+const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 
 export const auth = getAuth(app);
 export const db = getFirestore(app);
