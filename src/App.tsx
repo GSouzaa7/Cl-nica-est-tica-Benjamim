@@ -72,6 +72,9 @@ import { doc, getDoc, setDoc, collection, getDocs, onSnapshot, writeBatch, delet
 import { registrarNovoUsuario } from './lib/authService';
 import { ReceituarioView } from './ReceituarioView';
 import { SaveButton } from './components/SaveButton';
+import { logAuditEvent } from './lib/auditLogger';
+import { AuditLogPanel } from './components/settings/AuditLogPanel';
+import { encryptField, decryptField } from './lib/cryptoHelper';
 // @ts-ignore
 import videoBg from '../Flow_delpmaspu_.mp4';
 
@@ -1989,7 +1992,7 @@ const ClientesView = ({ patients, setPatients, columns, onGenerateReceituario, i
       id: Date.now().toString(),
       date: new Date().toLocaleDateString('pt-BR'),
       type: recordType,
-      content: transcription.trim()
+      content: encryptField(transcription.trim())
     };
 
     let updatedPatient;
@@ -2000,7 +2003,7 @@ const ClientesView = ({ patients, setPatients, columns, onGenerateReceituario, i
         name: editName || 'Paciente Sem Nome',
         phone: editPhone,
         email: editEmail,
-        notes: editNotes,
+        notes: encryptField(editNotes),
         cpf: clientCPF.replace(/\D/g, ''),
         history: [newRecord]
       };
@@ -2012,7 +2015,7 @@ const ClientesView = ({ patients, setPatients, columns, onGenerateReceituario, i
         name: editName,
         phone: editPhone,
         email: editEmail,
-        notes: editNotes,
+        notes: encryptField(editNotes),
         history: [newRecord, ...(currentPatient.history || [])]
       };
     }
@@ -2020,6 +2023,14 @@ const ClientesView = ({ patients, setPatients, columns, onGenerateReceituario, i
     try {
       const docRef = doc(db, 'clientes', updatedPatient.id);
       await setDoc(docRef, updatedPatient);
+      logAuditEvent({
+        userId: auth.currentUser?.uid || 'unknown',
+        userEmail: auth.currentUser?.email || 'unknown',
+        userName: auth.currentUser?.displayName || 'Usuário',
+        action: 'SALVOU_REGISTRO_MEDICO',
+        module: 'Clientes',
+        details: `Salvou registro médico (${recordType}) para paciente ${editName}.`
+      });
     } catch (error) {
       console.error("Erro ao salvar histórico do paciente:", error);
       alert("Erro ao salvar histórico. Tente novamente.");
@@ -2039,7 +2050,7 @@ const ClientesView = ({ patients, setPatients, columns, onGenerateReceituario, i
         name: editName || 'Paciente Sem Nome',
         phone: editPhone,
         email: editEmail,
-        notes: editNotes,
+        notes: encryptField(editNotes),
         cpf: clientCPF.replace(/\D/g, ''),
       };
       setIsNewPatientModalOpen(false);
@@ -2050,7 +2061,7 @@ const ClientesView = ({ patients, setPatients, columns, onGenerateReceituario, i
         name: editName,
         phone: editPhone,
         email: editEmail,
-        notes: editNotes,
+        notes: encryptField(editNotes),
         cpf: clientCPF.replace(/\D/g, ''),
       };
     }
@@ -2058,6 +2069,14 @@ const ClientesView = ({ patients, setPatients, columns, onGenerateReceituario, i
     try {
       const docRef = doc(db, 'clientes', updatedPatient.id);
       await setDoc(docRef, updatedPatient);
+      logAuditEvent({
+        userId: auth.currentUser?.uid || 'unknown',
+        userEmail: auth.currentUser?.email || 'unknown',
+        userName: auth.currentUser?.displayName || 'Usuário',
+        action: isCreating ? 'CRIOU_PACIENTE' : 'EDITOU_PACIENTE',
+        module: 'Clientes',
+        details: `${isCreating ? 'Cadastrou' : 'Editou'} paciente: ${editName}.`
+      });
     } catch (error) {
       console.error("Erro ao salvar paciente:", error);
       alert("Erro ao salvar paciente. Tente novamente.");
@@ -2456,6 +2475,7 @@ const ProfissionaisView = ({ professionals, setProfessionals, isDarkMode = true 
       };
 
       await setDoc(doc(db, 'profissionais', idToSave), profData);
+      logAuditEvent({ userId: auth.currentUser?.uid || '', userEmail: auth.currentUser?.email || '', userName: auth.currentUser?.displayName || 'Usuário', action: editingId ? 'EDITOU_PROFISSIONAL' : 'CRIOU_PROFISSIONAL', module: 'Profissionais', details: `${editingId ? 'Editou' : 'Cadastrou'} profissional: ${name}.` });
       setIsModalOpen(false);
     } catch (error) {
       console.error("Erro ao salvar profissional:", error);
@@ -2856,6 +2876,7 @@ const ServicosView = ({ services, setServices, inventory, isDarkMode = true }: a
       };
 
       await setDoc(doc(db, 'servicos', idToSave), newService);
+      logAuditEvent({ userId: auth.currentUser?.uid || '', userEmail: auth.currentUser?.email || '', userName: auth.currentUser?.displayName || 'Usuário', action: editingId ? 'EDITOU_SERVICO' : 'CRIOU_SERVICO', module: 'Serviços', details: `${editingId ? 'Editou' : 'Cadastrou'} serviço: ${name}.` });
       setIsModalOpen(false);
     } catch (error) {
       console.error("Erro ao salvar serviço:", error);
@@ -3490,6 +3511,7 @@ const EstoqueView = ({ inventory, setInventory, isDarkMode = true }: any) => {
       };
 
       await setDoc(doc(db, 'estoque', idToSave), newItem);
+      logAuditEvent({ userId: auth.currentUser?.uid || '', userEmail: auth.currentUser?.email || '', userName: auth.currentUser?.displayName || 'Usuário', action: editingId ? 'EDITOU_PRODUTO' : 'CRIOU_PRODUTO', module: 'Estoque', details: `${editingId ? 'Editou' : 'Cadastrou'} produto: ${name}.` });
       setIsModalOpen(false);
     } catch (error) {
       console.error("Erro ao salvar produto no estoque:", error);
@@ -4001,6 +4023,7 @@ const FinanceiroView = ({ expenses, setExpenses, isDarkMode = true }: any) => {
 
     try {
       await setDoc(doc(db, 'financeiro', newExpense.id), newExpense);
+      logAuditEvent({ userId: auth.currentUser?.uid || '', userEmail: auth.currentUser?.email || '', userName: auth.currentUser?.displayName || 'Usuário', action: 'CRIOU_DESPESA', module: 'Financeiro', details: `Criou despesa: ${description} - R$ ${value}.` });
       setIsModalOpen(false);
     } catch (error) {
       console.error("Erro ao salvar transação:", error);
@@ -4017,6 +4040,7 @@ const FinanceiroView = ({ expenses, setExpenses, isDarkMode = true }: any) => {
     if (itemToDelete) {
       try {
         await deleteDoc(doc(db, 'financeiro', itemToDelete));
+        logAuditEvent({ userId: auth.currentUser?.uid || '', userEmail: auth.currentUser?.email || '', userName: auth.currentUser?.displayName || 'Usuário', action: 'EXCLUIU_DESPESA', module: 'Financeiro', details: `Excluiu transação financeira ID: ${itemToDelete}.` });
         setIsDeleteModalOpen(false);
         setItemToDelete(null);
       } catch (error) {
@@ -4034,6 +4058,7 @@ const FinanceiroView = ({ expenses, setExpenses, isDarkMode = true }: any) => {
     const newStatus = item.status === 'Pendente' ? 'Pago' : 'Pendente';
     try {
       await setDoc(doc(db, 'financeiro', item.id), { ...item, status: newStatus });
+      logAuditEvent({ userId: auth.currentUser?.uid || '', userEmail: auth.currentUser?.email || '', userName: auth.currentUser?.displayName || 'Usuário', action: 'ALTEROU_STATUS_FINANCEIRO', module: 'Financeiro', details: `Alterou status de "${item.description}" para ${newStatus}.` });
     } catch (error) {
       console.error("Erro ao atualizar status:", error);
     }
@@ -7256,6 +7281,14 @@ const SettingsView = ({
                   onClick={async () => {
                     try {
                       await setDoc(doc(db, 'configuracoes', 'seguranca'), timeoutConfig);
+                      await logAuditEvent({
+                        userId: auth.currentUser?.uid || 'unknown',
+                        userEmail: auth.currentUser?.email || 'unknown',
+                        userName: auth.currentUser?.displayName || 'Admin',
+                        action: 'ALTEROU_CONFIGURACAO',
+                        module: 'Segurança',
+                        details: `Alterou o timeout de sessão para ${timeoutConfig.inactivityTimeout} minutos.`
+                      });
                     } catch (e) {
                       console.error('Erro ao salvar segurança:', e);
                       throw e; // throw unhandled so SaveButton fails, though handle is mostly UI here
@@ -7267,6 +7300,8 @@ const SettingsView = ({
                 />
               </div>
             </div>
+
+            <AuditLogPanel isDarkMode={isDarkMode} />
           </div>
         )}
 
@@ -7405,7 +7440,17 @@ export default function App() {
       try {
         const colRef = collection(db, 'clientes');
         onSnapshot(colRef, (snapshot) => {
-          const data = snapshot.docs.map(d => d.data());
+          const data = snapshot.docs.map(d => {
+            const raw = d.data();
+            return {
+              ...raw,
+              notes: decryptField(raw.notes || ''),
+              history: (raw.history || []).map((h: any) => ({
+                ...h,
+                content: decryptField(h.content || '')
+              }))
+            };
+          });
           setPatients(data);
         });
       } catch (error) {
@@ -7658,8 +7703,9 @@ export default function App() {
 
   const handleApprove = (userId: string) => {
     updateUserStatus(userId, 'APPROVED');
-    // Adicionar profissional aprovado à lista de profissionais automaticamente
     const approvedUser = users.find(u => u.id === userId);
+    logAuditEvent({ userId: auth.currentUser?.uid || '', userEmail: auth.currentUser?.email || '', userName: auth.currentUser?.displayName || 'Admin', action: 'APROVOU_USUARIO', module: 'Usuários', details: `Aprovou o usuário: ${approvedUser?.name || userId}.` });
+    // Adicionar profissional aprovado à lista de profissionais automaticamente
     if (approvedUser) {
       const alreadyAdded = professionals.some(p => p.id === userId);
       if (!alreadyAdded) {
@@ -7678,6 +7724,8 @@ export default function App() {
 
   const handleDeny = (userId: string) => {
     updateUserStatus(userId, 'REJECTED');
+    const deniedUser = users.find(u => u.id === userId);
+    logAuditEvent({ userId: auth.currentUser?.uid || '', userEmail: auth.currentUser?.email || '', userName: auth.currentUser?.displayName || 'Admin', action: 'REJEITOU_USUARIO', module: 'Usuários', details: `Rejeitou o usuário: ${deniedUser?.name || userId}.` });
   };
 
   const handleSave = async () => {

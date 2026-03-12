@@ -44,6 +44,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (firebaseUser) {
           // Usando onSnapshot para reagir instantaneamente quando o registro (setDoc) finalizar
           const userDocRef = doc(db, 'usuarios', firebaseUser.uid);
+          let unsubscribeUsers: (() => void) | undefined;
+          
           const unsubscribeSnapshot = onSnapshot(userDocRef, (docSnap) => {
             if (docSnap.exists()) {
               const data = docSnap.data();
@@ -54,6 +56,34 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 role: data.perfil as Role,
                 status: (data.status as AccessStatus) || 'APPROVED'
               });
+              
+              // Se for admin, escuta global para a lista de usuários
+              if (data.perfil === 'admin') {
+                if (!unsubscribeUsers) {
+                  unsubscribeUsers = onSnapshot(collection(db, 'usuarios'), (snapshot) => {
+                    const usersData: User[] = [];
+                    snapshot.forEach((uDoc) => {
+                      const uData = uDoc.data();
+                      usersData.push({
+                        id: uData.uid,
+                        name: uData.nome || uData.email?.split('@')[0] || 'Usuário',
+                        email: uData.email || '',
+                        role: uData.perfil as Role,
+                        status: (uData.status as AccessStatus) || 'APPROVED'
+                      });
+                    });
+                    setUsers(usersData);
+                  });
+                }
+              } else {
+                 // Se não for admin, garante que não escuta a lista toda e limpa os dados
+                 if (unsubscribeUsers) {
+                   unsubscribeUsers();
+                   unsubscribeUsers = undefined;
+                 }
+                 setUsers([]);
+              }
+              
               setIsAuthLoading(false);
             } else {
               console.log("⚠️ Perfil deletado ou não existente no Firestore. Definindo status como REJECTED virtual.");
@@ -64,18 +94,29 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 role: 'profissional',
                 status: 'REJECTED'
               });
+              if (unsubscribeUsers) {
+                unsubscribeUsers();
+                unsubscribeUsers = undefined;
+              }
+              setUsers([]);
               setIsAuthLoading(false);
             }
           }, (err) => {
             console.error("Erro no onSnapshot do usuário:", err);
             setUser(null);
+            if (unsubscribeUsers) unsubscribeUsers();
+            setUsers([]);
             setIsAuthLoading(false);
           });
 
           // Precisamos retornar o unsubscribe para limpar quando o authState mudar
-          return () => unsubscribeSnapshot();
+          return () => {
+            unsubscribeSnapshot();
+            if (unsubscribeUsers) unsubscribeUsers();
+          };
         } else {
           setUser(null);
+          setUsers([]);
           setIsAuthLoading(false);
         }
       } catch (err) {
@@ -85,25 +126,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
     });
 
-    // Escuta global para a lista de usuários (para Admins verem no painel de Configurações)
-    const unsubscribeUsers = onSnapshot(collection(db, 'usuarios'), (snapshot) => {
-      const usersData: User[] = [];
-      snapshot.forEach((doc) => {
-        const data = doc.data();
-        usersData.push({
-          id: data.uid,
-          name: data.nome || data.email?.split('@')[0] || 'Usuário',
-          email: data.email || '',
-          role: data.perfil as Role,
-          status: (data.status as AccessStatus) || 'APPROVED'
-        });
-      });
-      setUsers(usersData);
-    });
-
     return () => {
       unsubscribe();
-      unsubscribeUsers();
     };
   }, []);
 

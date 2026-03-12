@@ -80,7 +80,7 @@ const NativeRichTextEditor = ({ value, onChange, className }: { value: string; o
 
   useEffect(() => {
     if (editorRef.current && editorRef.current.innerHTML !== value) {
-      editorRef.current.innerHTML = value;
+      editorRef.current.innerHTML = DOMPurify.sanitize(value);
     }
   }, [value]);
 
@@ -319,7 +319,7 @@ export const ReceituarioView = ({
         ${header}
         ${patientLine}
         <div style="flex: 1; min-height: 400px; line-height: 1.6; font-size: 16px; color: #262626;">
-          ${prescricao}
+          ${DOMPurify.sanitize(prescricao)}
         </div>
         ${footer}
       </div>

@@ -27,15 +27,26 @@ service cloud.firestore {
       return isAuth() && getUserData().status == 'APPROVED';
     }
 
+    // Fetch global access rules from the configuracoes collection
+    function getRules() {
+      return get(/databases/$(database)/documents/configuracoes/regras_acesso).data;
+    }
+
+    // Check if the current professional has permission for a specific module and action
+    function can(module, action) {
+      let rules = getRules();
+      return isAdmin() || (isApproved() && rules.profissional[module][action] == true);
+    }
+
     // ─────────────────────────────────────────────
     // 1. USUARIOS
-    //    - Logged-in users can read their own document
-    //    - Any authenticated user can read all users (needed for admin panel and user list)
+    //    - Logged-in users can read their OWN document
+    //    - Only admins can read all users
     //    - Only admins can write (approve/reject users, change roles)
     //    - Exception: createUserWithEmailAndPassword flow needs to CREATE its own doc
     // ─────────────────────────────────────────────
     match /usuarios/{uid} {
-      allow read: if isAuth();
+      allow read: if isAuth() && (request.auth.uid == uid || isAdmin());
 
       // Allow create only if the user is creating their OWN document
       allow create: if isAuth() && request.auth.uid == uid;
@@ -47,84 +58,84 @@ service cloud.firestore {
 
     // ─────────────────────────────────────────────
     // 2. CONFIGURACOES
-    //    - All authenticated + approved users can read configs
-    //    - Only admins can write configs
-    //    - Exception: "regras_acesso" is created during first user registration
+    //    - Only admins can read/write everything
+    //    - Any approved user MUST be able to read "regras_acesso" for the can() function and frontend to work
     // ─────────────────────────────────────────────
     match /configuracoes/{docId} {
-      allow read: if isAuth();
-      allow write: if isAdmin();
-
-      // Special case: first user creates regras_acesso during registration
-      // This is handled by the fact that the first user IS the admin
+      allow read, write: if isAdmin();
+      allow read: if isAuth() && isApproved() && docId == 'regras_acesso';
     }
 
     // ─────────────────────────────────────────────
     // 3. CLIENTES (Patients)
-    //    - Authenticated + approved users can read
-    //    - Authenticated + approved users can create and update
-    //    - Only admins can delete
     // ─────────────────────────────────────────────
     match /clientes/{docId} {
-      allow read: if isAuth() && isApproved();
-      allow create, update: if isAuth() && isApproved();
-      allow delete: if isAdmin();
+      allow read: if can('clientes', 'view');
+      allow create: if can('clientes', 'create');
+      allow update: if can('clientes', 'edit');
+      allow delete: if can('clientes', 'delete');
     }
 
     // ─────────────────────────────────────────────
     // 4. PROFISSIONAIS
-    //    - Authenticated + approved users can read
-    //    - Only admins can create, update, delete
     // ─────────────────────────────────────────────
     match /profissionais/{docId} {
-      allow read: if isAuth() && isApproved();
-      allow create, update, delete: if isAdmin();
+      allow read: if can('profissionais', 'view');
+      allow create: if can('profissionais', 'create');
+      allow update: if can('profissionais', 'edit');
+      allow delete: if can('profissionais', 'delete');
     }
 
     // ─────────────────────────────────────────────
     // 5. SERVICOS
-    //    - Authenticated + approved users can read
-    //    - Only admins can create, update, delete
     // ─────────────────────────────────────────────
     match /servicos/{docId} {
-      allow read: if isAuth() && isApproved();
-      allow create, update, delete: if isAdmin();
+      allow read: if can('servicos', 'view');
+      allow create: if can('servicos', 'create');
+      allow update: if can('servicos', 'edit');
+      allow delete: if can('servicos', 'delete');
     }
 
     // ─────────────────────────────────────────────
     // 6. FINANCEIRO
-    //    - Authenticated + approved users can read
-    //    - Authenticated + approved users can create, update
-    //    - Only admins can delete
     // ─────────────────────────────────────────────
     match /financeiro/{docId} {
-      allow read: if isAuth() && isApproved();
-      allow create, update: if isAuth() && isApproved();
-      allow delete: if isAdmin();
+      allow read: if can('financeiro', 'view');
+      allow create: if can('financeiro', 'create');
+      allow update: if can('financeiro', 'edit');
+      allow delete: if can('financeiro', 'delete');
     }
 
     // ─────────────────────────────────────────────
     // 7. ESTOQUE
-    //    - Authenticated + approved users can read
-    //    - Authenticated + approved users can create, update
-    //    - Only admins can delete
     // ─────────────────────────────────────────────
     match /estoque/{docId} {
-      allow read: if isAuth() && isApproved();
-      allow create, update: if isAuth() && isApproved();
-      allow delete: if isAdmin();
+      allow read: if can('estoque', 'view');
+      allow create: if can('estoque', 'create');
+      allow update: if can('estoque', 'edit');
+      allow delete: if can('estoque', 'delete');
     }
 
     // ─────────────────────────────────────────────
-    // 8. CRM_COLUMNS
-    //    - Authenticated + approved users can read
-    //    - Authenticated + approved users can create, update
-    //    - Only admins can delete
+    // 8. CRM_COLUMNS (Board columns/leads)
     // ─────────────────────────────────────────────
     match /crm_columns/{docId} {
-      allow read: if isAuth() && isApproved();
-      allow create, update: if isAuth() && isApproved();
-      allow delete: if isAdmin();
+      allow read: if can('crm', 'view');
+      allow create: if can('crm', 'create');
+      allow update: if can('crm', 'edit');
+      allow delete: if can('crm', 'delete');
+    }
+
+    // ─────────────────────────────────────────────
+    // 9. AUDIT LOGS (Compliance Trail)
+    //    - Only admins can read
+    //    - Any authenticated user can create (log their own actions)
+    //    - No one can update or delete
+    // ─────────────────────────────────────────────
+    match /audit_logs/{docId} {
+      allow read: if isAdmin();
+      allow create: if isAuth();
+      allow update, delete: if false;
     }
 
     // ─────────────────────────────────────────────
