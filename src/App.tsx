@@ -60,7 +60,8 @@ import {
   FileSignature,
   CheckCircle,
   Sun,
-  Moon
+  Moon,
+  Menu
 } from 'lucide-react';
 
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
@@ -404,15 +405,15 @@ const DashboardView = ({
       {/* Background stars/dots effect */}
 
 
-      {/* Header */}
-      <header className="pt-12 px-12 pb-8 z-10 shrink-0 flex items-center gap-3">
+      {/* Header (desktop only, mobile uses global header) */}
+      <header className="hidden lg:flex pt-12 px-12 pb-8 z-10 shrink-0 items-center gap-3">
         <LayoutDashboard className="text-[var(--text-primary)]" size={32} />
         <h1 className="text-3xl font-bold text-[var(--text-primary)] tracking-tight">Dashboard</h1>
       </header>
 
       {/* Content Grid */}
-      <div className="flex-1 overflow-y-auto px-12 pb-10 z-10 custom-scrollbar">
-        <div className="flex flex-col gap-6 max-w-6xl">
+      <div className="flex-1 overflow-y-auto px-4 lg:px-12 py-4 lg:py-0 lg:pb-10 z-10 custom-scrollbar">
+        <div className="flex flex-col gap-4 md:gap-6 max-w-6xl">
 
           {/* Top Stats Row */}
           {(() => {
@@ -431,7 +432,7 @@ const DashboardView = ({
             const currentAppointments = (appointments || []).length; // Since appointments are local state and usually "current"
             
             return (
-              <div className="grid grid-cols-4 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
                 {/* Faturamento */}
                 <div className="bg-[var(--bg-card)] border border-[var(--border-default)] rounded-2xl p-6 shadow-[var(--card-shadow)] transition-colors duration-300">
                   <div className="flex justify-between items-start mb-4">
@@ -501,7 +502,7 @@ const DashboardView = ({
 
 
           {/* Alerts Row */}
-          <div className="grid grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
             <div
               onClick={() => setActiveMenu('Estoque')}
               className={` ${isDarkMode ? "bg-[#1c0d0d] border-red-900/30 hover:border-red-500/50 cursor-pointer" : "bg-red-50 border-red-100 hover:border-red-300 cursor-pointer"} border rounded-2xl p-5 flex items-center gap-4 transition-colors duration-300 `}
@@ -533,9 +534,9 @@ const DashboardView = ({
           </div>
 
           {/* Charts Row */}
-          <div className="grid grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
             {/* Main Chart */}
-            <div className="col-span-2 bg-neutral-900 border-white/10 border rounded-2xl p-6 shadow-xl transition-colors duration-300">
+            <div className="lg:col-span-2 bg-neutral-900 border-white/10 border rounded-2xl p-4 md:p-6 shadow-xl transition-colors duration-300">
               <div className="flex justify-between items-center mb-8">
                 <h3 className="text-lg font-semibold text-white">Desempenho Semestral</h3>
                 <span className="text-[10px] font-bold px-2 py-1 rounded bg-white/5 text-neutral-400 tracking-wider">ÚLTIMOS 6 MESES</span>
@@ -642,7 +643,7 @@ const DashboardView = ({
             </div>
 
             {/* Agenda Widget */}
-            <div className={`col-span-1 ${isDarkMode ? "bg-[#0c0c0e] border-zinc-800/80 shadow-black/50" : "bg-white border-zinc-200 shadow-zinc-200/50"} border rounded-2xl p-6 shadow-xl transition-colors duration-300 flex flex-col`}>
+            <div className={`col-span-1 ${isDarkMode ? "bg-[#0c0c0e] border-zinc-800/80 shadow-black/50" : "bg-white border-zinc-200 shadow-zinc-200/50"} border rounded-2xl p-4 md:p-6 shadow-xl transition-colors duration-300 flex flex-col`}>
               <div className="flex justify-between items-start mb-6">
                 <h3 className={`text-lg font-semibold ${isDarkMode ? "text-white" : "text-zinc-900"} leading-tight`}>Próximos<br />Agendamentos</h3>
                 <span className={`text-[10px] font-bold px-2 py-1 rounded tracking-wider border ${isDarkMode ? 'bg-red-900/30 text-red-400 border-red-900/50' : 'bg-red-50 text-red-600 border-red-200'}`}>HOJE</span>
@@ -7372,6 +7373,7 @@ export default function App() {
   const [isSaving, setIsSaving] = useState(false);
   const [selectedPatientForReceituario, setSelectedPatientForReceituario] = useState<string | null>(null);
   const [isAssistantOpen, setIsAssistantOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [chatMessage, setChatMessage] = useState('');
   const [chatHistory, setChatHistory] = useState([
     { role: 'assistant', text: 'Olá! Sou o Estetix AI. Como posso ajudar com a gestão da sua clínica hoje?' }
@@ -7764,16 +7766,27 @@ export default function App() {
 
   return (
     <div className="flex h-screen font-sans overflow-hidden selection:bg-orange-500/30 transition-colors duration-300" style={{ backgroundColor: 'var(--bg-base)', color: 'var(--text-primary)' }}>
+      {/* Mobile Sidebar Overlay */}
+      {isMobileMenuOpen && (
+        <div 
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden"
+          onClick={() => setIsMobileMenuOpen(false)}
+        />
+      )}
+
       {/* Sidebar */}
-      <aside className="w-64 flex flex-col z-20 transition-colors duration-300" style={{ borderRight: '1px solid var(--sidebar-border)', backgroundColor: 'var(--sidebar-bg)' }}>
+      <aside className={`fixed lg:relative flex flex-col z-50 h-[100dvh] w-64 transform transition-transform duration-300 ease-in-out ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`} style={{ borderRight: '1px solid var(--sidebar-border)', backgroundColor: 'var(--sidebar-bg)' }}>
         {/* Logo */}
-        <div className="h-20 flex items-center px-6 shrink-0" style={{ borderBottom: '1px solid var(--border-default)' }}>
+        <div className="h-20 flex items-center justify-between px-6 shrink-0" style={{ borderBottom: '1px solid var(--border-default)' }}>
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 bg-orange-500 rounded flex items-center justify-center">
               <Asterisk style={{ color: 'var(--bg-base)' }} size={20} />
             </div>
             <span className="font-semibold text-xl tracking-tight" style={{ color: 'var(--text-primary)' }}>EstéticaPro</span>
           </div>
+          <button onClick={() => setIsMobileMenuOpen(false)} className="lg:hidden text-[var(--text-secondary)] hover:text-[var(--text-primary)]">
+            <X size={20} />
+          </button>
         </div>
 
         {/* Menu */}
@@ -7815,6 +7828,22 @@ export default function App() {
 
       {/* Main Content */}
       <main className="flex-1 flex flex-col relative overflow-hidden">
+        {/* Mobile Global Header */}
+        <div className="lg:hidden shrink-0 h-16 px-4 flex items-center justify-between border-b z-30" style={{ borderBottomColor: 'var(--border-default)', backgroundColor: 'var(--bg-base)' }}>
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={() => setIsMobileMenuOpen(true)}
+              className="p-2 -ml-2 rounded-lg text-[var(--text-secondary)] hover:bg-[var(--sidebar-hover-bg)]"
+            >
+              <Menu size={24} />
+            </button>
+            <div className="font-semibold text-lg text-[var(--text-primary)]">{activeMenu}</div>
+          </div>
+          <div className="w-8 h-8 bg-orange-500/10 rounded-full flex justify-center items-center text-orange-500">
+            <User size={16} />
+          </div>
+        </div>
+
         {activeMenu === 'Configurações' ? (
           <SettingsView
             role={role}
