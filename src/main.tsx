@@ -1,16 +1,53 @@
-import {StrictMode} from 'react';
-import {createRoot} from 'react-dom/client';
+import { StrictMode } from 'react';
+import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
 import { ConfigProvider } from './contexts/ConfigContext';
 import { ThemeProvider } from './contexts/ThemeContext';
+import { AuthProvider } from './contexts/AuthContext';
+import { AutoLogoutProvider } from './contexts/AutoLogoutProvider';
+import { PermissionProvider } from './contexts/PermissionContext';
+import { ToastProvider } from './contexts/ToastContext';
+import { PwaInstallPrompt } from './components/pwa/PwaInstallPrompt';
+import { IosInstallPrompt } from './components/pwa/IosInstallPrompt';
+import { MissingConfigScreen } from './components/MissingConfigScreen';
+import { isFirebaseConfigured } from './lib/firebase';
+import { registerSW } from 'virtual:pwa-register';
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <ConfigProvider>
-      <ThemeProvider>
-        <App />
-      </ThemeProvider>
-    </ConfigProvider>
-  </StrictMode>,
-);
+if ('serviceWorker' in navigator) {
+  registerSW({
+    immediate: true,
+    onRegistered(r) {
+      console.log('SW Registered:', r?.scope);
+    },
+    onRegisterError(error) {
+      console.log('SW registration error', error);
+    }
+  });
+}
+
+const rootElement = document.getElementById('root')!;
+
+if (!isFirebaseConfigured) {
+  createRoot(rootElement).render(<MissingConfigScreen />);
+} else {
+  createRoot(rootElement).render(
+    <StrictMode>
+      <AuthProvider>
+        <AutoLogoutProvider>
+          <ConfigProvider>
+            <ThemeProvider>
+              <PermissionProvider>
+                <ToastProvider>
+                  <App />
+                  <PwaInstallPrompt />
+                  <IosInstallPrompt />
+                </ToastProvider>
+              </PermissionProvider>
+            </ThemeProvider>
+          </ConfigProvider>
+        </AutoLogoutProvider>
+      </AuthProvider>
+    </StrictMode>,
+  );
+}

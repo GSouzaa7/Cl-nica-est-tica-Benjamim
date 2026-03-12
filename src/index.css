@@ -33,6 +33,57 @@
   --chart-label: #A3A3A3;
 }
 
+/* ─── DARK SCROLLBAR ─────────────────────────── */
+/* WebKit (Chrome, Edge, Safari) */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0a0a0a;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #333;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+::-webkit-scrollbar-corner {
+  background: #0a0a0a;
+}
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #333 #0a0a0a;
+}
+
+/* ─── LIGHT SCROLLBAR ────────────────────────── */
+:root.light ::-webkit-scrollbar-track {
+  background: #f5f5f5;
+}
+
+:root.light ::-webkit-scrollbar-thumb {
+  background: #ccc;
+}
+
+:root.light ::-webkit-scrollbar-thumb:hover {
+  background: #aaa;
+}
+
+:root.light ::-webkit-scrollbar-corner {
+  background: #f5f5f5;
+}
+
+:root.light * {
+  scrollbar-color: #ccc #f5f5f5;
+}
+
 :root.light {
   --bg-base: #FAFAFA;
   --bg-surface: #FFFFFF;
@@ -405,4 +456,68 @@ body {
   .custom-scrollbar::-webkit-scrollbar-thumb:hover {
     background: var(--text-secondary);
   }
+}
+
+/* ─── QUILL EDITOR SVG FIX FOR TAILWIND ──────── */
+.ql-editor svg,
+.ql-toolbar svg {
+  max-width: initial !important;
+  height: initial !important;
+}
+
+.ql-picker-label svg {
+  width: 18px !important;
+  height: 18px !important;
+}
+
+.ql-picker-options {
+  z-index: 50 !important;
+}
+
+/* ─── WORD-STYLE SEAMLESS EDITOR ─────────────── */
+.word-editor-seamless {
+  flex: 1;
+  width: 100%;
+}
+
+.word-editor-seamless .ql-toolbar.ql-snow {
+  display: none !important;
+}
+
+.word-editor-seamless .ql-container.ql-snow {
+  border: none !important;
+  background: transparent !important;
+  font-size: 1rem !important;
+  font-family: 'Inter', sans-serif !important;
+  color: #0a0a0a !important;
+}
+
+.word-editor-seamless .ql-editor {
+  padding: 0 !important;
+  min-height: 400px;
+  outline: none !important;
+  cursor: text;
+}
+
+.word-editor-seamless .ql-editor:focus {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.word-editor-seamless .ql-editor ul {
+  list-style-type: disc;
+  padding-left: 1.5em;
+}
+
+.word-editor-seamless .ql-editor ol {
+  list-style-type: decimal;
+  padding-left: 1.5em;
+}
+
+.word-editor-seamless .ql-editor li {
+  margin-bottom: 0.25em;
+}
+
+.word-editor-seamless .ql-editor strong {
+  font-weight: 700;
 }

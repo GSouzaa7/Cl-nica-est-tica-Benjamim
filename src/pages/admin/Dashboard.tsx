@@ -30,10 +30,10 @@ export const AdminDashboard = () => {
               <DollarSign className="w-4 h-4 text-green-400" />
             </div>
           </div>
-          <p className="text-4xl font-bricolage text-white mb-2">R$0,00</p>
-          <div className="flex items-center text-xs text-green-400">
+          <p className="text-4xl font-bricolage text-white mb-2">R$ 0,00</p>
+          <div className="flex items-center text-xs text-neutral-500">
             <ArrowUpRight className="w-3 h-3 mr-1" />
-            <span>+12.5% vs mês anterior</span>
+            <span>+0% vs mês anterior</span>
           </div>
         </div>
 
@@ -45,9 +45,9 @@ export const AdminDashboard = () => {
             </div>
           </div>
           <p className="text-4xl font-bricolage text-white mb-2">0</p>
-          <div className="flex items-center text-xs text-green-400">
+          <div className="flex items-center text-xs text-neutral-500">
             <ArrowUpRight className="w-3 h-3 mr-1" />
-            <span>+8.2% vs mês anterior</span>
+            <span>+0% vs mês anterior</span>
           </div>
         </div>
 
@@ -58,10 +58,10 @@ export const AdminDashboard = () => {
               <Users className="w-4 h-4 text-blue-400" />
             </div>
           </div>
-          <p className="text-4xl font-bricolage text-white mb-2">1</p>
-          <div className="flex items-center text-xs text-red-400">
+          <p className="text-4xl font-bricolage text-white mb-2">0</p>
+          <div className="flex items-center text-xs text-neutral-500">
             <ArrowDownRight className="w-3 h-3 mr-1" />
-            <span>-3.1% vs mês anterior</span>
+            <span>0% vs mês anterior</span>
           </div>
         </div>
 
@@ -72,10 +72,10 @@ export const AdminDashboard = () => {
               <BarChart3 className="w-4 h-4 text-purple-400" />
             </div>
           </div>
-          <p className="text-4xl font-bricolage text-white mb-2">R$0,00</p>
-          <div className="flex items-center text-xs text-green-400">
+          <p className="text-4xl font-bricolage text-white mb-2">R$ 0,00</p>
+          <div className="flex items-center text-xs text-neutral-500">
             <ArrowUpRight className="w-3 h-3 mr-1" />
-            <span>+5.7% vs mês anterior</span>
+            <span>+0% vs mês anterior</span>
           </div>
         </div>
       </div>
@@ -113,32 +113,32 @@ export const AdminDashboard = () => {
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={data} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" vertical={false} />
-                <XAxis 
-                  dataKey="name" 
-                  stroke="#ffffff40" 
-                  tick={{ fill: '#ffffff40', fontSize: 12 }} 
-                  axisLine={false} 
-                  tickLine={false} 
+                <XAxis
+                  dataKey="name"
+                  stroke="#ffffff40"
+                  tick={{ fill: '#ffffff40', fontSize: 12 }}
+                  axisLine={false}
+                  tickLine={false}
                   dy={10}
                 />
-                <YAxis 
-                  stroke="#ffffff40" 
-                  tick={{ fill: '#ffffff40', fontSize: 12 }} 
-                  axisLine={false} 
+                <YAxis
+                  stroke="#ffffff40"
+                  tick={{ fill: '#ffffff40', fontSize: 12 }}
+                  axisLine={false}
                   tickLine={false}
                   tickFormatter={(value) => `R$${value}k`}
                   dx={-10}
                 />
-                <Tooltip 
+                <Tooltip
                   contentStyle={{ backgroundColor: '#0A0A0A', borderColor: '#ffffff10', borderRadius: '8px' }}
                   itemStyle={{ color: '#f97316' }}
                 />
-                <Line 
-                  type="monotone" 
-                  dataKey="value" 
-                  stroke="#f97316" 
-                  strokeWidth={2} 
-                  dot={{ r: 4, fill: '#0A0A0A', stroke: '#f97316', strokeWidth: 2 }} 
+                <Line
+                  type="monotone"
+                  dataKey="value"
+                  stroke="#f97316"
+                  strokeWidth={2}
+                  dot={{ r: 4, fill: '#0A0A0A', stroke: '#f97316', strokeWidth: 2 }}
                   activeDot={{ r: 6, fill: '#f97316', stroke: '#0A0A0A', strokeWidth: 2 }}
                 />
               </LineChart>
@@ -153,7 +153,7 @@ export const AdminDashboard = () => {
               Hoje
             </span>
           </div>
-          
+
           <div className="flex-1 flex flex-col items-center justify-center text-center space-y-4">
             <p className="text-sm text-neutral-500">Nenhum agendamento para hoje</p>
             <button className="text-sm text-orange-400 hover:text-orange-300 transition-colors flex items-center gap-1">

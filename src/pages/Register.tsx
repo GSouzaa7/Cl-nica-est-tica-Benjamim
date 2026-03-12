@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
-import { Sparkles } from 'lucide-react';
+import { Sparkles, CheckCircle } from 'lucide-react';
+import { registrarNovoUsuario } from '../lib/authService';
 
 export const Register = () => {
   const [name, setName] = useState('');
@@ -9,7 +9,7 @@ export const Register = () => {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const { register, user } = useAuth();
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -17,19 +17,15 @@ export const Register = () => {
     setLoading(true);
     setError('');
     try {
-      const authData = await register(name, email, password);
-      if (authData?.session) {
-        // User is logged in automatically
-      } else {
-        alert('Cadastro realizado com sucesso! Por favor, verifique seu email para confirmar a conta antes de fazer login.');
-        navigate('/login');
-      }
+      await registrarNovoUsuario(email, password, name);
+      // Sucesso na criação do usuário, mostra modal em vez de redirecionar instantaneamente
+      setShowSuccessModal(true);
     } catch (err: any) {
       console.error(err);
       let errorMessage = err.message || 'Erro ao criar conta';
-      if (errorMessage.includes('User already registered')) {
+      if (errorMessage.includes('auth/email-already-in-use')) {
         errorMessage = 'Este email já está cadastrado no sistema.';
-      } else if (errorMessage.includes('Password should be at least')) {
+      } else if (errorMessage.includes('auth/weak-password')) {
         errorMessage = 'A senha deve ter pelo menos 6 caracteres.';
       }
       setError(errorMessage);
@@ -38,16 +34,6 @@ export const Register = () => {
     }
   };
 
-  React.useEffect(() => {
-    if (user) {
-      if (user.role === 'ADMIN') {
-        navigate('/admin');
-      } else {
-        navigate('/professional');
-      }
-    }
-  }, [user, navigate]);
-
   return (
     <div className="min-h-screen bg-[#050505] text-white flex items-center justify-center relative overflow-hidden">
       <div className="absolute inset-0 z-0 pointer-events-none">
@@ -55,13 +41,36 @@ export const Register = () => {
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[500px] bg-orange-900/10 blur-[120px] rounded-full"></div>
       </div>
 
+      {showSuccessModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-entry">
+          <div className="bg-[#0A0A0A] border border-white/10 p-8 rounded-[32px] max-w-sm w-full flex flex-col items-center text-center shadow-[0_0_40px_rgba(249,115,22,0.2)]">
+            <div className="w-16 h-16 bg-emerald-500/20 text-emerald-500 rounded-full flex items-center justify-center mb-6">
+              <CheckCircle size={32} />
+            </div>
+            <h3 className="text-2xl font-light font-bricolage text-white mb-3">Solicitação Enviada!</h3>
+            <p className="text-neutral-400 mb-8 font-sans text-sm leading-relaxed">
+              Sua conta profissional foi requerida com sucesso! Aguarde a aprovação do administrador para ingressar no painel.
+            </p>
+            <button
+              onClick={() => {
+                setShowSuccessModal(false);
+                navigate('/login');
+              }}
+              className="w-full bg-white text-black font-semibold rounded-xl py-3.5 hover:bg-neutral-200 transition-colors"
+            >
+              Ir para o Login
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="relative z-10 w-full max-w-md p-8 bg-[#0A0A0A] rounded-[32px] border border-white/10 electric-card">
         <div className="flex justify-center mb-8">
           <div className="relative flex items-center justify-center w-12 h-12">
             <Sparkles className="w-8 h-8 text-orange-500" />
           </div>
         </div>
-        
+
         <h2 className="text-3xl font-bricolage font-light tracking-tight text-center mb-2">Solicitar Acesso</h2>
         <p className="text-neutral-400 text-center mb-8 text-sm">Crie sua conta profissional</p>
 

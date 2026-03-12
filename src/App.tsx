@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
+import * as XLSX from 'xlsx';
 import { HexColorPicker } from 'react-colorful';
 import {
   LayoutDashboard,
@@ -57,11 +58,25 @@ import {
   Receipt,
   Percent,
   FileSignature,
+  CheckCircle,
   Sun,
   Moon
 } from 'lucide-react';
 
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
+
+import { useAuth } from './contexts/AuthContext';
+import { signInWithEmailAndPassword, signOut } from 'firebase/auth';
+import { auth, db } from './lib/firebase';
+import { doc, getDoc, setDoc, collection, getDocs, onSnapshot, writeBatch, deleteDoc, query, orderBy, arrayRemove, arrayUnion } from 'firebase/firestore';
+import { registrarNovoUsuario } from './lib/authService';
 import { ReceituarioView } from './ReceituarioView';
+import { SaveButton } from './components/SaveButton';
+import { logAuditEvent } from './lib/auditLogger';
+import { AuditLogPanel } from './components/settings/AuditLogPanel';
+import { encryptField, decryptField } from './lib/cryptoHelper';
+import { useDynamicPWA } from './hooks/useDynamicPWA';
+// @ts-ignore
 import videoBg from '../Flow_delpmaspu_.mp4';
 
 const Toggle = ({ checked, onChange, disabled, isDarkMode = true }: { checked: boolean, onChange: (checked: boolean) => void, disabled: boolean, isDarkMode?: boolean }) => {
@@ -135,89 +150,180 @@ type ModulePermissions = {
 const LoginScreen = ({ onLogin, isDarkMode = true }: { onLogin: (email: string) => void, isDarkMode?: boolean }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
+  const [isRegistering, setIsRegistering] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (email) onLogin(email);
+
+    try {
+      if (isRegistering) {
+        if (email && name && password) {
+
+          const user = await registrarNovoUsuario(email, password, name);
+
+          setShowSuccessModal(true);
+        } else {
+          alert("Preencha todos os campos para registrar.");
+        }
+      } else {
+        if (email && password) {
+
+          const result = await signInWithEmailAndPassword(auth, email, password);
+
+        } else {
+          alert("Preencha email e senha para entrar.");
+        }
+      }
+    } catch (err: any) {
+      console.error("❌ Erro Capturado no handleSubmit:", err);
+      let msgs = err.message || 'Erro de autenticação';
+      if (msgs.includes('auth/invalid-credential') || msgs.includes('auth/wrong-password') || msgs.includes('auth/user-not-found')) msgs = 'Email ou senha incorretos.';
+      if (msgs.includes('auth/email-already-in-use')) msgs = 'Este email já está cadastrado no sistema.';
+      if (msgs.includes('auth/weak-password')) msgs = 'A senha deve ter pelo menos 6 caracteres.';
+      alert(msgs);
+    }
   };
 
   return (
-    <div className={`grid grid-cols-1 lg:grid-cols-12 min-h-screen w-full relative z-10 bg-[#050505] overflow-hidden transition-colors duration-300`}>
-      {/* Cinematic Video Background (Unmounted automatically when not rendered) */}
-      <video src={videoBg} autoPlay loop muted playsInline className="absolute inset-0 w-full h-full object-cover opacity-40 z-0 pointer-events-none" />
-
-      {/* Luminous Layers */}
-      <div className="absolute inset-0 z-0 pointer-events-none">
-        <div className="stars absolute inset-0"></div>
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[1200px] h-[800px] bg-orange-900/10 blur-[120px] rounded-full"></div>
-      </div>
-
-      {/* LADO ESQUERDO (lg:col-span-7) */}
-      <div className="lg:col-span-7 font-bricolage text-5xl lg:text-7xl font-light tracking-tight text-white leading-[1.05] p-10 lg:p-24 flex items-center animate-entry uppercase relative z-20">
-        <h1>
-          A EXCELÊNCIA QUE SUA CLÍNICA MERECE E A GESTÃO QUE VOCÊ PRECISA.
-        </h1>
-      </div>
-
-      {/* LADO DIREITO (lg:col-span-5) - LOGIN */}
-      <div className="lg:col-span-5 flex items-center justify-center p-6 lg:p-12 relative z-20">
-
-        {/* Contêiner de Segurança Anti-Vazamento */}
-        <div className="w-full max-w-md mx-auto relative bg-neutral-900/50 rounded-[32px] p-[2px] overflow-hidden shadow-[0_0_30px_rgba(249,115,22,0.2)] group">
-
-          {/* Luminous Animated Border agora isolado pelo novo overflow-hidden */}
-          <div className="absolute inset-0 bg-gradient-to-b from-yellow-300 via-orange-500 to-transparent opacity-80 z-0 pointer-events-none transition-all duration-700 group-hover:via-orange-400 group-hover:opacity-100"></div>
-
-          {/* Inner Glass Box */}
-          <div className="relative z-10 bg-[#0A0A0A]/90 backdrop-blur-2xl rounded-[30px] p-8 lg:p-10 w-full flex flex-col items-center">
-
-            <div className="flex flex-col items-center text-center mb-8">
-              <div className={`w-12 h-12 bg-orange-500 rounded-xl flex items-center justify-center mb-6 shadow-[0_0_30px_rgba(249,115,22,0.4)]`}>
-                <Asterisk className="text-white" size={28} />
+    <>
+      <div className="dark !bg-[#050505] !text-white grid grid-cols-1 lg:grid-cols-12 min-h-screen w-full relative z-10 overflow-hidden">
+        {showSuccessModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-entry">
+            <div className="bg-[#0A0A0A] border border-white/10 p-8 rounded-[32px] max-w-sm w-full flex flex-col items-center text-center shadow-[0_0_40px_rgba(249,115,22,0.2)]">
+              <div className="w-16 h-16 bg-emerald-500/20 text-emerald-500 rounded-full flex items-center justify-center mb-6">
+                <CheckCircle size={32} />
               </div>
-              <h1 className="text-white font-bricolage text-4xl font-light tracking-tight mb-2">
-                Estética<span className="font-semibold text-orange-500">Pro</span>
-              </h1>
-            </div>
-
-            <form onSubmit={handleSubmit} className="flex flex-col gap-5 w-full font-sans">
-              <div className="w-full">
-                <label className="block text-xs font-semibold text-zinc-400 mb-2 uppercase tracking-wider">E-mail Corporativo</label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className={`w-full bg-black/50 border border-white/10 rounded-xl px-5 py-3.5 text-white focus:outline-none focus:border-orange-500/50 transition-colors font-sans text-sm`}
-                  placeholder="clinica@esteticapro.com"
-                  required
-                />
-              </div>
-              <div className="w-full">
-                <label className="block text-xs font-semibold text-zinc-400 mb-2 uppercase tracking-wider">Senha de Acesso</label>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className={`w-full bg-black/50 border border-white/10 rounded-xl px-5 py-3.5 text-white focus:outline-none focus:border-orange-500/50 transition-colors font-sans text-sm`}
-                  placeholder="••••••••"
-                  required
-                />
-              </div>
+              <h3 className="text-2xl font-light font-bricolage text-white mb-3">Solicitação Enviada!</h3>
+              <p className="text-neutral-400 mb-8 font-sans text-sm leading-relaxed">
+                Conta requerida com sucesso! Aguarde a aprovação do administrador para ingressar no painel.
+              </p>
               <button
-                type="submit"
-                className={`w-full bg-gradient-to-r from-orange-400 to-orange-600 text-[#2c1306] shadow-[0_0_20px_rgba(249,115,22,0.4)] hover:shadow-[0_0_40px_rgba(249,115,22,0.7)] hover:scale-[1.02] border-none font-bold py-3.5 rounded-xl transition-all duration-300 mt-4 font-sans`}
+                onClick={() => {
+                  setShowSuccessModal(false);
+                  setIsRegistering(false);
+                }}
+                className="w-full bg-white text-black font-semibold rounded-xl py-3.5 hover:bg-neutral-200 transition-colors"
               >
-                Entrar no Sistema
+                Voltar ao Login
               </button>
-            </form>
+            </div>
+          </div>
+        )}
+        {/* Cinematic Video Background (Unmounted automatically when not rendered) */}
+        <video src={videoBg} autoPlay loop muted playsInline className="absolute inset-0 w-full h-full object-cover opacity-40 z-0 pointer-events-none" />
 
-            <div className="mt-8 text-center text-xs text-zinc-500 font-sans border-t border-white/5 pt-6 w-full">
-              Dica de Navegação: Use <strong className="text-zinc-300 font-semibold">admin</strong> no email para privilégios totais ou entre como <strong className="text-zinc-300 font-semibold">Profissional</strong>.
+        {/* Luminous Layers */}
+        <div className="absolute inset-0 z-0 pointer-events-none">
+          <div className="stars absolute inset-0"></div>
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[1200px] h-[800px] bg-orange-900/10 blur-[120px] rounded-full"></div>
+        </div>
+
+        {/* LADO ESQUERDO (lg:col-span-7) */}
+        <div className="lg:col-span-7 font-bricolage text-5xl lg:text-7xl font-light tracking-tight !text-white leading-[1.05] p-10 lg:p-24 flex items-center animate-entry uppercase relative z-20">
+          <h1>
+            A EXCELÊNCIA QUE SUA CLÍNICA MERECE E A GESTÃO QUE VOCÊ PRECISA.
+          </h1>
+        </div>
+
+        {/* LADO DIREITO (lg:col-span-5) - LOGIN */}
+        <div className="lg:col-span-5 flex items-center justify-center p-6 lg:p-12 relative z-20">
+
+          {/* Contêiner de Segurança Anti-Vazamento */}
+          <div className="w-full max-w-md mx-auto relative bg-neutral-900/50 rounded-[32px] p-[2px] overflow-hidden shadow-[0_0_30px_rgba(249,115,22,0.2)] group">
+
+            {/* Luminous Animated Border agora isolado pelo novo overflow-hidden */}
+            <div className="absolute inset-0 bg-gradient-to-b from-yellow-300 via-orange-500 to-transparent opacity-80 z-0 pointer-events-none transition-all duration-700 group-hover:via-orange-400 group-hover:opacity-100"></div>
+
+            {/* Inner Glass Box */}
+            <div className="relative z-10 !bg-[#0A0A0A]/90 backdrop-blur-3xl rounded-[30px] p-8 lg:p-10 w-full flex flex-col items-center">
+
+              <div className="flex flex-col items-center text-center mb-8">
+                <div className={`w-12 h-12 !bg-orange-500 rounded-xl flex items-center justify-center mb-6 shadow-[0_0_30px_rgba(249,115,22,0.4)]`}>
+                  <Asterisk className="!text-white" size={28} />
+                </div>
+                <h1 className="!text-white font-bricolage text-4xl font-light tracking-tight mb-2">
+                  Estética<span className="font-semibold !text-orange-500">Pro</span>
+                </h1>
+              </div>
+
+              <form onSubmit={handleSubmit} className="flex flex-col gap-5 w-full font-sans">
+                {isRegistering && (
+                  <div className="w-full animate-entry">
+                    <label className="block text-xs font-semibold !text-neutral-400 mb-2 uppercase tracking-wider">Nome Completo</label>
+                    <input
+                      type="text"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      className="w-full !bg-black/40 border !border-white/10 rounded-xl px-5 py-3.5 !text-white placeholder-neutral-500 focus:outline-none focus:border-orange-500 transition-colors font-sans text-sm"
+                      placeholder="Seu Nome"
+                      required
+                    />
+                  </div>
+                )}
+                <div className="w-full">
+                  <label className="block text-xs font-semibold !text-neutral-400 mb-2 uppercase tracking-wider">{isRegistering ? 'E-mail' : 'E-mail Corporativo'}</label>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full !bg-black/40 border !border-white/10 rounded-xl px-5 py-3.5 !text-white placeholder-neutral-500 focus:outline-none focus:border-orange-500 transition-colors font-sans text-sm"
+                    placeholder={isRegistering ? "seu@email.com" : "clinica@esteticapro.com"}
+                    required
+                  />
+                </div>
+                <div className="w-full">
+                  <label className="block text-xs font-semibold !text-neutral-400 mb-2 uppercase tracking-wider">{isRegistering ? 'Senha' : 'Senha de Acesso'}</label>
+                  <input
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full !bg-black/40 border !border-white/10 rounded-xl px-5 py-3.5 !text-white placeholder-neutral-500 focus:outline-none focus:border-orange-500 transition-colors font-sans text-sm"
+                    placeholder="••••••••"
+                    required
+                  />
+                  {!isRegistering && (
+                    <div className="flex justify-end mt-2 animate-entry">
+                      <button type="button" onClick={() => alert('Função de recuperação de senha será enviada por e-mail.')} className="text-xs font-medium !text-orange-500 hover:!text-orange-400 transition-colors">
+                        Esqueceu a senha?
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                <button
+                  type="submit"
+                  className={`w-full bg-gradient-to-r from-orange-400 to-orange-600 text-[#2c1306] shadow-[0_0_20px_rgba(249,115,22,0.4)] hover:shadow-[0_0_40px_rgba(249,115,22,0.7)] hover:scale-[1.02] border-none font-bold py-3.5 rounded-xl transition-all duration-300 mt-2 font-sans`}
+                >
+                  {isRegistering ? 'Criar Conta' : 'Entrar no Sistema'}
+                </button>
+
+                <div className="flex items-center gap-4 my-2">
+                  <div className="flex-1 h-px bg-white/5 bg-gradient-to-r from-transparent to-white/10"></div>
+                  <span className="text-xs !text-neutral-500">ou</span>
+                  <div className="flex-1 h-px bg-white/5 bg-gradient-to-l from-transparent to-white/10"></div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setIsRegistering(!isRegistering)}
+                  className="text-sm font-medium !text-neutral-400 hover:!text-white transition-colors"
+                >
+                  {isRegistering ? (
+                    <>Já tem uma conta? <span className="font-bold underline decoration-orange-500/50 underline-offset-4">Fazer login</span></>
+                  ) : (
+                    <span className="font-bold underline decoration-orange-500/50 underline-offset-4">Criar uma conta</span>
+                  )}
+                </button>
+              </form>
+
+
             </div>
           </div>
         </div>
       </div>
-    </div>
+    </>
   );
 };
 
@@ -246,22 +352,23 @@ const PendingScreen = ({ onLogout, isDarkMode = true }: { onLogout: () => void, 
 );
 
 const DeniedScreen = ({ onLogout, isDarkMode = true }: { onLogout: () => void, isDarkMode?: boolean }) => (
-  <div className={`min-h-screen bg-[#050505] flex flex-col justify-center items-center p-4 selection:bg-orange-500/30 transition-colors duration-300 relative`}>
+  <div className={`min-h-screen bg-[#050505] flex flex-col justify-center items-center p-4 selection:bg-orange-500/30 transition-colors duration-300 relative overflow-hidden text-white`}>
     <div className="absolute inset-0 z-0 pointer-events-none">
       <div className="stars absolute inset-0"></div>
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[500px] bg-orange-900/10 blur-[120px] rounded-full"></div>
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[500px] bg-red-900/10 blur-[120px] rounded-full"></div>
     </div>
-    <div className={`w-full relative z-10 max-w-md bg-[#0a0a0a] border-red-900/50 electric-card border rounded-2xl p-8 shadow-2xl text-center transition-colors duration-300`}>
+
+    <div className="relative z-10 w-full max-w-md bg-[#0a0a0a] border border-white/10 electric-card rounded-[32px] p-10 shadow-[0_0_40px_rgba(239,68,68,0.15)] text-center transition-colors duration-300">
       <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-6">
         <XCircle className="text-red-500" size={32} />
       </div>
-      <h2 className={`text-2xl font-bold ${isDarkMode ? "text-white" : "text-zinc-900"} mb-2`}>Acesso Negado</h2>
-      <p className="text-zinc-400 mb-8">
-        Seu acesso a esta clínica foi negado ou revogado por um administrador.
+      <h2 className="text-3xl font-light font-bricolage text-white mb-2">Acesso Negado</h2>
+      <p className="text-neutral-400 mb-8 font-sans text-sm leading-relaxed">
+        Seu acesso a esta clínica foi revogado ou recusado pelo administrador. Se achar que houve um erro, contate a gerência ou crie uma nova solicitação com seu e-mail.
       </p>
       <button
         onClick={onLogout}
-        className={`w-full bg-zinc-800 hover:bg-zinc-700 ${isDarkMode ? "text-white" : "text-zinc-900"} font-medium py-2.5 rounded-lg transition-colors`}
+        className="w-full bg-white text-black font-semibold rounded-xl py-3.5 hover:bg-neutral-200 transition-colors"
       >
         Voltar para o Login
       </button>
@@ -271,15 +378,26 @@ const DeniedScreen = ({ onLogout, isDarkMode = true }: { onLogout: () => void, i
 
 type AccessStatus = 'pending' | 'approved' | 'denied';
 
-const DashboardView = ({ isDarkMode = true }: { isDarkMode?: boolean }) => {
+const DashboardView = ({
+  inventory,
+  setActiveMenu,
+  appointments = [],
+  services = [],
+  expenses = [],
+  isDarkMode = true
+}: {
+  inventory: any[],
+  setActiveMenu: (tab: string) => void,
+  appointments?: any[],
+  services?: any[],
+  expenses?: any[],
+  isDarkMode?: boolean
+}) => {
   const [faqs, setFaqs] = useState([{ q: 'Dói fazer botox?', a: 'Utilizamos pomada anestésica de alta eficácia para garantir o máximo de conforto.' }]);
 
-  const [finCategories, setFinCategories] = useState([
-    { id: '1', name: 'Procedimentos Injetáveis', type: 'Receita' },
-    { id: '2', name: 'Estética Facial', type: 'Receita' },
-    { id: '3', name: 'Fornecedores (Botox/Preenchedores)', type: 'Despesa' },
-    { id: '4', name: 'Aluguel & Condomínio', type: 'Despesa' }
-  ]);
+  // Agrupamento para Laranjas e Críticos
+  const lowStockItems = inventory.filter((item: any) => item.stock <= item.minStock && item.stock > 0);
+  const criticalStockItems = inventory.filter((item: any) => item.stock === 0);
 
   return (
     <div className="flex-1 flex flex-col relative overflow-hidden">
@@ -297,86 +415,119 @@ const DashboardView = ({ isDarkMode = true }: { isDarkMode?: boolean }) => {
         <div className="flex flex-col gap-6 max-w-6xl">
 
           {/* Top Stats Row */}
-          <div className="grid grid-cols-4 gap-6">
-            {/* Faturamento */}
-            <div className="bg-[var(--bg-card)] border border-[var(--border-default)] rounded-2xl p-6 shadow-[var(--card-shadow)] transition-colors duration-300">
-              <div className="flex justify-between items-start mb-4">
-                <h3 className="text-xs font-bold text-neutral-500 tracking-wider">FATURAMENTO<br />TOTAL</h3>
-                <div className="w-8 h-8 rounded-full border border-emerald-900/50 flex items-center justify-center text-emerald-500">
-                  <DollarSign size={16} />
+          {(() => {
+            const now = new Date();
+            const currMonth = now.getMonth();
+            const currYear = now.getFullYear();
+            
+            const totalFaturamento = (expenses || [])
+              .filter(e => e.type === 'Receita' && e.status === 'Pago' && new Date(e.date).getMonth() === currMonth && new Date(e.date).getFullYear() === currYear)
+              .reduce((sum, e) => sum + Number(e.value || e.valor || 0), 0);
+              
+            const totalDespesas = (expenses || [])
+              .filter(e => e.type === 'Despesa' && new Date(e.date).getMonth() === currMonth && new Date(e.date).getFullYear() === currYear)
+              .reduce((sum, e) => sum + Number(e.value || e.valor || 0), 0);
+              
+            const currentAppointments = (appointments || []).length; // Since appointments are local state and usually "current"
+            
+            return (
+              <div className="grid grid-cols-4 gap-6">
+                {/* Faturamento */}
+                <div className="bg-[var(--bg-card)] border border-[var(--border-default)] rounded-2xl p-6 shadow-[var(--card-shadow)] transition-colors duration-300">
+                  <div className="flex justify-between items-start mb-4">
+                    <h3 className="text-xs font-bold text-neutral-500 tracking-wider">FATURAMENTO<br />DO MÊS</h3>
+                    <div className="w-8 h-8 rounded-full border border-emerald-900/50 flex items-center justify-center text-emerald-500">
+                      <DollarSign size={16} />
+                    </div>
+                  </div>
+                  <div className={`text-3xl font-bold ${isDarkMode ? 'text-white' : 'text-zinc-900'} mb-2`}>
+                    R$ {totalFaturamento.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </div>
+                  <div className="flex items-center gap-1 text-xs font-medium text-emerald-500">
+                    <TrendingUp size={14} />
+                    <span>Calculado em tempo real</span>
+                  </div>
                 </div>
-              </div>
-              <div className="text-3xl font-bold text-white mb-2">R$ 14.500,00</div>
-              <div className="flex items-center gap-1 text-xs font-medium text-emerald-500">
-                <TrendingUp size={14} />
-                <span>+12.5% vs mês anterior</span>
-              </div>
-            </div>
 
-            {/* Agendamentos */}
-            <div className="bg-[var(--bg-card)] border border-[var(--border-default)] rounded-2xl p-6 shadow-[var(--card-shadow)] transition-colors duration-300">
-              <div className="flex justify-between items-start mb-4">
-                <h3 className="text-xs font-bold text-neutral-500 tracking-wider">AGENDAMENTOS</h3>
-                <div className="w-8 h-8 rounded-full border border-orange-900/50 flex items-center justify-center text-orange-500">
-                  <Calendar size={16} />
+                {/* Agendamentos */}
+                <div className="bg-[var(--bg-card)] border border-[var(--border-default)] rounded-2xl p-6 shadow-[var(--card-shadow)] transition-colors duration-300">
+                  <div className="flex justify-between items-start mb-4">
+                    <h3 className="text-xs font-bold text-neutral-500 tracking-wider">AGENDAMENTOS</h3>
+                    <div className="w-8 h-8 rounded-full border border-orange-900/50 flex items-center justify-center text-orange-500">
+                      <Calendar size={16} />
+                    </div>
+                  </div>
+                  <div className={`text-3xl font-bold ${isDarkMode ? 'text-white' : 'text-zinc-900'} mb-2`}>{currentAppointments}</div>
+                  <div className="flex items-center gap-1 text-xs font-medium text-orange-500">
+                    <TrendingUp size={14} />
+                    <span>Agendamentos ativos</span>
+                  </div>
                 </div>
-              </div>
-              <div className="text-3xl font-bold text-white mb-2">42</div>
-              <div className="flex items-center gap-1 text-xs font-medium text-emerald-500">
-                <TrendingUp size={14} />
-                <span>+8.2% vs mês anterior</span>
-              </div>
-            </div>
 
-            {/* Novos Leads */}
-            <div className="bg-[var(--bg-card)] border border-[var(--border-default)] rounded-2xl p-6 shadow-[var(--card-shadow)] transition-colors duration-300">
-              <div className="flex justify-between items-start mb-4">
-                <h3 className="text-xs font-bold text-neutral-500 tracking-wider">NOVOS LEADS</h3>
-                <div className="w-8 h-8 rounded-full border border-blue-900/50 flex items-center justify-center text-blue-500">
-                  <Users size={16} />
+                {/* Novos Leads */}
+                <div className="bg-[var(--bg-card)] border border-[var(--border-default)] rounded-2xl p-6 shadow-[var(--card-shadow)] transition-colors duration-300">
+                  <div className="flex justify-between items-start mb-4">
+                    <h3 className="text-xs font-bold text-neutral-500 tracking-wider">NOVOS LEADS</h3>
+                    <div className="w-8 h-8 rounded-full border border-blue-900/50 flex items-center justify-center text-blue-500">
+                      <Users size={16} />
+                    </div>
+                  </div>
+                  <div className={`text-3xl font-bold ${isDarkMode ? 'text-white' : 'text-zinc-900'} mb-2`}>0</div>
+                  <div className="flex items-center gap-1 text-xs font-medium text-neutral-500">
+                    <TrendingDown size={14} />
+                    <span>Módulo CRM em breve</span>
+                  </div>
                 </div>
-              </div>
-              <div className="text-3xl font-bold text-white mb-2">18</div>
-              <div className="flex items-center gap-1 text-xs font-medium text-red-500">
-                <TrendingDown size={14} />
-                <span>-3.1% vs mês anterior</span>
-              </div>
-            </div>
 
-            {/* Despesas */}
-            <div className="bg-neutral-900 border-white/10 border rounded-2xl p-6 shadow-xl transition-colors duration-300">
-              <div className="flex justify-between items-start mb-4">
-                <h3 className="text-xs font-bold text-neutral-500 tracking-wider">DESPESAS DO MÊS</h3>
-                <div className="w-8 h-8 rounded-full border border-purple-900/50 flex items-center justify-center text-purple-500">
-                  <BarChart3 size={16} />
+                {/* Despesas */}
+                <div className={`${isDarkMode ? 'bg-neutral-900 border-white/10' : 'bg-red-50 border-red-200'} border rounded-2xl p-6 shadow-xl transition-colors duration-300`}>
+                  <div className="flex justify-between items-start mb-4">
+                    <h3 className="text-xs font-bold text-neutral-500 tracking-wider">DESPESAS DO MÊS</h3>
+                    <div className="w-8 h-8 rounded-full border border-purple-900/50 flex items-center justify-center text-purple-500">
+                      <BarChart3 size={16} />
+                    </div>
+                  </div>
+                  <div className={`text-3xl font-bold ${isDarkMode ? 'text-white' : 'text-red-700'} mb-2`}>
+                    R$ {totalDespesas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </div>
+                  <div className="flex items-center gap-1 text-xs font-medium text-neutral-500">
+                    <TrendingUp size={14} />
+                    <span>Calculado em tempo real</span>
+                  </div>
                 </div>
               </div>
-              <div className="text-3xl font-bold text-white mb-2">R$ 3.200,00</div>
-              <div className="flex items-center gap-1 text-xs font-medium text-emerald-500">
-                <TrendingUp size={14} />
-                <span>+5.7% vs mês anterior</span>
-              </div>
-            </div>
-          </div>
+            );
+          })()}
+
 
           {/* Alerts Row */}
           <div className="grid grid-cols-2 gap-6">
-            <div className={` ${isDarkMode ? "bg-[#1c0d0d] border-red-900/30" : "bg-red-50 border-red-100"} border rounded-2xl p-5 flex items-center gap-4 transition-colors duration-300 `}>
+            <div
+              onClick={() => setActiveMenu('Estoque')}
+              className={` ${isDarkMode ? "bg-[#1c0d0d] border-red-900/30 hover:border-red-500/50 cursor-pointer" : "bg-red-50 border-red-100 hover:border-red-300 cursor-pointer"} border rounded-2xl p-5 flex items-center gap-4 transition-colors duration-300 `}
+            >
               <div className="w-10 h-10 rounded-lg border border-red-900/50 flex items-center justify-center text-red-500 shrink-0">
                 <AlertTriangle size={20} />
               </div>
               <div>
                 <h4 className="text-red-400 font-medium text-sm">Estoque Crítico</h4>
-                <p className="text-zinc-500 text-xs">Nenhum item em estado crítico</p>
+                <p className={`text-xs ${criticalStockItems.length > 0 ? "text-red-300 font-semibold" : "text-zinc-500"}`}>
+                  {criticalStockItems.length > 0 ? `${criticalStockItems.length} item(s) zerado(s)` : "Nenhum item em estado crítico"}
+                </p>
               </div>
             </div>
-            <div className={` ${isDarkMode ? "bg-[#1c140d] border-orange-900/30" : "bg-orange-50 border-orange-100"} border rounded-2xl p-5 flex items-center gap-4 transition-colors duration-300 `}>
+            <div
+              onClick={() => setActiveMenu('Estoque')}
+              className={` ${isDarkMode ? "bg-[#1c140d] border-orange-900/30 hover:border-orange-500/50 cursor-pointer" : "bg-orange-50 border-orange-100 hover:border-orange-300 cursor-pointer"} border rounded-2xl p-5 flex items-center gap-4 transition-colors duration-300 `}
+            >
               <div className="w-10 h-10 rounded-lg border border-orange-900/50 flex items-center justify-center text-orange-500 shrink-0">
                 <AlertTriangle size={20} />
               </div>
               <div>
                 <h4 className="text-orange-400 font-medium text-sm">Estoque Baixo</h4>
-                <p className="text-zinc-500 text-xs">Nenhum item com estoque baixo</p>
+                <p className={`text-xs ${lowStockItems.length > 0 ? "text-orange-300 font-semibold" : "text-zinc-500"}`}>
+                  {lowStockItems.length > 0 ? `${lowStockItems.length} item(s) com estoque baixo` : "Nenhum item com estoque baixo"}
+                </p>
               </div>
             </div>
           </div>
@@ -400,30 +551,77 @@ const DashboardView = ({ isDarkMode = true }: { isDarkMode?: boolean }) => {
                 </div>
 
                 {/* Bars */}
-                {[
-                  { month: 'SET', val1: 40, val2: 20 },
-                  { month: 'OUT', val1: 55, val2: 30 },
-                  { month: 'NOV', val1: 45, val2: 25 },
-                  { month: 'DEZ', val1: 90, val2: 60 },
-                  { month: 'JAN', val1: 65, val2: 40 },
-                  { month: 'FEV', val1: 50, val2: 35 },
-                ].map((data, i) => (
-                  <div key={i} className="flex flex-col items-center gap-3 z-10 w-full">
-                    <div className="w-full max-w-[48px] h-full flex items-end relative group">
-                      {/* Background Bar (Faturamento Bruto) */}
-                      <div
-                        className={`absolute bottom-0 w-full ${isDarkMode ? 'bg-zinc-800/50 group-hover:bg-zinc-700/50' : 'bg-zinc-100 group-hover:bg-zinc-200'} rounded-t-lg transition-all duration-300`}
-                        style={{ height: `${data.val1}%` }}
-                      />
-                      {/* Foreground Bar (Margem Líquida) */}
-                      <div
-                        className="absolute bottom-0 w-full bg-gradient-to-t from-orange-600 to-orange-400 rounded-t-lg shadow-[0_0_15px_rgba(249,115,22,0.3)] transition-all duration-300 group-hover:shadow-[0_0_20px_rgba(249,115,22,0.5)]"
-                        style={{ height: `${data.val2}%` }}
-                      />
+                {(() => {
+                  const now = new Date();
+                  const chartData = [];
+                  for (let i = 5; i >= 0; i--) {
+                    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+                    const monthName = d.toLocaleDateString('pt-BR', { month: 'short' }).toUpperCase().replace('.', '');
+                    // Faturamento Bruto (Receitas Pagas)
+                    const faturamentoBruto = (expenses || [])
+                      .filter(e => {
+                        if (e.type !== 'Receita' || e.status !== 'Pago') return false;
+                        if (!e.date) return false;
+                        const expDate = new Date(e.date);
+                        return expDate.getMonth() === d.getMonth() && expDate.getFullYear() === d.getFullYear();
+                      })
+                      .reduce((sum, e) => sum + (Number(e.value || e.valor || 0)), 0);
+
+                    // Faturamento em Aberto (Apenas no mês atual, pois a projeção futura não tem passado, ou usa receitas pendentes)
+                    // Calcula com base nos agendamentos futuros não concluídos para o mês atual
+                    let faturamentoEmAberto = 0;
+                    if (i === 0) { // Current month
+                      // Agendamentos + Procedimentos => Receita Pendente
+                      const appointmentsRevenue = (appointments || []).reduce((sum, app) => {
+                        const svc = (services || []).find((s: any) => s.id === app.service || s.name === app.service);
+                        return sum + Number(svc?.price || svc?.valor || svc?.value || 0);
+                      }, 0);
+                      
+                      const pendingExpensesRevenue = (expenses || [])
+                        .filter(e => {
+                          if (e.type !== 'Receita' || e.status !== 'Pendente') return false;
+                          if (!e.date) return false;
+                          const expDate = new Date(e.date);
+                          return expDate.getMonth() === d.getMonth() && expDate.getFullYear() === d.getFullYear();
+                        })
+                        .reduce((sum, e) => sum + (Number(e.value || e.valor || 0)), 0);
+                        
+                      faturamentoEmAberto = appointmentsRevenue + pendingExpensesRevenue;
+                    }
+
+                    // Define the maximum value to scale (avoid division by 0)
+                    const maxVal = 50000; // default safe max
+                    const scale1 = Math.min((faturamentoBruto / maxVal) * 100, 100);
+                    const scale2 = Math.min((faturamentoEmAberto / maxVal) * 100, 100);
+
+                    chartData.push({ month: monthName, val1: scale1, val2: scale2, raw1: faturamentoBruto, raw2: faturamentoEmAberto });
+                  }
+
+                  return chartData.map((data, i) => (
+                    <div key={i} className="flex flex-col items-center gap-3 z-10 w-full group relative">
+                      <div className="w-full max-w-[48px] h-full flex items-end relative overflow-hidden rounded-t-lg">
+                        {/* Background Bar (Faturamento Bruto) */}
+                        <div
+                          className={`absolute bottom-0 w-full ${isDarkMode ? 'bg-zinc-800' : 'bg-zinc-200'} transition-all duration-500 rounded-t-lg`}
+                          style={{ height: `${data.val1 || 2}%` }}
+                        />
+                        {/* Foreground Bar (Faturamento Em Aberto) - stacked or overlay */}
+                        <div
+                          className="absolute bottom-0 w-full bg-gradient-to-t from-orange-600 to-orange-400 opacity-90 transition-all duration-500 rounded-t-lg"
+                          style={{ height: `${data.val2}%` }}
+                        />
+                      </div>
+                      
+                      {/* Tooltip Hover */}
+                      <div className="absolute -top-12 opacity-0 group-hover:opacity-100 transition-opacity bg-black text-white text-[10px] py-1 px-2 rounded pointer-events-none whitespace-nowrap z-50">
+                        Total: R$ {data.raw1.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}<br/>
+                        Aberto: R$ {data.raw2.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </div>
+
+                      <span className={`text-xs font-medium ${isDarkMode ? 'text-zinc-500' : 'text-zinc-400'}`}>{data.month}</span>
                     </div>
-                    <span className={`text-xs font-medium ${isDarkMode ? 'text-zinc-500' : 'text-zinc-400'}`}>{data.month}</span>
-                  </div>
-                ))}
+                  ));
+                })()}
               </div>
 
               {/* Legend */}
@@ -436,6 +634,10 @@ const DashboardView = ({ isDarkMode = true }: { isDarkMode?: boolean }) => {
                   <div className="w-3 h-3 rounded bg-orange-500"></div>
                   <span className={`text-xs ${isDarkMode ? 'text-zinc-400' : 'text-zinc-600'}`}>Margem Líquida</span>
                 </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded bg-orange-400"></div>
+                  <span className={`text-xs ${isDarkMode ? 'text-zinc-400' : 'text-zinc-600'}`}>Faturamento em aberto</span>
+                </div>
               </div>
             </div>
 
@@ -443,7 +645,7 @@ const DashboardView = ({ isDarkMode = true }: { isDarkMode?: boolean }) => {
             <div className={`col-span-1 ${isDarkMode ? "bg-[#0c0c0e] border-zinc-800/80 shadow-black/50" : "bg-white border-zinc-200 shadow-zinc-200/50"} border rounded-2xl p-6 shadow-xl transition-colors duration-300 flex flex-col`}>
               <div className="flex justify-between items-start mb-6">
                 <h3 className={`text-lg font-semibold ${isDarkMode ? "text-white" : "text-zinc-900"} leading-tight`}>Próximos<br />Agendamentos</h3>
-                <span className="text-[10px] font-bold px-2 py-1 rounded bg-red-900/30 text-red-400 border border-red-900/50 tracking-wider">HOJE</span>
+                <span className={`text-[10px] font-bold px-2 py-1 rounded tracking-wider border ${isDarkMode ? 'bg-red-900/30 text-red-400 border-red-900/50' : 'bg-red-50 text-red-600 border-red-200'}`}>HOJE</span>
               </div>
 
               <div className="flex-1 flex flex-col items-center justify-center text-center">
@@ -461,18 +663,12 @@ const DashboardView = ({ isDarkMode = true }: { isDarkMode?: boolean }) => {
   );
 };
 
-const CurrentTimeIndicator = () => {
+const CurrentTimeIndicator = ({ selectedDate }: { selectedDate: Date }) => {
   const [now, setNow] = useState(new Date());
-  const [slotHeight, setSlotHeight] = useState(41); // fallback height
+  const [topPx, setTopPx] = useState<number | null>(null);
 
+  // Atualiza relógio a cada minuto
   useEffect(() => {
-    // Get actual height of a row from DOM for precise calculation
-    const slotEl = document.querySelector('.time-slot-row');
-    if (slotEl) {
-      setSlotHeight(slotEl.clientHeight);
-    }
-
-    // Set minimal timeout to sync with next clock minute
     const msToNextMinute = 60000 - (new Date().getSeconds() * 1000 + new Date().getMilliseconds());
     let interval: any;
 
@@ -487,15 +683,58 @@ const CurrentTimeIndicator = () => {
     };
   }, []);
 
-  const hours = now.getHours();
-  const minutes = now.getMinutes();
-  const minutesFromStart = (hours - 8) * 60 + minutes;
+  // Calcula posição com base nos slots DOM reais
+  useEffect(() => {
+    const calculate = () => {
+      const slots = document.querySelectorAll('.time-slot-row');
+      if (slots.length === 0) return;
 
-  // Assuming calendar hours: 08:00 to 20:00 (which is 12 hours * 60 mins = 720 mins)
-  if (minutesFromStart < 0 || minutesFromStart > 720) return null;
+      const hours = now.getHours();
+      const minutes = now.getMinutes();
+      const minutesFromStart = (hours - 8) * 60 + minutes;
+      if (minutesFromStart < 0 || minutesFromStart > 720) {
+        setTopPx(null);
+        return;
+      }
 
-  // Each slot represents 30 minutes
-  const topPx = (minutesFromStart / 30) * slotHeight;
+      // Índice do slot atual e fração dentro dele
+      const slotIndex = Math.floor(minutesFromStart / 30);
+      const fraction = (minutesFromStart % 30) / 30;
+
+      if (slotIndex >= slots.length) {
+        setTopPx(null);
+        return;
+      }
+
+      const currentSlot = slots[slotIndex] as HTMLElement;
+      const position = currentSlot.offsetTop + (fraction * currentSlot.offsetHeight);
+      setTopPx(position);
+    };
+
+    // Aguardar layout flex completar
+    requestAnimationFrame(() => {
+      requestAnimationFrame(calculate);
+    });
+
+    // Re-calcular ao redimensionar
+    window.addEventListener('resize', calculate);
+    const observer = new ResizeObserver(calculate);
+    const firstSlot = document.querySelector('.time-slot-row');
+    if (firstSlot) observer.observe(firstSlot);
+
+    return () => {
+      window.removeEventListener('resize', calculate);
+      observer.disconnect();
+    };
+  }, [now]);
+
+  // Visibilidade: só renderizar se selectedDate === hoje
+  const today = new Date();
+  const isToday = selectedDate.getDate() === today.getDate()
+    && selectedDate.getMonth() === today.getMonth()
+    && selectedDate.getFullYear() === today.getFullYear();
+
+  if (!isToday || topPx === null) return null;
 
   return (
     <div
@@ -515,17 +754,71 @@ const SERVICE_INVENTORY_MAP: Record<string, string> = {
   'default': 'Kit Descartável Padrão, Gel Condutor, Luvas Nitrílicas'
 };
 
-const AgendaView = ({ professionals, services = [], onCompleteService, isDarkMode = true }: any) => {
+const AgendaView = ({ professionals, services = [], appointments = [], setAppointments, onCompleteService, isDarkMode = true }: any) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedTime, setSelectedTime] = useState('08:00');
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
+  const [datePickerMonth, setDatePickerMonth] = useState(new Date().getMonth());
+  const [datePickerYear, setDatePickerYear] = useState(new Date().getFullYear());
   const [selectedService, setSelectedService] = useState('');
   const [selectedProfessional, setSelectedProfessional] = useState('');
   const [isProfDropdownOpen, setIsProfDropdownOpen] = useState(false);
+  const [isTimeDropdownOpen, setIsTimeDropdownOpen] = useState(false);
   const [isServiceDropdownOpen, setIsServiceDropdownOpen] = useState(false);
   const [patientName, setPatientName] = useState('');
-  const [appointments, setAppointments] = useState<any[]>([]);
+  // appointments state moved to App.tsx
   const [selectedAppDetails, setSelectedAppDetails] = useState<any | null>(null);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
+
+  // Estados e Logica do Mini Calendário Nativo (Blindado)
+  const [viewDate, setViewDate] = useState(new Date());
+  const [selectedCalendarDate, setSelectedCalendarDate] = useState(new Date());
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+  const calendarRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (calendarRef.current && !calendarRef.current.contains(event.target as Node)) {
+        setIsCalendarOpen(false);
+      }
+    };
+    if (isCalendarOpen) document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isCalendarOpen]);
+
+  // Helpers Matematicos Date
+  const getDaysInMonth = (year: number, month: number) => new Date(year, month + 1, 0).getDate();
+  const getFirstDayOfMonth = (year: number, month: number) => new Date(year, month, 1).getDay();
+
+  const currentMonthDays = getDaysInMonth(viewDate.getFullYear(), viewDate.getMonth());
+  const firstDay = getFirstDayOfMonth(viewDate.getFullYear(), viewDate.getMonth());
+
+  const handlePrevMonth = () => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() - 1, 1));
+  const handleNextMonth = () => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 1));
+  const handlePrevDay = () => {
+    const newDate = new Date(selectedCalendarDate);
+    newDate.setDate(selectedCalendarDate.getDate() - 1);
+    setSelectedCalendarDate(newDate);
+    setViewDate(new Date(newDate));
+  };
+  const handleNextDay = () => {
+    const newDate = new Date(selectedCalendarDate);
+    newDate.setDate(selectedCalendarDate.getDate() + 1);
+    setSelectedCalendarDate(newDate);
+    setViewDate(new Date(newDate));
+  };
+
+  const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+  const monthNames = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+  const weekDaysShort = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
+
+  // Formatar a data atual selecionada (ex: domingo, 22 fev)
+  const formatHeaderDate = (d: Date) => {
+    const weekNames = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'];
+    const monthShorts = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+    return `${weekNames[d.getDay()]}, ${d.getDate()} ${monthShorts[d.getMonth()]}`;
+  };
 
   // Indexador para performance O(1) no render da grade
   const appointmentsMap = useMemo(() => {
@@ -566,17 +859,78 @@ const AgendaView = ({ professionals, services = [], onCompleteService, isDarkMod
 
 
       {/* Header */}
-      <header className="pt-12 px-12 pb-8 z-10 shrink-0 flex items-center justify-between">
+      <header className="pt-12 px-12 pb-8 z-50 relative shrink-0 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Calendar className={`${isDarkMode ? "text-white" : "text-zinc-900"}`} size={32} />
           <h1 className={`text-3xl font-bold ${isDarkMode ? "text-white" : "text-zinc-900"} tracking-tight`}>Agenda</h1>
         </div>
 
         <div className="flex items-center gap-6">
-          <div className={`flex items-center gap-4 ${isDarkMode ? "text-white" : "text-zinc-900"} font-medium`}>
-            <button className="hover:text-orange-500 transition-colors"><ChevronLeft size={20} /></button>
-            <span>domingo, 22 fev</span>
-            <button className="hover:text-orange-500 transition-colors"><ChevronRight size={20} /></button>
+          <div className={`flex items-center gap-4 ${isDarkMode ? "text-white" : "text-zinc-900"} font-medium relative`}>
+            <button onClick={handlePrevDay} className="hover:text-orange-500 hover:scale-110 transition-all"><ChevronLeft size={20} /></button>
+            <div className="relative" ref={calendarRef}>
+              <button
+                onClick={() => setIsCalendarOpen(!isCalendarOpen)}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-colors ${isCalendarOpen ? (isDarkMode ? 'bg-orange-500/10 text-orange-500' : 'bg-orange-50 text-orange-600') : (isDarkMode ? 'hover:bg-zinc-800' : 'hover:bg-zinc-100')}`}
+              >
+                <span>{formatHeaderDate(selectedCalendarDate)}</span>
+                <ChevronDown size={14} className={`shrink-0 transition-transform ${isCalendarOpen ? 'rotate-180 text-orange-500' : 'text-zinc-500'}`} />
+              </button>
+
+              {/* Calendário Luminous Popover */}
+              {isCalendarOpen && (
+                <div className={`absolute top-full mt-3 right-0 md:left-1/2 md:-translate-x-1/2 w-72 z-[9999] rounded-2xl border shadow-2xl overflow-hidden ${isDarkMode ? "bg-[#121214] border-zinc-800" : "bg-white border-zinc-200"}`}>
+                  <div className={`p-4 flex items-center justify-between border-b ${isDarkMode ? "border-zinc-800/80" : "border-zinc-200"}`}>
+                    <button onClick={handlePrevMonth} className={`p-1 rounded opacity-70 hover:opacity-100 transition-colors ${isDarkMode ? "hover:bg-zinc-800" : "hover:bg-zinc-100"}`}><ChevronLeft size={18} /></button>
+                    <div className="font-semibold text-sm">
+                      {monthNames[viewDate.getMonth()]} {viewDate.getFullYear()}
+                    </div>
+                    <button onClick={handleNextMonth} className={`p-1 rounded opacity-70 hover:opacity-100 transition-colors ${isDarkMode ? "hover:bg-zinc-800" : "hover:bg-zinc-100"}`}><ChevronRight size={18} /></button>
+                  </div>
+
+                  <div className="p-4">
+                    <div className="grid grid-cols-7 gap-1 mb-2 text-center">
+                      {weekDaysShort.map((day, i) => (
+                        <div key={i} className={`text-[10px] font-bold tracking-wider ${isDarkMode ? "text-zinc-500" : "text-zinc-400"}`}>{day}</div>
+                      ))}
+                    </div>
+
+                    <div className="grid grid-cols-7 gap-1">
+                      {Array.from({ length: firstDay }).map((_, i) => (
+                        <div key={`empty-${i}`} className="w-8 h-8" />
+                      ))}
+
+                      {Array.from({ length: currentMonthDays }).map((_, i) => {
+                        const day = i + 1;
+                        const isCurrentDay = day === new Date().getDate() && viewDate.getMonth() === new Date().getMonth() && viewDate.getFullYear() === new Date().getFullYear();
+                        const isSelected = day === selectedCalendarDate.getDate() && viewDate.getMonth() === selectedCalendarDate.getMonth() && viewDate.getFullYear() === selectedCalendarDate.getFullYear();
+
+                        return (
+                          <button
+                            key={day}
+                            onClick={() => {
+                              setSelectedCalendarDate(new Date(viewDate.getFullYear(), viewDate.getMonth(), day));
+                              setIsCalendarOpen(false);
+                            }}
+                            className={`w-8 h-8 rounded-full flex items-center justify-center text-sm transition-all
+                              ${isSelected
+                                ? "bg-orange-500 text-white font-bold shadow-[0_0_10px_rgba(249,115,22,0.4)]"
+                                : isCurrentDay
+                                  ? (isDarkMode ? "bg-zinc-800 text-orange-400 font-semibold" : "bg-orange-50 text-orange-600 font-semibold")
+                                  : (isDarkMode ? "text-zinc-300 hover:bg-zinc-800" : "text-zinc-700 hover:bg-zinc-100")
+                              }
+                            `}
+                          >
+                            {day}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+            <button onClick={handleNextDay} className="hover:text-orange-500 hover:scale-110 transition-all"><ChevronRight size={20} /></button>
           </div>
           <button
             onClick={() => setIsModalOpen(true)}
@@ -610,7 +964,7 @@ const AgendaView = ({ professionals, services = [], onCompleteService, isDarkMod
 
           {/* Time Slots */}
           <div className="flex-1 overflow-y-auto custom-scrollbar relative">
-            <CurrentTimeIndicator />
+            <CurrentTimeIndicator selectedDate={selectedCalendarDate} />
             {timeSlots.map(time => (
               <div key={time} className={`time-slot-row flex border-b ${isDarkMode ? "border-zinc-800/50" : "border-zinc-200/50"} transition-colors`}>
                 <div className={`w-16 p-3 text-xs font-medium text-zinc-500 border-r ${isDarkMode ? "border-zinc-800/80" : "border-zinc-200/80"} flex items-center justify-center`}>
@@ -677,24 +1031,120 @@ const AgendaView = ({ professionals, services = [], onCompleteService, isDarkMod
               </div>
 
               <div className="grid grid-cols-2 gap-4">
-                <div>
+                <div className="relative">
                   <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Data</label>
-                  <input
-                    type="date"
-                    className={`w-full bg-[#050505] border border-zinc-800 rounded-xl px-4 py-3 ${isDarkMode ? "text-white" : "text-zinc-900"} focus:outline-none focus:border-orange-500 transition-colors`}
-                  />
+                  <button
+                    type="button"
+                    onClick={() => setIsDatePickerOpen(!isDatePickerOpen)}
+                    className={`w-full flex items-center justify-between ${isDarkMode ? 'bg-[#050505] border-zinc-800 text-white' : 'bg-white border-zinc-200 text-zinc-900'} border rounded-xl px-4 py-3 focus:outline-none focus:border-orange-500 transition-colors text-left text-sm`}
+                  >
+                    <span className={selectedDate ? '' : 'text-zinc-500'}>
+                      {selectedDate ? selectedDate.toLocaleDateString('pt-BR') : 'dd/mm/aaaa'}
+                    </span>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-zinc-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>
+                  </button>
+                  {isDatePickerOpen && (
+                    <>
+                      <div className="fixed inset-0 z-40" onClick={() => setIsDatePickerOpen(false)} />
+                      <div className={`absolute z-50 mt-2 left-0 rounded-xl border shadow-2xl p-4 w-[280px] ${isDarkMode ? 'border-zinc-700/50 bg-[#0a0a0a]' : 'border-zinc-200 bg-white'}`}>
+                        {/* Header */}
+                        <div className="flex items-center justify-between mb-4">
+                          <button type="button" onClick={() => { if (datePickerMonth === 0) { setDatePickerMonth(11); setDatePickerYear(datePickerYear - 1); } else { setDatePickerMonth(datePickerMonth - 1); } }} className={`p-1 rounded-lg ${isDarkMode ? 'hover:bg-white/10 text-zinc-400' : 'hover:bg-zinc-100 text-zinc-500'} transition-colors`}>
+                            <ChevronDown className="w-4 h-4 rotate-90" />
+                          </button>
+                          <span className={`text-sm font-medium ${isDarkMode ? 'text-white' : 'text-zinc-900'}`}>
+                            {new Date(datePickerYear, datePickerMonth).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }).replace(/^./, s => s.toUpperCase())}
+                          </span>
+                          <button type="button" onClick={() => { if (datePickerMonth === 11) { setDatePickerMonth(0); setDatePickerYear(datePickerYear + 1); } else { setDatePickerMonth(datePickerMonth + 1); } }} className={`p-1 rounded-lg ${isDarkMode ? 'hover:bg-white/10 text-zinc-400' : 'hover:bg-zinc-100 text-zinc-500'} transition-colors`}>
+                            <ChevronDown className="w-4 h-4 -rotate-90" />
+                          </button>
+                        </div>
+                        {/* Day headers */}
+                        <div className="grid grid-cols-7 gap-1 mb-2">
+                          {['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((d, i) => (
+                            <div key={i} className="text-center text-[10px] font-medium text-zinc-500 py-1">{d}</div>
+                          ))}
+                        </div>
+                        {/* Days grid */}
+                        <div className="grid grid-cols-7 gap-1">
+                          {(() => {
+                            const firstDay = new Date(datePickerYear, datePickerMonth, 1).getDay();
+                            const daysInMonth = new Date(datePickerYear, datePickerMonth + 1, 0).getDate();
+                            const today = new Date();
+                            const cells = [];
+                            for (let i = 0; i < firstDay; i++) {
+                              cells.push(<div key={`empty-${i}`} />);
+                            }
+                            for (let day = 1; day <= daysInMonth; day++) {
+                              const isToday = today.getDate() === day && today.getMonth() === datePickerMonth && today.getFullYear() === datePickerYear;
+                              const isSelected = selectedDate && selectedDate.getDate() === day && selectedDate.getMonth() === datePickerMonth && selectedDate.getFullYear() === datePickerYear;
+                              cells.push(
+                                <button
+                                  key={day}
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedDate(new Date(datePickerYear, datePickerMonth, day));
+                                    setIsDatePickerOpen(false);
+                                  }}
+                                  className={`w-8 h-8 rounded-full text-xs font-medium flex items-center justify-center transition-all ${isSelected
+                                    ? 'bg-orange-500 text-white shadow-[0_0_10px_rgba(249,115,22,0.4)]'
+                                    : isToday
+                                      ? 'bg-orange-500/20 text-orange-500 font-bold'
+                                      : isDarkMode ? 'text-zinc-300 hover:bg-white/10' : 'text-zinc-700 hover:bg-zinc-100'
+                                    }`}
+                                >
+                                  {day}
+                                </button>
+                              );
+                            }
+                            return cells;
+                          })()}
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </div>
                 <div>
                   <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Horário</label>
-                  <input
-                    type="time"
-                    value={selectedTime}
-                    onChange={(e) => setSelectedTime(e.target.value)}
-                    min="08:00"
-                    max="19:30"
-                    step="1800"
-                    className={`w-full bg-[#050505] border border-zinc-800 rounded-xl px-4 py-3 ${isDarkMode ? "text-white" : "text-zinc-900"} focus:outline-none focus:border-orange-500 transition-colors`}
-                  />
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setIsTimeDropdownOpen(!isTimeDropdownOpen)}
+                      className={`w-full flex items-center justify-between ${isDarkMode ? 'bg-[#050505] border-zinc-800 text-white' : 'bg-white border-zinc-200 text-zinc-900'} border rounded-xl px-4 py-3 focus:outline-none focus:border-orange-500 transition-colors text-left text-sm`}
+                    >
+                      <span className={selectedTime ? '' : 'text-zinc-500'}>
+                        {selectedTime || 'Selecione...'}
+                      </span>
+                      <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-zinc-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
+                    </button>
+                    {isTimeDropdownOpen && (
+                      <>
+                        <div className="fixed inset-0 z-40" onClick={() => setIsTimeDropdownOpen(false)} />
+                        <div className={`absolute z-50 mt-2 left-0 w-full rounded-xl border shadow-2xl max-h-48 overflow-y-auto custom-scrollbar ${isDarkMode ? 'border-zinc-700/50 bg-[#0a0a0a]' : 'border-zinc-200 bg-white'}`}>
+                          {(() => {
+                            const times = [];
+                            for (let h = 8; h <= 19; h++) {
+                              times.push(`${h.toString().padStart(2, '0')}:00`);
+                              if (h !== 19 || true) times.push(`${h.toString().padStart(2, '0')}:30`);
+                            }
+                            return times.map((t) => (
+                              <button
+                                key={t}
+                                type="button"
+                                onClick={() => { setSelectedTime(t); setIsTimeDropdownOpen(false); }}
+                                className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${selectedTime === t
+                                  ? 'bg-gradient-to-r from-orange-600/30 to-transparent text-orange-500 font-medium'
+                                  : isDarkMode ? 'text-white hover:bg-white/5' : 'text-zinc-900 hover:bg-zinc-100'
+                                  }`}
+                              >
+                                {t}
+                              </button>
+                            ));
+                          })()}
+                        </div>
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -712,9 +1162,9 @@ const AgendaView = ({ professionals, services = [], onCompleteService, isDarkMod
                   {isProfDropdownOpen && (
                     <>
                       <div className="fixed inset-0 z-40" onClick={() => setIsProfDropdownOpen(false)} />
-                      <div className={`absolute top-full left-0 w-full mt-2 z-50 rounded-xl border shadow-xl overflow-hidden ${isDarkMode ? "bg-[#121214] border-zinc-800" : "bg-white border-zinc-200"}`}>
+                      <div className={`absolute top-full left-0 w-full mt-2 z-50 rounded-xl border shadow-2xl overflow-hidden ${isDarkMode ? "border-zinc-700/50 bg-[#0a0a0a]" : "border-zinc-200 bg-white"}`}>
                         {(professionals || []).map((prof: any) => (
-                          <button key={prof.id} type="button" onClick={() => { setSelectedProfessional(prof.id); setIsProfDropdownOpen(false); }} className={`w-full text-left px-4 py-2.5 text-sm transition-colors relative z-50 ${selectedProfessional === prof.id ? 'bg-orange-500/10 text-orange-500 font-medium' : (isDarkMode ? 'text-zinc-300 hover:bg-zinc-800' : 'text-zinc-700 hover:bg-zinc-100')}`}>{prof.name}</button>
+                          <button key={prof.id} type="button" onClick={() => { setSelectedProfessional(prof.id); setIsProfDropdownOpen(false); }} className={`w-full text-left px-4 py-2.5 text-sm transition-colors relative z-50 ${selectedProfessional === prof.id ? 'bg-gradient-to-r from-orange-600/30 to-transparent text-orange-500 font-medium' : (isDarkMode ? 'text-white hover:bg-white/5' : 'text-zinc-900 hover:bg-zinc-100')}`}>{prof.name}</button>
                         ))}
                       </div>
                     </>
@@ -736,9 +1186,9 @@ const AgendaView = ({ professionals, services = [], onCompleteService, isDarkMod
                   {isServiceDropdownOpen && (
                     <>
                       <div className="fixed inset-0 z-40" onClick={() => setIsServiceDropdownOpen(false)} />
-                      <div className={`absolute top-full left-0 w-full mt-2 z-50 rounded-xl border shadow-xl overflow-hidden max-h-48 overflow-y-auto custom-scrollbar ${isDarkMode ? "bg-[#121214] border-zinc-800" : "bg-white border-zinc-200"}`}>
+                      <div className={`absolute top-full left-0 w-full mt-2 z-50 rounded-xl border shadow-2xl overflow-hidden max-h-48 overflow-y-auto custom-scrollbar ${isDarkMode ? "border-zinc-700/50 bg-[#0a0a0a]" : "border-zinc-200 bg-white"}`}>
                         {(services || []).map((service: any) => (
-                          <button key={service.id} type="button" onClick={() => { setSelectedService(service.id); setIsServiceDropdownOpen(false); }} className={`w-full text-left px-4 py-2.5 text-sm transition-colors relative z-50 ${selectedService === service.id ? 'bg-orange-500/10 text-orange-500 font-medium' : (isDarkMode ? 'text-zinc-300 hover:bg-zinc-800' : 'text-zinc-700 hover:bg-zinc-100')}`}>{service.name}</button>
+                          <button key={service.id} type="button" onClick={() => { setSelectedService(service.id); setIsServiceDropdownOpen(false); }} className={`w-full text-left px-4 py-2.5 text-sm transition-colors relative z-50 ${selectedService === service.id ? 'bg-gradient-to-r from-orange-600/30 to-transparent text-orange-500 font-medium' : (isDarkMode ? 'text-white hover:bg-white/5' : 'text-zinc-900 hover:bg-zinc-100')}`}>{service.name}</button>
                         ))}
                       </div>
                     </>
@@ -868,7 +1318,15 @@ const CrmView = ({ patients, setPatients, columns, setColumns, onGenerateReceitu
   const [isRecording, setIsRecording] = useState(false);
   const [transcription, setTranscription] = useState('');
   const [recordType, setRecordType] = useState('Evolução');
+  const [isRecordTypeDropdownOpen, setIsRecordTypeDropdownOpen] = useState(false);
   const recognitionRef = useRef<any>(null);
+  const isRecordingIntent = useRef(false);
+  const transcriptionRef = useRef(transcription);
+  const baseTranscriptionRef = useRef(''); // Texto que já estava lá antes de começar a gravar
+
+  React.useEffect(() => {
+    transcriptionRef.current = transcription;
+  }, [transcription]);
 
   const [editName, setEditName] = useState('');
   const [editPhone, setEditPhone] = useState('');
@@ -884,92 +1342,118 @@ const CrmView = ({ patients, setPatients, columns, setColumns, onGenerateReceitu
     }
   }, [activeCard?.id]);
 
-  const handleCreateColumn = () => {
+  const handleCreateColumn = async () => {
     if (newColumnName.trim()) {
-      setColumns([...columns, { id: Date.now().toString(), title: newColumnName, cardIds: [] }]);
-      setNewColumnName('');
-      setIsNewColumnModalOpen(false);
+      const colId = Date.now().toString();
+      const newCol = { id: colId, title: newColumnName, cardIds: [], order: columns.length };
+      try {
+        await setDoc(doc(db, 'crm_columns', colId), newCol);
+        setNewColumnName('');
+        setIsNewColumnModalOpen(false);
+      } catch (e) {
+        console.error("Erro ao criar coluna:", e);
+      }
     }
   };
 
-  const handleCreateCard = () => {
+  const handleCreateCard = async () => {
     if (newCardName.trim() && activeColumnId) {
-      const newPatient = { id: Date.now().toString(), name: newCardName, phone: '', email: '', notes: '', history: [] };
-      setPatients([newPatient, ...patients]);
-      setColumns(columns.map((col: any) => {
-        if (col.id === activeColumnId) {
-          return {
-            ...col,
-            cardIds: [...col.cardIds, newPatient.id]
-          };
+      const newPatientId = Date.now().toString();
+      const newPatient = { id: newPatientId, name: newCardName, phone: '', email: '', cpf: '', notes: '', history: [] };
+
+      try {
+        await setDoc(doc(db, 'clientes', newPatientId), newPatient);
+
+        // update the column
+        const column = columns.find((c: any) => c.id === activeColumnId);
+        if (column) {
+          const updatedCol = { ...column, cardIds: [...column.cardIds, newPatientId] };
+          await setDoc(doc(db, 'crm_columns', activeColumnId), updatedCol);
         }
-        return col;
-      }));
-      setNewCardName('');
-      setIsNewCardModalOpen(false);
+
+        setNewCardName('');
+        setIsNewCardModalOpen(false);
+      } catch (e) {
+        console.error("Erro ao criar lead:", e);
+      }
     }
   };
 
   const handleRecordAudio = () => {
     if (isRecording) {
+      isRecordingIntent.current = false;
       setIsRecording(false);
-      if (recognitionRef.current) {
-        recognitionRef.current.stop();
-      }
-    } else {
-      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-      if (!SpeechRecognition) {
-        alert("Seu navegador não suporta reconhecimento de voz.");
-        return;
-      }
-
-      const recognition = new SpeechRecognition();
-      recognition.lang = 'pt-BR';
-      recognition.continuous = true;
-      recognition.interimResults = true;
-
-      let currentFinalTranscript = transcription;
-
-      recognition.onresult = (event: any) => {
-        let interimTranscript = '';
-        let newFinalTranscript = '';
-
-        for (let i = event.resultIndex; i < event.results.length; ++i) {
-          if (event.results[i].isFinal) {
-            newFinalTranscript += event.results[i][0].transcript;
-          } else {
-            interimTranscript += event.results[i][0].transcript;
-          }
-        }
-
-        currentFinalTranscript += newFinalTranscript;
-        setTranscription(currentFinalTranscript + interimTranscript);
-      };
-
-      recognition.onerror = (event: any) => {
-        console.error("Erro na gravação de áudio:", event.error);
-        if (event.error === 'not-allowed') {
-          alert("Permissão de microfone necessária para gravar.");
-        }
-        setIsRecording(false);
-      };
-
-      recognition.onend = () => {
-        setIsRecording(false);
-      };
-
-      try {
-        recognition.start();
-        recognitionRef.current = recognition;
-        setIsRecording(true);
-      } catch (e) {
-        console.error("Erro ao iniciar gravação:", e);
-        setIsRecording(false);
-      }
+      if (recognitionRef.current) recognitionRef.current.stop();
+      return;
     }
+
+    // Prioriza webkitSpeechRecognition para Edge/Chrome para garantir maior estabilidade
+    const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
+    if (!SpeechRecognition) return alert("Navegador não suporta transcrição nativa.");
+
+    baseTranscriptionRef.current = transcriptionRef.current; // Salva o ponto de partida
+
+    const recognition = new SpeechRecognition();
+    recognitionRef.current = recognition;
+
+    recognition.continuous = true;
+    recognition.interimResults = true; // Feedback em tempo real
+    recognition.lang = 'pt-BR';
+
+    recognition.onresult = (event: any) => {
+      let completeSessionText = "";
+      let interimText = "";
+      for (let i = 0; i < event.results.length; i++) {
+        if (event.results[i].isFinal) {
+          completeSessionText += event.results[i][0].transcript + " ";
+        } else {
+          interimText += event.results[i][0].transcript;
+        }
+      }
+
+      const base = baseTranscriptionRef.current ? baseTranscriptionRef.current.trim() + " " : "";
+      const fullText = (base + completeSessionText + interimText).trim();
+
+      setTranscription(fullText);
+      transcriptionRef.current = fullText;
+    };
+
+    recognition.onerror = (event: any) => {
+      const isEdge = /Edg/.test(navigator.userAgent);
+      if (event.error === 'not-allowed') {
+        alert("🚨 BLOQUEIO DE MICROFONE! Verifique as permissões no ícone de cadeado na barra de endereços.");
+      } else if (event.error === 'network') {
+        if (isEdge) {
+          alert("🚨 MODO EDGE: O Edge detectou um erro de rede. Certifique-se de que o 'Reconhecimento de Fala Online' está ativado nas configurações do Windows (Privacidade > Fala) e que o Edge está atualizado (Ajuda > Sobre).");
+        } else {
+          alert("🚨 Erro de Rede: A transcrição nativa precisa de internet.");
+        }
+      }
+      setIsRecording(false);
+      isRecordingIntent.current = false;
+    };
+
+    recognition.onend = () => {
+      if (isRecordingIntent.current) {
+        try {
+          // Maior delay para garantir liberação de hardware no Edge
+          setTimeout(() => {
+            if (isRecordingIntent.current) recognition.start();
+          }, 200);
+        } catch (e) {
+          setIsRecording(false);
+        }
+      } else {
+        setIsRecording(false);
+      }
+    };
+
+    isRecordingIntent.current = true;
+    setIsRecording(true);
+    recognition.start();
   };
 
-  const handleSaveRecord = () => {
+  const handleSaveRecord = async () => {
     if (!transcription.trim() || !activeCard) return;
 
     const newRecord = {
@@ -988,11 +1472,15 @@ const CrmView = ({ patients, setPatients, columns, setColumns, onGenerateReceitu
       history: [newRecord, ...(activeCard.history || [])]
     };
 
-    setPatients(patients.map((p: any) => p.id === activeCard.id ? updatedCard : p));
-    setTranscription('');
+    try {
+      await setDoc(doc(db, 'clientes', activeCard.id), updatedCard);
+      setTranscription('');
+    } catch (error) {
+      console.error("Erro ao salvar prontuário do lead:", error);
+    }
   };
 
-  const handleSavePatient = () => {
+  const handleSavePatient = async () => {
     if (!activeCard) return;
     const updatedCard = {
       ...activeCard,
@@ -1001,7 +1489,50 @@ const CrmView = ({ patients, setPatients, columns, setColumns, onGenerateReceitu
       email: editEmail,
       notes: editNotes,
     };
-    setPatients(patients.map((p: any) => p.id === activeCard.id ? updatedCard : p));
+    try {
+      await setDoc(doc(db, 'clientes', activeCard.id), updatedCard);
+    } catch (error) {
+      console.error("Erro ao atualizar lead:", error);
+    }
+  };
+
+  const handleDragStart = (e: React.DragEvent, cardId: string) => {
+    e.dataTransfer.setData('cardId', cardId);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+  };
+
+  const handleDrop = async (e: React.DragEvent, targetColumnId: string) => {
+    const cardId = e.dataTransfer.getData('cardId');
+    if (!cardId) return;
+
+    try {
+      const batch = writeBatch(db);
+
+      columns.forEach((col: any) => {
+        const docRef = doc(db, 'crm_columns', col.id);
+
+        // 1. We keep ONLY the IDs that still exist in the 'patients' array (Auto-heal Ghosts)
+        let validCardIds = col.cardIds.filter((id: string) => patients.some((p: any) => p.id === id));
+
+        // 2. We remove the dragged card from this column (if it was here)
+        validCardIds = validCardIds.filter((id: string) => id !== cardId);
+
+        // 3. If this is the target column, we add the dragged card to the end
+        if (col.id === targetColumnId) {
+          validCardIds.push(cardId);
+        }
+
+        // 4. Send the completely clean and accurate array to Firestore
+        batch.update(docRef, { cardIds: validCardIds });
+      });
+
+      await batch.commit();
+    } catch (error) {
+      console.error("Erro ao mover lead:", error);
+    }
   };
 
   return (
@@ -1036,7 +1567,9 @@ const CrmView = ({ patients, setPatients, columns, setColumns, onGenerateReceitu
             <div className={`p-4 border-b ${isDarkMode ? "border-zinc-800/80" : "border-zinc-200/80"} flex items-center justify-between`}>
               <div className="flex items-center gap-2">
                 <h3 className={`${isDarkMode ? "text-white" : "text-zinc-900"} font-bold text-sm uppercase tracking-wider`}>{column.title}</h3>
-                <span className="bg-zinc-800 text-zinc-400 text-xs font-bold px-2 py-0.5 rounded-full">{column.cardIds.length}</span>
+                <span className="bg-zinc-800 text-zinc-400 text-xs font-bold px-2 py-0.5 rounded-full">
+                  {column.cardIds.filter((id: string) => patients.some((p: any) => p.id === id)).length}
+                </span>
               </div>
               <div className="flex items-center gap-1">
                 <button
@@ -1052,7 +1585,11 @@ const CrmView = ({ patients, setPatients, columns, setColumns, onGenerateReceitu
             </div>
 
             {/* Cards Area */}
-            <div className="p-3 flex-1 overflow-y-auto custom-scrollbar flex flex-col gap-3">
+            <div
+              className="p-3 flex-1 overflow-y-auto custom-scrollbar flex flex-col gap-3 min-h-[150px]"
+              onDragOver={handleDragOver}
+              onDrop={(e) => handleDrop(e, column.id)}
+            >
               {column.cardIds.map((cardId: string) => {
                 const card = patients.find((p: any) => p.id === cardId);
                 if (!card) return null;
@@ -1060,9 +1597,11 @@ const CrmView = ({ patients, setPatients, columns, setColumns, onGenerateReceitu
                   <div
                     key={card.id}
                     onClick={() => setActiveCardId(card.id)}
-                    className={`${isDarkMode ? "bg-[#121214]" : "bg-zinc-50"} border border-zinc-800/80 rounded-xl p-4 cursor-pointer hover:border-orange-500/50 transition-colors group`}
+                    draggable={true}
+                    onDragStart={(e) => handleDragStart(e, card.id)}
+                    className={`${isDarkMode ? "bg-[#121214]" : "bg-zinc-50"} border border-zinc-800/80 rounded-xl p-4 cursor-pointer hover:border-orange-500/50 transition-colors group relative active:opacity-50`}
                   >
-                    <div className="flex items-center gap-3 mb-3">
+                    <div className="flex items-center gap-3 mb-3 pointer-events-none">
                       <div className="w-8 h-8 rounded-full bg-orange-500/20 flex items-center justify-center text-orange-500 font-bold text-xs">
                         {card.name.charAt(0).toUpperCase() || '?'}
                       </div>
@@ -1238,15 +1777,33 @@ const CrmView = ({ patients, setPatients, columns, setColumns, onGenerateReceitu
                     {isRecording ? 'Parar Gravação' : 'Gravar Áudio'}
                   </button>
 
-                  <select
-                    value={recordType}
-                    onChange={(e) => setRecordType(e.target.value)}
-                    className={`bg-[#0a0a0a] border border-zinc-800 rounded-xl px-4 py-2 ${isDarkMode ? "text-white" : "text-zinc-900"} text-sm focus:outline-none focus:border-orange-500`}
-                  >
-                    <option>Evolução</option>
-                    <option>Anamnese</option>
-                    <option>Procedimento</option>
-                  </select>
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setIsRecordTypeDropdownOpen(!isRecordTypeDropdownOpen)}
+                      className={`flex items-center gap-2 ${isDarkMode ? 'bg-[#0a0a0a] border-zinc-800 text-white' : 'bg-white border-zinc-200 text-zinc-900'} border rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-orange-500 transition-colors`}
+                    >
+                      <span>{recordType}</span>
+                      <ChevronDown className={`w-4 h-4 text-zinc-400 transition-transform ${isRecordTypeDropdownOpen ? 'rotate-180' : ''}`} />
+                    </button>
+                    {isRecordTypeDropdownOpen && (
+                      <div className={`absolute z-50 w-full mt-1 rounded-xl border shadow-2xl overflow-hidden ${isDarkMode ? 'border-zinc-700/50 bg-[#0a0a0a]' : 'border-zinc-200 bg-white'}`}>
+                        {['Evolução', 'Anamnese', 'Procedimento'].map((opt) => (
+                          <button
+                            key={opt}
+                            type="button"
+                            onClick={() => { setRecordType(opt); setIsRecordTypeDropdownOpen(false); }}
+                            className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${recordType === opt
+                              ? 'bg-gradient-to-r from-orange-600/30 to-transparent text-orange-500 font-medium'
+                              : isDarkMode ? 'text-white hover:bg-white/5' : 'text-zinc-900 hover:bg-zinc-100'
+                              }`}
+                          >
+                            {opt}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
 
                   <span className="text-zinc-500 text-sm ml-auto">{new Date().toLocaleDateString('pt-BR')}</span>
                 </div>
@@ -1300,9 +1857,10 @@ const CrmView = ({ patients, setPatients, columns, setColumns, onGenerateReceitu
   );
 };
 
-const ClientesView = ({ patients, setPatients, onGenerateReceituario, isDarkMode = true }: any) => {
+const ClientesView = ({ patients, setPatients, columns, onGenerateReceituario, isDarkMode = true }: any) => {
   const [isNewPatientModalOpen, setIsNewPatientModalOpen] = useState(false);
   const [activePatientId, setActivePatientId] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
 
   const activePatient = patients.find((p: any) => p.id === activePatientId) || null;
   const isCreating = isNewPatientModalOpen && !activePatientId;
@@ -1311,13 +1869,66 @@ const ClientesView = ({ patients, setPatients, onGenerateReceituario, isDarkMode
   const [isRecording, setIsRecording] = useState(false);
   const [transcription, setTranscription] = useState('');
   const [recordType, setRecordType] = useState('Evolução');
+  const [isRecordTypeDropdownOpen, setIsRecordTypeDropdownOpen] = useState(false);
   const recognitionRef = useRef<any>(null);
+  const isRecordingIntent = useRef(false);
+  const transcriptionRef = useRef(transcription);
+  const baseTranscriptionRef = useRef(''); // Texto que já estava lá antes de começar a gravar
+
+  React.useEffect(() => {
+    transcriptionRef.current = transcription;
+  }, [transcription]);
 
   const [editName, setEditName] = useState('');
   const [editPhone, setEditPhone] = useState('');
   const [editEmail, setEditEmail] = useState('');
   const [editNotes, setEditNotes] = useState('');
   const [clientCPF, setClientCPF] = useState('');
+  const [isSaved, setIsSaved] = useState(false);
+
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState<string | null>(null);
+
+  const handleDeleteRequest = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setItemToDelete(id);
+    setIsDeleteModalOpen(true);
+  };
+
+  const cancelDelete = () => {
+    setIsDeleteModalOpen(false);
+    setItemToDelete(null);
+  };
+
+  const confirmDelete = async () => {
+    if (itemToDelete) {
+      try {
+        const batch = writeBatch(db);
+
+        // 1. Deleta o paciente
+        batch.delete(doc(db, 'clientes', itemToDelete));
+
+        // 2. Remove o ID do paciente de todas as colunas do CRM
+        if (columns && Array.isArray(columns)) {
+          columns.forEach((col: any) => {
+            if (col.cardIds && col.cardIds.includes(itemToDelete)) {
+              batch.update(doc(db, 'crm_columns', col.id), {
+                cardIds: arrayRemove(itemToDelete)
+              });
+            }
+          });
+        }
+
+        await batch.commit();
+
+        setIsDeleteModalOpen(false);
+        setItemToDelete(null);
+      } catch (error) {
+        console.error("Erro ao deletar paciente:", error);
+        alert("Erro ao excluir paciente. Tente novamente.");
+      }
+    }
+  };
 
   const formatCPF = (value: string) => {
     return value
@@ -1340,71 +1951,86 @@ const ClientesView = ({ patients, setPatients, onGenerateReceituario, isDarkMode
 
   const handleRecordAudio = () => {
     if (isRecording) {
+      isRecordingIntent.current = false;
       setIsRecording(false);
-      if (recognitionRef.current) {
-        recognitionRef.current.stop();
-      }
-    } else {
-      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-      if (!SpeechRecognition) {
-        alert("Seu navegador não suporta reconhecimento de voz.");
-        return;
-      }
-
-      const recognition = new SpeechRecognition();
-      recognition.lang = 'pt-BR';
-      recognition.continuous = true;
-      recognition.interimResults = true;
-
-      let currentFinalTranscript = transcription;
-
-      recognition.onresult = (event: any) => {
-        let interimTranscript = '';
-        let newFinalTranscript = '';
-
-        for (let i = event.resultIndex; i < event.results.length; ++i) {
-          if (event.results[i].isFinal) {
-            newFinalTranscript += event.results[i][0].transcript;
-          } else {
-            interimTranscript += event.results[i][0].transcript;
-          }
-        }
-
-        currentFinalTranscript += newFinalTranscript;
-        setTranscription(currentFinalTranscript + interimTranscript);
-      };
-
-      recognition.onerror = (event: any) => {
-        console.error("Erro na gravação de áudio:", event.error);
-        if (event.error === 'not-allowed') {
-          alert("Permissão de microfone necessária para gravar.");
-        }
-        setIsRecording(false);
-      };
-
-      recognition.onend = () => {
-        setIsRecording(false);
-      };
-
-      try {
-        recognition.start();
-        recognitionRef.current = recognition;
-        setIsRecording(true);
-      } catch (e) {
-        console.error("Erro ao iniciar gravação:", e);
-        setIsRecording(false);
-      }
+      if (recognitionRef.current) recognitionRef.current.stop();
+      return;
     }
+
+    // Prioriza webkitSpeechRecognition para Edge/Chrome para garantir maior estabilidade
+    const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
+    if (!SpeechRecognition) return alert("Navegador não suporta transcrição nativa.");
+
+    baseTranscriptionRef.current = transcriptionRef.current; // Salva o ponto de partida
+
+    const recognition = new SpeechRecognition();
+    recognitionRef.current = recognition;
+
+    recognition.continuous = true;
+    recognition.interimResults = true; // Feedback em tempo real
+    recognition.lang = 'pt-BR';
+
+    recognition.onresult = (event: any) => {
+      let completeSessionText = "";
+      let interimText = "";
+      for (let i = 0; i < event.results.length; i++) {
+        if (event.results[i].isFinal) {
+          completeSessionText += event.results[i][0].transcript + " ";
+        } else {
+          interimText += event.results[i][0].transcript;
+        }
+      }
+
+      const base = baseTranscriptionRef.current ? baseTranscriptionRef.current.trim() + " " : "";
+      const fullText = (base + completeSessionText + interimText).trim();
+
+      setTranscription(fullText);
+      transcriptionRef.current = fullText;
+    };
+
+    recognition.onerror = (event: any) => {
+      const isEdge = /Edg/.test(navigator.userAgent);
+      if (event.error === 'not-allowed') {
+        alert("🚨 BLOQUEIO DE MICROFONE! Verifique as permissões no ícone de cadeado na barra de endereços.");
+      } else if (event.error === 'network') {
+        if (isEdge) {
+          alert("🚨 MODO EDGE: O Edge detectou um erro de rede. Certifique-se de que o 'Reconhecimento de Fala Online' está ativado nas configurações do Windows (Privacidade > Fala) e que o Edge está atualizado (Ajuda > Sobre).");
+        } else {
+          alert("🚨 Erro de Rede: A transcrição nativa precisa de internet.");
+        }
+      }
+      setIsRecording(false);
+      isRecordingIntent.current = false;
+    };
+
+    recognition.onend = () => {
+      if (isRecordingIntent.current) {
+        try {
+          // Maior delay para garantir liberação de hardware no Edge
+          setTimeout(() => {
+            if (isRecordingIntent.current) recognition.start();
+          }, 200);
+        } catch (e) {
+          setIsRecording(false);
+        }
+      } else {
+        setIsRecording(false);
+      }
+    };
+
+    isRecordingIntent.current = true;
+    setIsRecording(true);
+    recognition.start();
   };
 
-  const handleSaveRecord = () => {
+  const handleSaveRecord = async () => {
     if (!transcription.trim() || !currentPatient) return;
 
     const newRecord = {
       id: Date.now().toString(),
       date: new Date().toLocaleDateString('pt-BR'),
       type: recordType,
-      content: transcription.trim()
+      content: encryptField(transcription.trim())
     };
 
     let updatedPatient;
@@ -1415,10 +2041,10 @@ const ClientesView = ({ patients, setPatients, onGenerateReceituario, isDarkMode
         name: editName || 'Paciente Sem Nome',
         phone: editPhone,
         email: editEmail,
-        notes: editNotes,
+        notes: encryptField(editNotes),
+        cpf: clientCPF.replace(/\D/g, ''),
         history: [newRecord]
       };
-      setPatients([updatedPatient, ...patients]);
       setIsNewPatientModalOpen(false);
       setActivePatientId(updatedPatient.id);
     } else {
@@ -1427,16 +2053,31 @@ const ClientesView = ({ patients, setPatients, onGenerateReceituario, isDarkMode
         name: editName,
         phone: editPhone,
         email: editEmail,
-        notes: editNotes,
+        notes: encryptField(editNotes),
         history: [newRecord, ...(currentPatient.history || [])]
       };
-      setPatients(patients.map((p: any) => p.id === currentPatient.id ? updatedPatient : p));
+    }
+
+    try {
+      const docRef = doc(db, 'clientes', updatedPatient.id);
+      await setDoc(docRef, updatedPatient);
+      logAuditEvent({
+        userId: auth.currentUser?.uid || 'unknown',
+        userEmail: auth.currentUser?.email || 'unknown',
+        userName: auth.currentUser?.displayName || 'Usuário',
+        action: 'SALVOU_REGISTRO_MEDICO',
+        module: 'Clientes',
+        details: `Salvou registro médico (${recordType}) para paciente ${editName}.`
+      });
+    } catch (error) {
+      console.error("Erro ao salvar histórico do paciente:", error);
+      alert("Erro ao salvar histórico. Tente novamente.");
     }
 
     setTranscription('');
   };
 
-  const handleSavePatient = () => {
+  const handleSavePatient = async () => {
     if (!currentPatient) return;
 
     let updatedPatient;
@@ -1447,10 +2088,9 @@ const ClientesView = ({ patients, setPatients, onGenerateReceituario, isDarkMode
         name: editName || 'Paciente Sem Nome',
         phone: editPhone,
         email: editEmail,
-        notes: editNotes,
+        notes: encryptField(editNotes),
         cpf: clientCPF.replace(/\D/g, ''),
       };
-      setPatients([updatedPatient, ...patients]);
       setIsNewPatientModalOpen(false);
       setActivePatientId(updatedPatient.id);
     } else {
@@ -1459,12 +2099,43 @@ const ClientesView = ({ patients, setPatients, onGenerateReceituario, isDarkMode
         name: editName,
         phone: editPhone,
         email: editEmail,
-        notes: editNotes,
+        notes: encryptField(editNotes),
         cpf: clientCPF.replace(/\D/g, ''),
       };
-      setPatients(patients.map((p: any) => p.id === currentPatient.id ? updatedPatient : p));
     }
+
+    try {
+      const docRef = doc(db, 'clientes', updatedPatient.id);
+      await setDoc(docRef, updatedPatient);
+      logAuditEvent({
+        userId: auth.currentUser?.uid || 'unknown',
+        userEmail: auth.currentUser?.email || 'unknown',
+        userName: auth.currentUser?.displayName || 'Usuário',
+        action: isCreating ? 'CRIOU_PACIENTE' : 'EDITOU_PACIENTE',
+        module: 'Clientes',
+        details: `${isCreating ? 'Cadastrou' : 'Editou'} paciente: ${editName}.`
+      });
+    } catch (error) {
+      console.error("Erro ao salvar paciente:", error);
+      alert("Erro ao salvar paciente. Tente novamente.");
+    }
+
+    setIsSaved(true);
+    setTimeout(() => {
+      setIsSaved(false);
+    }, 2000);
   };
+
+  const filteredPatients = patients.filter((p: any) => {
+    const term = searchTerm.toLowerCase().trim();
+    if (!term) return true;
+    const nameMatch = (p.name || '').toLowerCase().includes(term);
+    const cpfRaw = (p.cpf || '');
+    const cpfMatch = cpfRaw ? (cpfRaw.includes(term) || cpfRaw.replace(/\D/g, '').includes(term.replace(/\D/g, ''))) : false;
+    const phoneRaw = (p.phone || '');
+    const phoneMatch = phoneRaw ? (phoneRaw.includes(term) || phoneRaw.replace(/\D/g, '').includes(term.replace(/\D/g, ''))) : false;
+    return nameMatch || cpfMatch || phoneMatch;
+  });
 
   return (
     <div className="flex-1 flex flex-col relative overflow-hidden">
@@ -1482,9 +2153,19 @@ const ClientesView = ({ patients, setPatients, onGenerateReceituario, isDarkMode
         </div>
 
         <div className="flex items-center gap-4">
-          <button className={`w-10 h-10 rounded-full border border-zinc-800 flex items-center justify-center text-zinc-400 hover:${isDarkMode ? "text-white" : "text-zinc-900"} hover:border-zinc-600 transition-colors`}>
-            <Upload size={18} />
-          </button>
+          <div className="relative">
+            <Search className={`absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 ${isDarkMode ? 'text-zinc-500' : 'text-zinc-400'}`} />
+            <input
+              type="text"
+              placeholder="Buscar por Nome, CPF ou Tel..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className={`w-64 md:w-80 pl-11 pr-4 py-2.5 text-sm rounded-full border focus:outline-none focus:ring-1 focus:ring-orange-500 transition-all ${isDarkMode
+                ? 'bg-[#121214] border-zinc-800 text-white placeholder-zinc-500'
+                : 'bg-white border-zinc-200 text-zinc-900 placeholder-zinc-400'
+                }`}
+            />
+          </div>
           <button
             onClick={() => { setIsNewPatientModalOpen(true); setActivePatientId(null); }}
             className="bg-gradient-to-r from-orange-400 to-orange-500 hover:from-orange-500 hover:to-orange-600 text-black font-semibold px-6 py-2.5 rounded-full flex items-center gap-2 transition-all shadow-[0_0_15px_rgba(249,115,22,0.3)]"
@@ -1498,7 +2179,7 @@ const ClientesView = ({ patients, setPatients, onGenerateReceituario, isDarkMode
       {/* Patient List */}
       <div className="flex-1 overflow-y-auto px-12 pb-10 z-10 custom-scrollbar">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {patients.map(patient => (
+          {filteredPatients.map((patient: any) => (
             <div key={patient.id} className={`bg-[#0a0a0a] border ${isDarkMode ? "border-zinc-800/80" : "border-zinc-200/80"} rounded-2xl p-6 hover:border-orange-500/30 transition-colors group`}>
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-center gap-4">
@@ -1510,8 +2191,12 @@ const ClientesView = ({ patients, setPatients, onGenerateReceituario, isDarkMode
                     <p className="text-zinc-500 text-sm">{patient.phone || 'Telefone não cadastrado'}</p>
                   </div>
                 </div>
-                <button className={`text-zinc-500 hover:${isDarkMode ? "text-white" : "text-zinc-900"} transition-colors`}>
-                  <MoreVertical size={18} />
+                <button
+                  onClick={(e) => handleDeleteRequest(patient.id, e)}
+                  title="Excluir Paciente"
+                  className={`text-zinc-500 hover:text-red-500 transition-colors cursor-pointer relative z-10`}
+                >
+                  <Trash2 size={18} />
                 </button>
               </div>
 
@@ -1615,9 +2300,13 @@ const ClientesView = ({ patients, setPatients, onGenerateReceituario, isDarkMode
 
                 <button
                   onClick={handleSavePatient}
-                  className={`w-full bg-[#0a0a0a] hover:bg-zinc-900 border border-zinc-800 ${isDarkMode ? "text-white" : "text-zinc-900"} font-semibold py-3 rounded-xl transition-colors mt-4 text-sm`}
+                  disabled={isSaved}
+                  className={`w-full ${isSaved
+                    ? "bg-green-500/20 text-green-500 border-green-500/30 font-bold"
+                    : `bg-[#0a0a0a] hover:bg-zinc-900 border-zinc-800 ${isDarkMode ? "text-white" : "text-zinc-900"} font-semibold`
+                    } border py-3 rounded-xl transition-all duration-300 mt-4 text-sm`}
                 >
-                  Salvar Cadastro
+                  {isSaved ? "Salvo com sucesso ✓" : "Salvar Cadastro"}
                 </button>
               </div>
             </div>
@@ -1640,15 +2329,33 @@ const ClientesView = ({ patients, setPatients, onGenerateReceituario, isDarkMode
                     {isRecording ? 'Parar Gravação' : 'Gravar Áudio'}
                   </button>
 
-                  <select
-                    value={recordType}
-                    onChange={(e) => setRecordType(e.target.value)}
-                    className={`bg-[#0a0a0a] border border-zinc-800 rounded-xl px-4 py-2 ${isDarkMode ? "text-white" : "text-zinc-900"} text-sm focus:outline-none focus:border-orange-500`}
-                  >
-                    <option>Evolução</option>
-                    <option>Anamnese</option>
-                    <option>Procedimento</option>
-                  </select>
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setIsRecordTypeDropdownOpen(!isRecordTypeDropdownOpen)}
+                      className={`flex items-center gap-2 ${isDarkMode ? 'bg-[#0a0a0a] border-zinc-800 text-white' : 'bg-white border-zinc-200 text-zinc-900'} border rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-orange-500 transition-colors`}
+                    >
+                      <span>{recordType}</span>
+                      <ChevronDown className={`w-4 h-4 text-zinc-400 transition-transform ${isRecordTypeDropdownOpen ? 'rotate-180' : ''}`} />
+                    </button>
+                    {isRecordTypeDropdownOpen && (
+                      <div className={`absolute z-50 w-full mt-1 rounded-xl border shadow-2xl overflow-hidden ${isDarkMode ? 'border-zinc-700/50 bg-[#0a0a0a]' : 'border-zinc-200 bg-white'}`}>
+                        {['Evolução', 'Anamnese', 'Procedimento'].map((opt) => (
+                          <button
+                            key={opt}
+                            type="button"
+                            onClick={() => { setRecordType(opt); setIsRecordTypeDropdownOpen(false); }}
+                            className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${recordType === opt
+                              ? 'bg-gradient-to-r from-orange-600/30 to-transparent text-orange-500 font-medium'
+                              : isDarkMode ? 'text-white hover:bg-white/5' : 'text-zinc-900 hover:bg-zinc-100'
+                              }`}
+                          >
+                            {opt}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
 
                   <span className="text-zinc-500 text-sm ml-auto">{new Date().toLocaleDateString('pt-BR')}</span>
                 </div>
@@ -1698,6 +2405,37 @@ const ClientesView = ({ patients, setPatients, onGenerateReceituario, isDarkMode
           </div>
         </div>
       )}
+
+      {/* Delete Confirmation Modal */}
+      {isDeleteModalOpen && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
+          <div className={`${isDarkMode ? "bg-[#18181b] border-red-900/30 shadow-[0_0_40px_rgba(239,68,68,0.15)]" : "bg-white border-zinc-200 shadow-2xl"} rounded-3xl w-full max-w-sm border overflow-hidden animate-in zoom-in-95 duration-200`}>
+            <div className={`p-6 border-b ${isDarkMode ? "border-zinc-800/80" : "border-zinc-100"}`}>
+              <div className="flex items-center justify-center w-16 h-16 rounded-full bg-red-500/10 mb-6 mx-auto border border-red-500/20">
+                <AlertTriangle className="w-8 h-8 text-red-500" />
+              </div>
+              <h3 className={`text-xl font-bold text-center mb-2 tracking-tight ${isDarkMode ? 'text-white' : 'text-zinc-900'}`}>Excluir Paciente</h3>
+              <p className={`text-center text-sm ${isDarkMode ? 'text-zinc-400' : 'text-zinc-500'}`}>
+                Tem certeza que deseja excluir? Esta ação é permanente e removerá todo o histórico clínico.
+              </p>
+            </div>
+            <div className={`p-4 gap-3 flex flex-col md:flex-row justify-end ${isDarkMode ? 'bg-[#0a0a0a]' : 'bg-zinc-50'}`}>
+              <button
+                onClick={cancelDelete}
+                className={`w-full md:w-auto px-5 py-2.5 text-sm font-semibold rounded-xl transition-all ${isDarkMode ? 'text-zinc-400 hover:text-white hover:bg-zinc-800' : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200'}`}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmDelete}
+                className="w-full md:w-auto px-5 py-2.5 text-sm font-semibold text-white bg-red-500 hover:bg-red-600 rounded-xl transition-all shadow-[0_0_15px_rgba(239,68,68,0.3)] hover:shadow-[0_0_20px_rgba(239,68,68,0.5)] flex items-center justify-center gap-2"
+              >
+                <Trash2 size={16} /> Excluir
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -1707,12 +2445,20 @@ const ProfissionaisView = ({ professionals, setProfessionals, isDarkMode = true 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState<string | null>(null);
+
   const [name, setName] = useState('');
   const [specialty, setSpecialty] = useState('');
   const [color, setColor] = useState('#f97316');
   const [docType, setDocType] = useState('CRM');
+  const [isDocDropdownOpen, setIsDocDropdownOpen] = useState(false);
   const [docNumber, setDocNumber] = useState('');
   const [docUF, setDocUF] = useState('');
+  const [telefone, setTelefone] = useState("");
+  const [email, setEmail] = useState("");
+  const [rqeNumero, setRqeNumero] = useState("");
+  const [rqeUf, setRqeUf] = useState("");
 
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [tempColor, setTempColor] = useState('#f97316');
@@ -1727,6 +2473,10 @@ const ProfissionaisView = ({ professionals, setProfessionals, isDarkMode = true 
       setDocType(prof.doc?.type || 'CRM');
       setDocNumber(prof.doc?.number || '');
       setDocUF(prof.doc?.uf || '');
+      setTelefone(prof.phone || "");
+      setEmail(prof.email || "");
+      setRqeNumero(prof.rqe?.numero || "");
+      setRqeUf(prof.rqe?.uf || "");
     } else {
       setEditingId(null);
       setName('');
@@ -1736,35 +2486,62 @@ const ProfissionaisView = ({ professionals, setProfessionals, isDarkMode = true 
       setDocType('CRM');
       setDocNumber('');
       setDocUF('');
+      setTelefone("");
+      setEmail("");
+      setRqeNumero("");
+      setRqeUf("");
     }
     setIsModalOpen(true);
     setShowColorPicker(false);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!name.trim()) return;
 
-    if (editingId) {
-      setProfessionals(professionals.map((p: any) =>
-        p.id === editingId ? { ...p, name, specialty, color, doc: { type: docType, number: docNumber, uf: docUF } } : p
-      ));
-    } else {
-      setProfessionals([...professionals, {
-        id: Date.now().toString(),
+    try {
+      const idToSave = editingId || Date.now().toString();
+      const profData = {
+        id: idToSave,
         name,
         specialty,
         color,
+        phone: telefone,
+        email,
+        rqe: { numero: rqeNumero, uf: rqeUf },
         active: true,
         doc: { type: docType, number: docNumber, uf: docUF }
-      }]);
+      };
+
+      await setDoc(doc(db, 'profissionais', idToSave), profData);
+      logAuditEvent({ userId: auth.currentUser?.uid || '', userEmail: auth.currentUser?.email || '', userName: auth.currentUser?.displayName || 'Usuário', action: editingId ? 'EDITOU_PROFISSIONAL' : 'CRIOU_PROFISSIONAL', module: 'Profissionais', details: `${editingId ? 'Editou' : 'Cadastrou'} profissional: ${name}.` });
+      setIsModalOpen(false);
+    } catch (error) {
+      console.error("Erro ao salvar profissional:", error);
+      alert("Houve um erro ao salvar o profissional.");
     }
-    setIsModalOpen(false);
   };
 
-  const handleDelete = (id: string) => {
-    if (confirm('Tem certeza que deseja excluir este profissional?')) {
-      setProfessionals(professionals.filter((p: any) => p.id !== id));
+  const handleDeleteRequest = (id: string) => {
+    setItemToDelete(id);
+    setIsDeleteModalOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (itemToDelete) {
+      try {
+        await deleteDoc(doc(db, 'profissionais', itemToDelete));
+      } catch (error) {
+        console.error("Erro ao excluir profissional:", error);
+        alert("Houve um erro ao excluir o profissional.");
+      }
     }
+    setIsDeleteModalOpen(false);
+    setItemToDelete(null);
+  };
+
+  const cancelDelete = () => {
+    setIsDeleteModalOpen(false);
+    setItemToDelete(null);
   };
 
   const handleApplyColor = () => {
@@ -1823,7 +2600,7 @@ const ProfissionaisView = ({ professionals, setProfessionals, isDarkMode = true 
                   <button onClick={() => handleOpenModal(prof)} className={`text-zinc-500 hover:${isDarkMode ? "text-white" : "text-zinc-900"} transition-colors p-1`}>
                     <Pencil size={16} />
                   </button>
-                  <button onClick={() => handleDelete(prof.id)} className="text-zinc-500 hover:text-red-500 transition-colors p-1">
+                  <button onClick={() => handleDeleteRequest(prof.id)} className="text-zinc-500 hover:text-red-500 transition-colors p-1">
                     <Trash2 size={16} />
                   </button>
                 </div>
@@ -1853,28 +2630,57 @@ const ProfissionaisView = ({ professionals, setProfessionals, isDarkMode = true 
       {/* Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className={`${isDarkMode ? "bg-[#0a0a0a] border-orange-900/30 shadow-[0_0_50px_rgba(249,115,22,0.1)]" : "bg-white border-[var(--border-default)] shadow-2xl"} border rounded-3xl w-full max-w-md p-8 relative`}>
+          <div className={`${isDarkMode ? "bg-[#0a0a0a] border-orange-900/30 shadow-[0_0_50px_rgba(249,115,22,0.1)]" : "bg-white border-[var(--border-default)] shadow-2xl"} border rounded-3xl w-full max-w-md p-8 relative max-h-[90vh] flex flex-col`}>
             <button
               onClick={() => setIsModalOpen(false)}
-              className={`absolute top-6 right-6 text-zinc-500 hover:${isDarkMode ? "text-white" : "text-zinc-900"} transition-colors`}
+              className={`absolute top-6 right-6 text-zinc-500 hover:${isDarkMode ? "text-white" : "text-zinc-900"} transition-colors z-10`}
             >
               <X size={20} />
             </button>
 
-            <h2 className={`text-2xl font-bold ${isDarkMode ? "text-white" : "text-zinc-900"} mb-8`}>Cadastrar Profissional</h2>
+            <h2 className={`text-2xl font-bold ${isDarkMode ? "text-white" : "text-zinc-900"} mb-8 shrink-0`}>Cadastrar Profissional</h2>
 
-            <div className="flex flex-col gap-6">
+            <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 flex flex-col gap-6">
               <div className="space-y-4">
                 <div>
                   <label className="block text-[10px] font-bold text-zinc-500 mb-1">NOME COMPLETO</label>
                   <input value={name} onChange={(e) => setName(e.target.value)} className="w-full bg-[#050505] border border-zinc-800 rounded-xl px-4 py-3 text-white focus:border-orange-500 outline-none" />
                 </div>
                 <div className="grid grid-cols-12 gap-3">
-                  <div className="col-span-5">
+                  <div className="col-span-5 relative">
                     <label className="block text-[10px] font-bold text-zinc-500 mb-1">DOCUMENTO</label>
-                    <select value={docType} onChange={(e) => setDocType(e.target.value)} className="w-full bg-[#050505] border border-zinc-800 rounded-xl px-3 py-3 text-sm text-white outline-none focus:border-orange-500">
-                      {['CRM', 'CRO', 'COREN', 'CRBM', 'Outros'].map(t => <option key={t} value={t}>{t}</option>)}
-                    </select>
+                    {(() => {
+                      const docOptions = ['CRM', 'CRO', 'COREN', 'CRBM', 'Outros'];
+                      return (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => setIsDocDropdownOpen(!isDocDropdownOpen)}
+                            className={`w-full flex items-center justify-between ${isDarkMode ? 'bg-[#050505] border-zinc-800 text-white' : 'bg-white border-zinc-200 text-zinc-900'} border rounded-xl px-3 py-3 text-sm focus:outline-none focus:border-orange-500 transition-colors text-left`}
+                          >
+                            <span>{docType}</span>
+                            <ChevronDown className={`w-4 h-4 text-zinc-400 transition-transform ${isDocDropdownOpen ? 'rotate-180' : ''}`} />
+                          </button>
+                          {isDocDropdownOpen && (
+                            <div className={`absolute z-50 w-full mt-1 rounded-xl border shadow-2xl overflow-hidden ${isDarkMode ? 'border-zinc-700/50 bg-[#0a0a0a]' : 'border-zinc-200 bg-white'}`}>
+                              {docOptions.map((opt) => (
+                                <button
+                                  key={opt}
+                                  type="button"
+                                  onClick={() => { setDocType(opt); setIsDocDropdownOpen(false); }}
+                                  className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${docType === opt
+                                    ? 'bg-gradient-to-r from-orange-600/30 to-transparent text-orange-500 font-medium'
+                                    : isDarkMode ? 'text-white hover:bg-white/5' : 'text-zinc-900 hover:bg-zinc-100'
+                                    }`}
+                                >
+                                  {opt}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
                   </div>
                   <div className="col-span-4">
                     <label className="block text-[10px] font-bold text-zinc-500 mb-1">NÚMERO</label>
@@ -1883,6 +2689,33 @@ const ProfissionaisView = ({ professionals, setProfessionals, isDarkMode = true 
                   <div className="col-span-3">
                     <label className="block text-[10px] font-bold text-zinc-500 mb-1">UF</label>
                     <input value={docUF} maxLength={2} onChange={(e) => setDocUF(e.target.value.toUpperCase().replace(/[^A-Z]/g, ''))} placeholder="SP" className="w-full bg-[#050505] border border-zinc-800 rounded-xl px-3 py-3 text-sm text-white text-center outline-none focus:border-orange-500" />
+                  </div>
+                </div>
+              </div>
+
+              {/* BLOCO DE RQE */}
+              <div className="mt-4 mb-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="flex flex-col gap-1.5 md:col-span-2">
+                    <label className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">Número do RQE (Opcional)</label>
+                    <input
+                      type="text"
+                      value={rqeNumero}
+                      onChange={(e) => setRqeNumero(e.target.value)}
+                      placeholder="00000"
+                      className="bg-[#050505] border border-zinc-800 rounded-xl px-4 py-3 text-white placeholder-neutral-600 focus:border-orange-500 outline-none text-sm transition-all"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1.5 md:col-span-1">
+                    <label className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">UF do RQE</label>
+                    <input
+                      type="text"
+                      value={rqeUf}
+                      onChange={(e) => setRqeUf(e.target.value.toUpperCase().replace(/[^A-Z]/g, ''))}
+                      placeholder="SP"
+                      maxLength={2}
+                      className="bg-[#050505] border border-zinc-800 rounded-xl px-4 py-3 text-white placeholder-neutral-600 focus:border-orange-500 outline-none text-sm transition-all uppercase text-center"
+                    />
                   </div>
                 </div>
               </div>
@@ -1898,6 +2731,32 @@ const ProfissionaisView = ({ professionals, setProfessionals, isDarkMode = true 
                 />
               </div>
 
+              {/* BLOCO DE CONTATO (RECEITUÁRIO) */}
+              <div className="mt-4 mb-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">Telefone / Celular</label>
+                    <input
+                      type="text"
+                      value={telefone}
+                      onChange={(e) => setTelefone(e.target.value)}
+                      placeholder="(00) 00000-0000"
+                      className="bg-[#050505] border border-zinc-800 rounded-xl px-4 py-3 text-white placeholder-neutral-600 focus:border-orange-500 outline-none text-sm transition-all"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">E-mail Profissional</label>
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="dr@clinica.com"
+                      className="bg-[#050505] border border-zinc-800 rounded-xl px-4 py-3 text-white placeholder-neutral-600 focus:border-orange-500 outline-none text-sm transition-all"
+                    />
+                  </div>
+                </div>
+              </div>
+
               <div className="relative">
                 <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Cor de Identificação (Agenda)</label>
                 <div className="flex items-center gap-3">
@@ -1910,7 +2769,7 @@ const ProfissionaisView = ({ professionals, setProfessionals, isDarkMode = true 
                 </div>
 
                 {showColorPicker && (
-                  <div className="absolute top-full left-0 mt-2 z-50 bg-white rounded-2xl p-4 shadow-2xl border border-zinc-200 w-64">
+                  <div className="absolute bottom-full left-0 mb-2 z-50 bg-white rounded-2xl p-4 shadow-2xl border border-zinc-200 w-64">
                     <HexColorPicker color={tempColor} onChange={setTempColor} style={{ width: '100%' }} />
                     <div className="mt-4 flex gap-2">
                       <input
@@ -1948,6 +2807,36 @@ const ProfissionaisView = ({ professionals, setProfessionals, isDarkMode = true 
           </div>
         </div>
       )}
+      {/* Delete Confirmation Modal */}
+      {isDeleteModalOpen && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
+          <div className={`${isDarkMode ? "bg-[#18181b] border-red-900/30 shadow-[0_0_40px_rgba(239,68,68,0.15)]" : "bg-white border-zinc-200 shadow-2xl"} rounded-3xl w-full max-w-sm border overflow-hidden animate-in zoom-in-95 duration-200`}>
+            <div className={`p-6 border-b ${isDarkMode ? "border-zinc-800/80" : "border-zinc-100"}`}>
+              <div className="flex items-center justify-center w-16 h-16 rounded-full bg-red-500/10 mb-6 mx-auto border border-red-500/20">
+                <AlertTriangle className="w-8 h-8 text-red-500" />
+              </div>
+              <h3 className={`text-xl font-bold text-center mb-2 tracking-tight ${isDarkMode ? 'text-white' : 'text-zinc-900'}`}>Excluir Profissional</h3>
+              <p className={`text-center text-sm ${isDarkMode ? 'text-zinc-400' : 'text-zinc-500'}`}>
+                Tem certeza que deseja excluir? Esta ação é permanente.
+              </p>
+            </div>
+            <div className={`p-4 gap-3 flex flex-col md:flex-row justify-end ${isDarkMode ? 'bg-[#0a0a0a]' : 'bg-zinc-50'}`}>
+              <button
+                onClick={cancelDelete}
+                className={`w-full md:w-auto px-5 py-2.5 text-sm font-semibold rounded-xl transition-all ${isDarkMode ? 'text-zinc-400 hover:text-white hover:bg-zinc-800' : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200'}`}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmDelete}
+                className="w-full md:w-auto px-5 py-2.5 text-sm font-semibold text-white bg-red-500 hover:bg-red-600 rounded-xl transition-all shadow-[0_0_15px_rgba(239,68,68,0.3)] hover:shadow-[0_0_20px_rgba(239,68,68,0.5)] flex items-center justify-center gap-2"
+              >
+                <Trash2 size={16} /> Excluir
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -1956,11 +2845,15 @@ const ProfissionaisView = ({ professionals, setProfessionals, isDarkMode = true 
 const ServicosView = ({ services, setServices, inventory, isDarkMode = true }: any) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('Dados do Serviço');
   const [filterCategory, setFilterCategory] = useState('Todos');
 
   const [name, setName] = useState('');
   const [category, setCategory] = useState('Outros');
+  const [isCatDropdownOpen, setIsCatDropdownOpen] = useState(false);
   const [duration, setDuration] = useState('');
   const [price, setPrice] = useState('');
   const [tax, setTax] = useState('');
@@ -1968,6 +2861,7 @@ const ServicosView = ({ services, setServices, inventory, isDarkMode = true }: a
   const [transactionFee, setTransactionFee] = useState('');
   const [description, setDescription] = useState('');
   const [serviceItems, setServiceItems] = useState<{ id: string, itemId: string, quantity: number }[]>([]);
+  const [openInsumoId, setOpenInsumoId] = useState<string | null>(null);
 
   const [desiredMargin, setDesiredMargin] = useState('60');
 
@@ -2001,34 +2895,54 @@ const ServicosView = ({ services, setServices, inventory, isDarkMode = true }: a
     setIsModalOpen(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!name.trim()) return;
 
-    const newService = {
-      id: editingId || Date.now().toString(),
-      name,
-      category,
-      duration: parseInt(duration) || 0,
-      price: parseFloat(price) || 0,
-      tax: parseFloat(tax) || 0,
-      commission: parseFloat(commission) || 0,
-      transactionFee: parseFloat(transactionFee) || 0,
-      description,
-      items: serviceItems
-    };
+    try {
+      const idToSave = editingId || Date.now().toString();
+      const newService = {
+        id: idToSave,
+        name,
+        category,
+        duration: parseInt(duration) || 0,
+        price: parseFloat(price) || 0,
+        tax: parseFloat(tax) || 0,
+        commission: parseFloat(commission) || 0,
+        transactionFee: parseFloat(transactionFee) || 0,
+        description,
+        items: serviceItems
+      };
 
-    if (editingId) {
-      setServices(services.map((s: any) => s.id === editingId ? newService : s));
-    } else {
-      setServices([...services, newService]);
+      await setDoc(doc(db, 'servicos', idToSave), newService);
+      logAuditEvent({ userId: auth.currentUser?.uid || '', userEmail: auth.currentUser?.email || '', userName: auth.currentUser?.displayName || 'Usuário', action: editingId ? 'EDITOU_SERVICO' : 'CRIOU_SERVICO', module: 'Serviços', details: `${editingId ? 'Editou' : 'Cadastrou'} serviço: ${name}.` });
+      setIsModalOpen(false);
+    } catch (error) {
+      console.error("Erro ao salvar serviço:", error);
+      alert("Houve um erro ao salvar o serviço.");
     }
-    setIsModalOpen(false);
   };
 
-  const handleDelete = (id: string) => {
-    if (confirm('Tem certeza que deseja excluir este serviço?')) {
-      setServices(services.filter((s: any) => s.id !== id));
+  const handleDeleteRequest = (id: string) => {
+    setItemToDelete(id);
+    setIsDeleteModalOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (itemToDelete) {
+      try {
+        await deleteDoc(doc(db, 'servicos', itemToDelete));
+      } catch (error) {
+        console.error("Erro ao excluir serviço:", error);
+        alert("Houve um erro ao excluir o serviço.");
+      }
     }
+    setIsDeleteModalOpen(false);
+    setItemToDelete(null);
+  };
+
+  const cancelDelete = () => {
+    setIsDeleteModalOpen(false);
+    setItemToDelete(null);
   };
 
   const handleAddItem = () => {
@@ -2143,7 +3057,7 @@ const ServicosView = ({ services, setServices, inventory, isDarkMode = true }: a
                     <button onClick={() => handleOpenModal(service)} className={`text-zinc-500 hover:${isDarkMode ? "text-white" : "text-zinc-900"} transition-colors p-1`}>
                       <Pencil size={16} />
                     </button>
-                    <button onClick={() => handleDelete(service.id)} className="text-zinc-500 hover:text-red-500 transition-colors p-1">
+                    <button onClick={() => handleDeleteRequest(service.id)} className="text-zinc-500 hover:text-red-500 transition-colors p-1">
                       <Trash2 size={16} />
                     </button>
                   </div>
@@ -2230,17 +3144,40 @@ const ServicosView = ({ services, setServices, inventory, isDarkMode = true }: a
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
-                    <div>
+                    <div className="relative">
                       <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Categoria</label>
-                      <select
-                        value={category}
-                        onChange={(e) => setCategory(e.target.value)}
-                        className={`w-full bg-[#050505] border border-zinc-800 rounded-xl px-4 py-3 ${isDarkMode ? "text-white" : "text-zinc-900"} focus:outline-none focus:border-orange-500 transition-colors`}
-                      >
-                        {categories.filter(c => c !== 'Todos').map(cat => (
-                          <option key={cat} value={cat}>{cat}</option>
-                        ))}
-                      </select>
+                      {(() => {
+                        const catOptions = categories.filter(c => c !== 'Todos');
+                        return (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => setIsCatDropdownOpen(!isCatDropdownOpen)}
+                              className={`w-full flex items-center justify-between ${isDarkMode ? 'bg-[#050505] border-zinc-800 text-white' : 'bg-white border-zinc-200 text-zinc-900'} border rounded-xl px-4 py-3 focus:outline-none focus:border-orange-500 transition-colors text-left text-sm`}
+                            >
+                              <span>{category}</span>
+                              <ChevronDown className={`w-4 h-4 text-zinc-400 transition-transform ${isCatDropdownOpen ? 'rotate-180' : ''}`} />
+                            </button>
+                            {isCatDropdownOpen && (
+                              <div className={`absolute z-50 w-full mt-1 rounded-xl border shadow-2xl overflow-hidden ${isDarkMode ? 'border-zinc-700/50 bg-[#0a0a0a]' : 'border-zinc-200 bg-white'}`}>
+                                {catOptions.map((cat) => (
+                                  <button
+                                    key={cat}
+                                    type="button"
+                                    onClick={() => { setCategory(cat); setIsCatDropdownOpen(false); }}
+                                    className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${category === cat
+                                      ? 'bg-gradient-to-r from-orange-600/30 to-transparent text-orange-500 font-medium'
+                                      : isDarkMode ? 'text-white hover:bg-white/5' : 'text-zinc-900 hover:bg-zinc-100'
+                                      }`}
+                                  >
+                                    {cat}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </>
+                        );
+                      })()}
                     </div>
                     <div>
                       <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Duração (Min)</label>
@@ -2273,16 +3210,38 @@ const ServicosView = ({ services, setServices, inventory, isDarkMode = true }: a
                       <div className="flex flex-col gap-3">
                         {serviceItems.map(item => (
                           <div key={item.id} className="flex items-center gap-2">
-                            <select
-                              value={item.itemId}
-                              onChange={(e) => handleItemChange(item.id, 'itemId', e.target.value)}
-                              className={`flex-1 bg-[#121214] border border-zinc-800 rounded-lg px-3 py-2 ${isDarkMode ? "text-white" : "text-zinc-900"} text-sm focus:outline-none focus:border-orange-500`}
-                            >
-                              <option value="">Buscar no estoque...</option>
-                              {inventory.map((inv: any) => (
-                                <option key={inv.id} value={inv.id}>{inv.name} - {formatCurrency(inv.price)}</option>
-                              ))}
-                            </select>
+                            <div className="relative flex-1">
+                              <button
+                                type="button"
+                                onClick={() => setOpenInsumoId(openInsumoId === item.id ? null : item.id)}
+                                className={`w-full flex items-center justify-between ${isDarkMode ? 'bg-[#121214] border-zinc-800 text-white' : 'bg-white border-zinc-200 text-zinc-900'} border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-orange-500 transition-colors text-left`}
+                              >
+                                <span className={item.itemId ? '' : 'text-zinc-500'}>
+                                  {item.itemId
+                                    ? (() => { const inv = inventory.find((i: any) => i.id === item.itemId); return inv ? `${inv.name} - ${formatCurrency(inv.price)}` : 'Buscar no estoque...'; })()
+                                    : 'Buscar no estoque...'}
+                                </span>
+                                <ChevronDown className={`w-4 h-4 text-zinc-400 transition-transform ${openInsumoId === item.id ? 'rotate-180' : ''}`} />
+                              </button>
+                              {openInsumoId === item.id && (
+                                <div className={`absolute z-50 w-full mt-1 rounded-xl border shadow-2xl overflow-hidden ${isDarkMode ? 'border-zinc-700/50 bg-[#0a0a0a]' : 'border-zinc-200 bg-white'}`}>
+                                  <div className={`px-4 py-2 text-xs ${isDarkMode ? 'text-zinc-500' : 'text-zinc-400'} border-b ${isDarkMode ? 'border-zinc-800' : 'border-zinc-200'}`}>Buscar no estoque...</div>
+                                  {inventory.map((inv: any) => (
+                                    <button
+                                      key={inv.id}
+                                      type="button"
+                                      onClick={() => { handleItemChange(item.id, 'itemId', inv.id); setOpenInsumoId(null); }}
+                                      className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${item.itemId === inv.id
+                                        ? 'bg-gradient-to-r from-orange-600/30 to-transparent text-orange-500 font-medium'
+                                        : isDarkMode ? 'text-white hover:bg-white/5' : 'text-zinc-900 hover:bg-zinc-100'
+                                        }`}
+                                    >
+                                      {inv.name} - {formatCurrency(inv.price)}
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
                             <input
                               type="number"
                               value={item.quantity}
@@ -2500,6 +3459,36 @@ const ServicosView = ({ services, setServices, inventory, isDarkMode = true }: a
           </div>
         </div>
       )}
+      {/* Delete Confirmation Modal */}
+      {isDeleteModalOpen && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
+          <div className={`${isDarkMode ? "bg-[#18181b] border-red-900/30 shadow-[0_0_40px_rgba(239,68,68,0.15)]" : "bg-white border-zinc-200 shadow-2xl"} rounded-3xl w-full max-w-sm border overflow-hidden animate-in zoom-in-95 duration-200`}>
+            <div className={`p-6 border-b ${isDarkMode ? "border-zinc-800/80" : "border-zinc-100"}`}>
+              <div className="flex items-center justify-center w-16 h-16 rounded-full bg-red-500/10 mb-6 mx-auto border border-red-500/20">
+                <AlertTriangle className="w-8 h-8 text-red-500" />
+              </div>
+              <h3 className={`text-xl font-bold text-center mb-2 tracking-tight ${isDarkMode ? 'text-white' : 'text-zinc-900'}`}>Excluir Serviço</h3>
+              <p className={`text-center text-sm ${isDarkMode ? 'text-zinc-400' : 'text-zinc-500'}`}>
+                Tem certeza que deseja excluir? Esta ação removerá o serviço do catálogo e não pode ser desfeita.
+              </p>
+            </div>
+            <div className={`p-4 gap-3 flex flex-col md:flex-row justify-end ${isDarkMode ? 'bg-[#0a0a0a]' : 'bg-zinc-50'}`}>
+              <button
+                onClick={cancelDelete}
+                className={`w-full md:w-auto px-5 py-2.5 text-sm font-semibold rounded-xl transition-all ${isDarkMode ? 'text-zinc-400 hover:text-white hover:bg-zinc-800' : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200'}`}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmDelete}
+                className="w-full md:w-auto px-5 py-2.5 text-sm font-semibold text-white bg-red-500 hover:bg-red-600 rounded-xl transition-all shadow-[0_0_15px_rgba(239,68,68,0.3)] hover:shadow-[0_0_20px_rgba(239,68,68,0.5)] flex items-center justify-center gap-2"
+              >
+                <Trash2 size={16} /> Excluir
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -2509,8 +3498,12 @@ const EstoqueView = ({ inventory, setInventory, isDarkMode = true }: any) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState<string | null>(null);
+
   const [name, setName] = useState('');
   const [category, setCategory] = useState('Insumos');
+  const [isCatDropdownOpen, setIsCatDropdownOpen] = useState(false);
   const [price, setPrice] = useState('');
   const [salePrice, setSalePrice] = useState('');
   const [stock, setStock] = useState('');
@@ -2540,31 +3533,51 @@ const EstoqueView = ({ inventory, setInventory, isDarkMode = true }: any) => {
     setIsModalOpen(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!name.trim()) return;
 
-    const newItem = {
-      id: editingId || Date.now().toString(),
-      name,
-      category,
-      price: parseFloat(price) || 0,
-      salePrice: parseFloat(salePrice) || 0,
-      stock: parseInt(stock) || 0,
-      minStock: parseInt(minStock) || 0,
-    };
+    try {
+      const idToSave = editingId || Date.now().toString();
+      const newItem = {
+        id: idToSave,
+        name,
+        category,
+        price: parseFloat(price) || 0,
+        salePrice: parseFloat(salePrice) || 0,
+        stock: parseInt(stock) || 0,
+        minStock: parseInt(minStock) || 0,
+      };
 
-    if (editingId) {
-      setInventory(inventory.map((i: any) => i.id === editingId ? newItem : i));
-    } else {
-      setInventory([...inventory, newItem]);
+      await setDoc(doc(db, 'estoque', idToSave), newItem);
+      logAuditEvent({ userId: auth.currentUser?.uid || '', userEmail: auth.currentUser?.email || '', userName: auth.currentUser?.displayName || 'Usuário', action: editingId ? 'EDITOU_PRODUTO' : 'CRIOU_PRODUTO', module: 'Estoque', details: `${editingId ? 'Editou' : 'Cadastrou'} produto: ${name}.` });
+      setIsModalOpen(false);
+    } catch (error) {
+      console.error("Erro ao salvar produto no estoque:", error);
+      alert("Houve um erro ao salvar o item.");
     }
-    setIsModalOpen(false);
   };
 
-  const handleDelete = (id: string) => {
-    if (confirm('Tem certeza que deseja excluir este produto?')) {
-      setInventory(inventory.filter((i: any) => i.id !== id));
+  const handleDeleteRequest = (id: string) => {
+    setItemToDelete(id);
+    setIsDeleteModalOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (itemToDelete) {
+      try {
+        await deleteDoc(doc(db, 'estoque', itemToDelete));
+      } catch (error) {
+        console.error("Erro ao excluir produto do estoque:", error);
+        alert("Houve um erro ao excluir o item.");
+      }
     }
+    setIsDeleteModalOpen(false);
+    setItemToDelete(null);
+  };
+
+  const cancelDelete = () => {
+    setIsDeleteModalOpen(false);
+    setItemToDelete(null);
   };
 
   const formatCurrency = (value: number) => {
@@ -2593,16 +3606,7 @@ const EstoqueView = ({ inventory, setInventory, isDarkMode = true }: any) => {
             </div>
             <p className={`text-sm ${isDarkMode ? "text-zinc-400" : "text-zinc-500"}`}>Gerencie o inventário e tabela de preços</p>
           </div>
-
           <div className="flex items-center gap-4">
-            <button className={`bg-transparent border border-zinc-800 hover:bg-zinc-900 ${isDarkMode ? "text-white" : "text-zinc-900"} font-semibold px-6 py-2.5 rounded-full flex items-center gap-2 transition-colors`}>
-              <Filter size={18} />
-              Filtros
-            </button>
-            <button className={`bg-transparent border border-zinc-800 hover:bg-zinc-900 ${isDarkMode ? "text-white" : "text-zinc-900"} font-semibold px-6 py-2.5 rounded-full flex items-center gap-2 transition-colors`}>
-              <Download size={18} />
-              Exportar
-            </button>
             <button
               onClick={() => handleOpenModal()}
               className="bg-gradient-to-r from-orange-400 to-orange-500 hover:from-orange-500 hover:to-orange-600 text-black font-semibold px-6 py-2.5 rounded-full flex items-center gap-2 transition-all shadow-[0_0_15px_rgba(249,115,22,0.3)]"
@@ -2711,7 +3715,7 @@ const EstoqueView = ({ inventory, setInventory, isDarkMode = true }: any) => {
                           <button onClick={() => handleOpenModal(item)} className={`text-zinc-500 hover:${isDarkMode ? "text-white" : "text-zinc-900"} transition-colors p-1`}>
                             <Pencil size={16} />
                           </button>
-                          <button onClick={() => handleDelete(item.id)} className="text-zinc-500 hover:text-red-500 transition-colors p-1">
+                          <button onClick={() => handleDeleteRequest(item.id)} className="text-zinc-500 hover:text-red-500 transition-colors p-1">
                             <Trash2 size={16} />
                           </button>
                         </div>
@@ -2750,17 +3754,39 @@ const EstoqueView = ({ inventory, setInventory, isDarkMode = true }: any) => {
                 />
               </div>
 
-              <div>
+              <div className="relative">
                 <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Categoria</label>
-                <select
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value)}
-                  className={`w-full bg-[#050505] border border-zinc-800 rounded-xl px-4 py-3 ${isDarkMode ? "text-white" : "text-zinc-900"} focus:outline-none focus:border-orange-500 transition-colors`}
-                >
-                  {categories.map(cat => (
-                    <option key={cat} value={cat}>{cat}</option>
-                  ))}
-                </select>
+                {(() => {
+                  return (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => setIsCatDropdownOpen(!isCatDropdownOpen)}
+                        className={`w-full flex items-center justify-between ${isDarkMode ? 'bg-[#050505] border-zinc-800 text-white' : 'bg-white border-zinc-200 text-zinc-900'} border rounded-xl px-4 py-3 focus:outline-none focus:border-orange-500 transition-colors text-left text-sm`}
+                      >
+                        <span>{category}</span>
+                        <ChevronDown className={`w-4 h-4 text-zinc-400 transition-transform ${isCatDropdownOpen ? 'rotate-180' : ''}`} />
+                      </button>
+                      {isCatDropdownOpen && (
+                        <div className={`absolute z-50 w-full mt-1 rounded-xl border shadow-2xl overflow-hidden ${isDarkMode ? 'border-zinc-700/50 bg-[#0a0a0a]' : 'border-zinc-200 bg-white'}`}>
+                          {categories.map((cat) => (
+                            <button
+                              key={cat}
+                              type="button"
+                              onClick={() => { setCategory(cat); setIsCatDropdownOpen(false); }}
+                              className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${category === cat
+                                ? 'bg-gradient-to-r from-orange-600/30 to-transparent text-orange-500 font-medium'
+                                : isDarkMode ? 'text-white hover:bg-white/5' : 'text-zinc-900 hover:bg-zinc-100'
+                                }`}
+                            >
+                              {cat}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -2828,23 +3854,180 @@ const EstoqueView = ({ inventory, setInventory, isDarkMode = true }: any) => {
           </div>
         </div>
       )}
+      {/* Delete Confirmation Modal */}
+      {isDeleteModalOpen && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
+          <div className={`${isDarkMode ? "bg-[#18181b] border-red-900/30 shadow-[0_0_40px_rgba(239,68,68,0.15)]" : "bg-white border-zinc-200 shadow-2xl"} rounded-3xl w-full max-w-sm border overflow-hidden animate-in zoom-in-95 duration-200`}>
+            <div className={`p-6 border-b ${isDarkMode ? "border-zinc-800/80" : "border-zinc-100"}`}>
+              <div className="flex items-center justify-center w-16 h-16 rounded-full bg-red-500/10 mb-6 mx-auto border border-red-500/20">
+                <AlertTriangle className="w-8 h-8 text-red-500" />
+              </div>
+              <h3 className={`text-xl font-bold text-center mb-2 tracking-tight ${isDarkMode ? 'text-white' : 'text-zinc-900'}`}>Excluir Produto</h3>
+              <p className={`text-center text-sm ${isDarkMode ? 'text-zinc-400' : 'text-zinc-500'}`}>
+                Tem certeza que deseja excluir? Esta ação é permanente e removerá o item do controle.
+              </p>
+            </div>
+            <div className={`p-4 gap-3 flex flex-col md:flex-row justify-end ${isDarkMode ? 'bg-[#0a0a0a]' : 'bg-zinc-50'}`}>
+              <button
+                onClick={cancelDelete}
+                className={`w-full md:w-auto px-5 py-2.5 text-sm font-semibold rounded-xl transition-all ${isDarkMode ? 'text-zinc-400 hover:text-white hover:bg-zinc-800' : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200'}`}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmDelete}
+                className="w-full md:w-auto px-5 py-2.5 text-sm font-semibold text-white bg-red-500 hover:bg-red-600 rounded-xl transition-all shadow-[0_0_15px_rgba(239,68,68,0.3)] hover:shadow-[0_0_20px_rgba(239,68,68,0.5)] flex items-center justify-center gap-2"
+              >
+                <Trash2 size={16} /> Excluir
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+const CustomDatePicker = ({
+  selectedDate,
+  onChange,
+  isDarkMode
+}: {
+  selectedDate: string,
+  onChange: (date: string) => void,
+  isDarkMode: boolean
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [viewDate, setViewDate] = useState(selectedDate ? new Date(selectedDate + 'T12:00:00') : new Date());
+
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    if (isOpen) document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isOpen]);
+
+  const getDaysInMonth = (year: number, month: number) => new Date(year, month + 1, 0).getDate();
+  const getFirstDayOfMonth = (year: number, month: number) => new Date(year, month, 1).getDay();
+
+  const handlePrevMonth = () => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() - 1, 1));
+  const handleNextMonth = () => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 1));
+
+  const handleSelectDate = (day: number) => {
+    const newDate = new Date(viewDate.getFullYear(), viewDate.getMonth(), day);
+    const formattedDate = newDate.toISOString().split('T')[0];
+    onChange(formattedDate);
+    setIsOpen(false);
+  };
+
+  const monthNames = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+  const weekDaysShort = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
+
+  const formatDisplayDate = (dateString: string) => {
+    if (!dateString) return 'dd/mm/aaaa';
+    const [year, month, day] = dateString.split('-');
+    return `${day}/${month}/${year}`;
+  };
+
+  return (
+    <div className="relative w-full" ref={containerRef}>
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className={`w-full flex items-center justify-between ${isDarkMode ? 'bg-[#050505] border-zinc-800 text-white' : 'bg-[var(--bg-surface)] border-[var(--border-default)] text-zinc-900'} border rounded-xl px-4 py-3 focus:outline-none focus:border-orange-500 transition-colors text-left text-sm whitespace-nowrap overflow-hidden text-ellipsis`}
+      >
+        <span className={!selectedDate ? (isDarkMode ? 'text-zinc-600' : 'text-zinc-400') : 'truncate'}>
+          {formatDisplayDate(selectedDate)}
+        </span>
+        <Calendar size={16} className="text-zinc-500 shrink-0 ml-2" />
+      </button>
+
+      {isOpen && (
+        <div className={`absolute z-50 top-full left-0 mt-2 p-4 rounded-2xl border shadow-2xl w-72 ${isDarkMode ? 'bg-[#0f0f11] border-zinc-800' : 'bg-white border-[var(--border-default)]'}`}>
+          <div className="flex items-center justify-between mb-4">
+            <button type="button" onClick={handlePrevMonth} className={`p-1.5 rounded-lg transition-colors ${isDarkMode ? 'hover:bg-zinc-800 text-zinc-400' : 'hover:bg-zinc-100 text-zinc-600'}`}>
+              <ChevronLeft size={16} />
+            </button>
+            <span className={`text-sm font-semibold capitalize ${isDarkMode ? 'text-white' : 'text-zinc-900'}`}>
+              {monthNames[viewDate.getMonth()]} {viewDate.getFullYear()}
+            </span>
+            <button type="button" onClick={handleNextMonth} className={`p-1.5 rounded-lg transition-colors ${isDarkMode ? 'hover:bg-zinc-800 text-zinc-400' : 'hover:bg-zinc-100 text-zinc-600'}`}>
+              <ChevronRight size={16} />
+            </button>
+          </div>
+
+          <div className="grid grid-cols-7 gap-1 mb-2">
+            {weekDaysShort.map((day, i) => (
+              <div key={i} className="text-center text-[10px] font-bold text-zinc-500">
+                {day}
+              </div>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-7 gap-1">
+            {Array.from({ length: getFirstDayOfMonth(viewDate.getFullYear(), viewDate.getMonth()) }).map((_, i) => (
+              <div key={`empty-${i}`} />
+            ))}
+            {Array.from({ length: getDaysInMonth(viewDate.getFullYear(), viewDate.getMonth()) }).map((_, i) => {
+              const day = i + 1;
+              const isSelected = selectedDate &&
+                new Date(selectedDate + 'T12:00:00').getDate() === day &&
+                new Date(selectedDate + 'T12:00:00').getMonth() === viewDate.getMonth() &&
+                new Date(selectedDate + 'T12:00:00').getFullYear() === viewDate.getFullYear();
+
+              const isToday = day === new Date().getDate() &&
+                viewDate.getMonth() === new Date().getMonth() &&
+                viewDate.getFullYear() === new Date().getFullYear();
+
+              return (
+                <button
+                  key={day}
+                  type="button"
+                  onClick={() => handleSelectDate(day)}
+                  className={`
+                    w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium transition-all
+                    ${isSelected ? 'bg-orange-500 text-white shadow-md shadow-orange-500/20' : ''}
+                    ${!isSelected && isToday ? (isDarkMode ? 'bg-zinc-800 text-white' : 'bg-zinc-100 text-zinc-900') : ''}
+                    ${!isSelected && !isToday ? (isDarkMode ? 'text-zinc-300 hover:bg-zinc-800' : 'text-zinc-600 hover:bg-zinc-100') : ''}
+                  `}
+                >
+                  {day}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
 
-
 const FinanceiroView = ({ expenses, setExpenses, isDarkMode = true }: any) => {
   const [activeTab, setActiveTab] = useState('Fluxo de Caixa');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState<string | null>(null);
 
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState('Outros');
+  const [isCatDropdownOpen, setIsCatDropdownOpen] = useState(false);
   const [quantity, setQuantity] = useState('1');
   const [value, setValue] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [status, setStatus] = useState('Pendente');
   const [recurrence, setRecurrence] = useState('Não');
-  const [periodo, setPeriodo] = useState('Diário');
+  
+  const currentYearStr = new Date().getFullYear().toString();
+  const [viewPeriod, setViewPeriod] = useState('Mensal');
+  const [viewYear, setViewYear] = useState(currentYearStr);
+  const [isViewYearDropdownOpen, setIsViewYearDropdownOpen] = useState(false);
+  const [viewRange, setViewRange] = useState(new Date().getMonth()); // For mensals (0-11), Trimestrais (0-3), Semestrais (0-1)
+  const [isViewRangeDropdownOpen, setIsViewRangeDropdownOpen] = useState(false);
+
   const [searchQuery, setSearchQuery] = useState('');
   const [transactionFilter, setTransactionFilter] = useState('Todos');
 
@@ -2861,7 +4044,7 @@ const FinanceiroView = ({ expenses, setExpenses, isDarkMode = true }: any) => {
     setIsModalOpen(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!description.trim() || !value || !dueDate) return;
 
     const newExpense = {
@@ -2876,17 +4059,213 @@ const FinanceiroView = ({ expenses, setExpenses, isDarkMode = true }: any) => {
       type: 'Despesa'
     };
 
-    setExpenses([...expenses, newExpense]);
-    setIsModalOpen(false);
+    try {
+      await setDoc(doc(db, 'financeiro', newExpense.id), newExpense);
+      logAuditEvent({ userId: auth.currentUser?.uid || '', userEmail: auth.currentUser?.email || '', userName: auth.currentUser?.displayName || 'Usuário', action: 'CRIOU_DESPESA', module: 'Financeiro', details: `Criou despesa: ${description} - R$ ${value}.` });
+      setIsModalOpen(false);
+    } catch (error) {
+      console.error("Erro ao salvar transação:", error);
+      alert("Erro ao salvar transação. Tente novamente.");
+    }
+  };
+
+  const handleDeleteExpense = (id: string) => {
+    setItemToDelete(id);
+    setIsDeleteModalOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (itemToDelete) {
+      try {
+        await deleteDoc(doc(db, 'financeiro', itemToDelete));
+        logAuditEvent({ userId: auth.currentUser?.uid || '', userEmail: auth.currentUser?.email || '', userName: auth.currentUser?.displayName || 'Usuário', action: 'EXCLUIU_DESPESA', module: 'Financeiro', details: `Excluiu transação financeira ID: ${itemToDelete}.` });
+        setIsDeleteModalOpen(false);
+        setItemToDelete(null);
+      } catch (error) {
+        console.error("Erro ao deletar transação:", error);
+      }
+    }
+  };
+
+  const cancelDelete = () => {
+    setIsDeleteModalOpen(false);
+    setItemToDelete(null);
+  };
+
+  const handleToggleStatus = async (item: any) => {
+    const newStatus = item.status === 'Pendente' ? 'Pago' : 'Pendente';
+    try {
+      await setDoc(doc(db, 'financeiro', item.id), { ...item, status: newStatus });
+      logAuditEvent({ userId: auth.currentUser?.uid || '', userEmail: auth.currentUser?.email || '', userName: auth.currentUser?.displayName || 'Usuário', action: 'ALTEROU_STATUS_FINANCEIRO', module: 'Financeiro', details: `Alterou status de "${item.description}" para ${newStatus}.` });
+    } catch (error) {
+      console.error("Erro ao atualizar status:", error);
+    }
   };
 
   const formatCurrency = (val: number) => {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
   };
 
-  const totalExpenses = expenses.reduce((sum: number, exp: any) => sum + exp.value, 0);
-  const pendingExpenses = expenses.filter((exp: any) => exp.status === 'Pendente');
-  const totalPending = pendingExpenses.reduce((sum: number, exp: any) => sum + exp.value, 0);
+  const dataAtual = new Date();
+  const mesAtualHoje = dataAtual.getMonth();
+  const anoAtualHoje = dataAtual.getFullYear();
+  const diaAtualHoje = dataAtual.getDate();
+  const numViewYear = parseInt(viewYear);
+
+  let periodStartMonth = 0;
+  let periodEndMonth = 11;
+  let isDailyView = false;
+  
+  // Logic to determine range of months or days
+  if (viewPeriod === 'Mensal') {
+    periodStartMonth = viewRange;
+    periodEndMonth = viewRange;
+    isDailyView = true;
+  } else if (viewPeriod === 'Trimestral') {
+    periodStartMonth = viewRange * 3;
+    periodEndMonth = periodStartMonth + 2;
+  } else if (viewPeriod === 'Semestral') {
+    periodStartMonth = viewRange * 6;
+    periodEndMonth = periodStartMonth + 5;
+  }
+
+  // Calculate generic historical Revenue/Expense for average (Always look to the past 12 months)
+  let past12MAcumReceita = 0;
+  expenses.forEach((exp: any) => {
+    if (exp.type === 'Receita') past12MAcumReceita += exp.value;
+  });
+  // Simplified average for projection
+  const avgReceitaMensal = past12MAcumReceita > 0 ? (past12MAcumReceita / 12) : 0;
+  const avgReceitaDiaria = past12MAcumReceita > 0 ? (past12MAcumReceita / 365) : 0;
+
+  // Aggregate Data for the View
+  let totalReceitaView = 0;
+  let totalDespesaView = 0;
+  let totalPendenteView = 0;
+  let pendentesLengthView = 0;
+  const chartData = [];
+  let projecaoFimView = 0;
+
+  if (isDailyView) {
+    // === MENSAL LOGIC (Eixo X = Dias) ===
+    const diasNoMes = new Date(numViewYear, periodStartMonth + 1, 0).getDate();
+    const isCurrentMonth = numViewYear === anoAtualHoje && periodStartMonth === mesAtualHoje;
+    const isPastMonth = numViewYear < anoAtualHoje || (numViewYear === anoAtualHoje && periodStartMonth < mesAtualHoje);
+    
+    const transacoesPorDia: Record<number, { receita: number, despesa: number }> = {};
+    for (let i = 1; i <= diasNoMes; i++) transacoesPorDia[i] = { receita: 0, despesa: 0 };
+
+    expenses.forEach((exp: any) => {
+      const [yearStr, monthStr, dayStr] = (exp.dueDate || '').split('-');
+      if (yearStr && parseInt(yearStr) === numViewYear) {
+        if (parseInt(monthStr) - 1 === periodStartMonth) {
+          const day = parseInt(dayStr);
+          const isReceita = exp.type === 'Receita';
+          const isDespesa = exp.type === 'Despesa' || !isReceita;
+          
+          if (isReceita) {
+             totalReceitaView += exp.value;
+             transacoesPorDia[day].receita += exp.value;
+          } else {
+             totalDespesaView += exp.value;
+             transacoesPorDia[day].despesa += exp.value;
+          }
+
+          if (exp.status === 'Pendente' && isDespesa) {
+            totalPendenteView += exp.value;
+            pendentesLengthView++;
+          }
+        }
+      }
+    });
+
+    const currDay = isCurrentMonth ? diaAtualHoje : (isPastMonth ? diasNoMes : 0);
+    const taxaDiariaReal = isCurrentMonth && diaAtualHoje > 0 ? (totalReceitaView / diaAtualHoje) : avgReceitaDiaria;
+    projecaoFimView = totalReceitaView + (isPastMonth ? 0 : (taxaDiariaReal * (diasNoMes - currDay)));
+
+    let acumuladoReceita = 0;
+    
+    for (let i = 1; i <= diasNoMes; i++) {
+        acumuladoReceita += transacoesPorDia[i].receita;
+        if (isPastMonth) {
+           chartData.push({ axis: String(i).padStart(2, '0'), Realizado: acumuladoReceita, Projetado: acumuladoReceita });
+        } else if (isCurrentMonth) {
+           if (i <= currDay) {
+              chartData.push({ axis: String(i).padStart(2, '0'), Realizado: acumuladoReceita, Projetado: acumuladoReceita });
+           } else {
+              const prevProj = chartData[i-2].Projetado;
+              chartData.push({ axis: String(i).padStart(2, '0'), Projetado: prevProj + taxaDiariaReal });
+           }
+        } else {
+           // Future month completely
+           const projectedValue = (i * avgReceitaDiaria);
+           chartData.push({ axis: String(i).padStart(2, '0'), Projetado: projectedValue });
+        }
+    }
+
+  } else {
+    // === MACRO LOGIC (Trimestral, Semestral, Anual - Eixo X = Meses) ===
+    const namesMeses = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+    const transacoesPorMes: Record<number, { receita: number, despesa: number }> = {};
+    for (let m = periodStartMonth; m <= periodEndMonth; m++) transacoesPorMes[m] = { receita: 0, despesa: 0 };
+
+    expenses.forEach((exp: any) => {
+      const [yearStr, monthStr] = (exp.dueDate || '').split('-');
+      if (yearStr && parseInt(yearStr) === numViewYear) {
+        const month = parseInt(monthStr) - 1;
+        if (month >= periodStartMonth && month <= periodEndMonth) {
+          const isReceita = exp.type === 'Receita';
+          const isDespesa = exp.type === 'Despesa' || !isReceita;
+          
+          if (isReceita) {
+             totalReceitaView += exp.value;
+             transacoesPorMes[month].receita += exp.value;
+          } else {
+             totalDespesaView += exp.value;
+             transacoesPorMes[month].despesa += exp.value;
+          }
+
+          if (exp.status === 'Pendente' && isDespesa) {
+            totalPendenteView += exp.value;
+            pendentesLengthView++;
+          }
+        }
+      }
+    });
+
+    let acumuladoReceita = 0;
+    let projGeralAnterior = 0;
+
+    for (let m = periodStartMonth; m <= periodEndMonth; m++) {
+      const isPastMonth = numViewYear < anoAtualHoje || (numViewYear === anoAtualHoje && m < mesAtualHoje);
+      const isCurrentMonth = numViewYear === anoAtualHoje && m === mesAtualHoje;
+      
+      acumuladoReceita += transacoesPorMes[m].receita;
+
+      if (isPastMonth) {
+         chartData.push({ axis: namesMeses[m], Realizado: acumuladoReceita, Projetado: acumuladoReceita });
+         projGeralAnterior = acumuladoReceita;
+      } else if (isCurrentMonth) {
+         // Current month blends realized till today + projected till end of month
+         const diasNoMes = new Date(numViewYear, m + 1, 0).getDate();
+         const taxaDiariaReal = diaAtualHoje > 0 ? (transacoesPorMes[m].receita / diaAtualHoje) : avgReceitaDiaria;
+         const projMesCorrente = acumuladoReceita + (taxaDiariaReal * (diasNoMes - diaAtualHoje));
+         
+         chartData.push({ axis: namesMeses[m], Realizado: acumuladoReceita, Projetado: projMesCorrente });
+         projGeralAnterior = projMesCorrente;
+      } else {
+         // Future month
+         projGeralAnterior += avgReceitaMensal;
+         chartData.push({ axis: namesMeses[m], Projetado: projGeralAnterior });
+      }
+    }
+    projecaoFimView = projGeralAnterior;
+  }
+
+  const saldoLiquido = totalReceitaView - totalDespesaView;
+  const margem = totalReceitaView > 0 ? ((saldoLiquido / totalReceitaView) * 100).toFixed(1) : '0.0';
+
+
 
   const filteredExpenses = expenses.filter((exp: any) => {
     const matchesSearch = exp.description.toLowerCase().includes(searchQuery.toLowerCase()) || exp.category.toLowerCase().includes(searchQuery.toLowerCase());
@@ -2897,6 +4276,31 @@ const FinanceiroView = ({ expenses, setExpenses, isDarkMode = true }: any) => {
     return matchesSearch && matchesFilter;
   });
 
+  const handleExportExcel = () => {
+    if (filteredExpenses.length === 0) {
+      alert('Nenhum dado para exportar com os filtros atuais.');
+      return;
+    }
+
+    const dataToExport = filteredExpenses.map((exp: any) => ({
+      ID: exp.id,
+      Descrição: exp.description || '',
+      Categoria: exp.category || '',
+      Tipo: exp.type || '',
+      Quantidade: exp.quantity || 1,
+      Valor: exp.value || 0,
+      Vencimento: exp.dueDate || '',
+      Status: exp.status || '',
+      Recorrência: exp.recurrence || ''
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Resumo Financeiro');
+
+    // Generate Excel file and trigger download
+    XLSX.writeFile(workbook, 'relatorio_financeiro.xlsx');
+  };
   return (
     <div className="flex-1 flex flex-col relative overflow-hidden">
 
@@ -2913,7 +4317,10 @@ const FinanceiroView = ({ expenses, setExpenses, isDarkMode = true }: any) => {
           </div>
 
           <div className="flex items-center gap-4">
-            <button className={`bg-transparent border ${isDarkMode ? "border-zinc-800 hover:bg-zinc-900 text-white" : "border-[var(--border-default)] hover:bg-zinc-100 text-zinc-900"} font-semibold px-6 py-2.5 rounded-full flex items-center gap-2 transition-colors`}>
+            <button
+              onClick={handleExportExcel}
+              className={`bg-transparent border ${isDarkMode ? "border-zinc-800 hover:bg-zinc-900 text-white" : "border-[var(--border-default)] hover:bg-zinc-100 text-zinc-900"} font-semibold px-6 py-2.5 rounded-full flex items-center gap-2 transition-colors`}
+            >
               <Download size={18} />
               Exportar
             </button>
@@ -2948,124 +4355,291 @@ const FinanceiroView = ({ expenses, setExpenses, isDarkMode = true }: any) => {
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6 shrink-0">
               <div className="bg-[var(--bg-card)] border border-[var(--border-default)] rounded-2xl p-6 shrink-0 shadow-[var(--card-shadow)]">
                 <div className="flex items-center justify-between mb-4">
-                  <span className="text-[10px] font-bold text-zinc-500 tracking-wider uppercase">Receita Total</span>
+                  <span className="text-[10px] font-bold text-zinc-500 tracking-wider uppercase">Receita no {viewPeriod}</span>
                   <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-500">
                     <TrendingUp size={16} />
                   </div>
                 </div>
                 <div>
-                  <h3 className={`text-3xl font-bold ${isDarkMode ? "text-white" : "text-zinc-900"} mb-1`}>R$ 0,00</h3>
-                  <p className="text-emerald-500 text-xs font-medium">+0.0% <span className="text-zinc-500 font-normal">mês anterior</span></p>
+                  <h3 className={`text-3xl font-bold ${isDarkMode ? "text-white" : "text-zinc-900"} mb-1`}>{formatCurrency(totalReceitaView)}</h3>
+                  <p className="text-zinc-500 text-xs font-medium">Acumulado no período</p>
                 </div>
               </div>
 
               <div className="bg-[var(--bg-card)] border border-[var(--border-default)] rounded-2xl p-6 shrink-0 shadow-[var(--card-shadow)]">
                 <div className="flex items-center justify-between mb-4">
-                  <span className="text-[10px] font-bold text-zinc-500 tracking-wider uppercase">Despesas Totais</span>
+                  <span className="text-[10px] font-bold text-zinc-500 tracking-wider uppercase">Despesas no {viewPeriod}</span>
                   <div className="w-8 h-8 rounded-lg bg-red-500/10 flex items-center justify-center text-red-500">
                     <TrendingDown size={16} />
                   </div>
                 </div>
                 <div>
-                  <h3 className={`text-3xl font-bold ${isDarkMode ? "text-white" : "text-zinc-900"} mb-1`}>{formatCurrency(totalExpenses)}</h3>
-                  <p className="text-emerald-500 text-xs font-medium">+0.0% <span className="text-zinc-500 font-normal">mês anterior</span></p>
+                  <h3 className={`text-3xl font-bold ${isDarkMode ? "text-white" : "text-zinc-900"} mb-1`}>{formatCurrency(totalDespesaView)}</h3>
+                  <p className="text-zinc-500 text-xs font-medium">Total de saídas</p>
                 </div>
               </div>
 
               <div className="bg-[var(--bg-card)] border border-[var(--border-default)] rounded-2xl p-6 shrink-0 shadow-[var(--card-shadow)]">
                 <div className="flex items-center justify-between mb-4">
                   <span className="text-[10px] font-bold text-zinc-500 tracking-wider uppercase">Saldo Líquido</span>
-                  <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-500">
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${saldoLiquido >= 0 ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500'}`}>
                     <DollarSign size={16} />
                   </div>
                 </div>
                 <div>
-                  <h3 className="text-3xl font-bold text-emerald-500 mb-1">{formatCurrency(-totalExpenses)}</h3>
+                  <h3 className={`text-3xl font-bold mb-1 ${saldoLiquido >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>{formatCurrency(saldoLiquido)}</h3>
                 </div>
               </div>
 
               <div className="bg-[var(--bg-card)] border border-[var(--border-default)] rounded-2xl p-6 shrink-0 shadow-[var(--card-shadow)]">
                 <div className="flex items-center justify-between mb-4">
-                  <span className="text-[10px] font-bold text-zinc-500 tracking-wider uppercase">Margem</span>
+                  <span className="text-[10px] font-bold text-zinc-500 tracking-wider uppercase">Margem Atual</span>
                   <div className="w-8 h-8 rounded-lg bg-orange-500/10 flex items-center justify-center text-orange-500">
                     <PieChart size={16} />
                   </div>
                 </div>
                 <div>
-                  <h3 className={`text-3xl font-bold ${isDarkMode ? "text-white" : "text-zinc-900"} mb-1`}>0.0%</h3>
+                  <h3 className={`text-3xl font-bold ${isDarkMode ? "text-white" : "text-zinc-900"} mb-1`}>{margem}%</h3>
                 </div>
               </div>
             </div>
 
-            {/* Chart Area */}
             <div className="bg-[var(--bg-card)] border border-[var(--border-default)] rounded-2xl p-6 shrink-0 shadow-[var(--card-shadow)]">
               <div className="flex items-center justify-between mb-8">
-                <h3 className={`${isDarkMode ? "text-white" : "text-zinc-900"} font-bold text-lg`}>Receita x Despesa</h3>
+                <div className="flex items-center gap-4">
+                   <h3 className={`${isDarkMode ? "text-white" : "text-zinc-900"} font-bold text-lg`}>Acumulado: Histórico e Projeção</h3>
+                   {/* YEAR SELECTOR */}
+                   <div className="relative">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsViewYearDropdownOpen(!isViewYearDropdownOpen);
+                          setIsViewRangeDropdownOpen(false);
+                        }}
+                        className={`flex items-center gap-2 pl-3 pr-8 py-1.5 text-sm font-medium rounded-lg border focus:ring-2 focus:ring-orange-500 focus:outline-none transition-colors ${
+                          isDarkMode 
+                            ? "border-zinc-800 text-zinc-300 hover:border-zinc-700 hover:bg-zinc-800/50" 
+                            : "border-zinc-200 text-zinc-700 hover:border-zinc-300 hover:bg-zinc-50"
+                        }`}
+                      >
+                        <span>{viewYear}</span>
+                      </button>
+                      <ChevronDown size={14} className={`absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none transition-transform ${isViewYearDropdownOpen ? 'rotate-180' : ''}`} />
+                      
+                      {isViewYearDropdownOpen && (
+                        <div className={`absolute z-50 top-full mt-1 w-full min-w-[100px] rounded-xl border shadow-2xl overflow-hidden max-h-[250px] overflow-y-auto custom-scrollbar ${isDarkMode ? 'border-zinc-700/50 bg-[#0a0a0a]' : 'border-zinc-200 bg-white'}`}>
+                          {Array.from({ length: 21 }, (_, i) => (parseInt(currentYearStr) - 10 + i).toString()).map((yr) => (
+                            <button
+                              key={yr}
+                              type="button"
+                              onClick={() => { setViewYear(yr); setIsViewYearDropdownOpen(false); }}
+                              className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${viewYear === yr
+                                ? 'bg-gradient-to-r from-orange-600/30 to-transparent text-orange-500 font-medium'
+                                : isDarkMode ? 'text-white hover:bg-white/5' : 'text-zinc-900 hover:bg-zinc-100'
+                              }`}
+                            >
+                              {yr}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                   </div>
+                   
+                   {/* RANGE SELECTOR */}
+                   {viewPeriod !== 'Anual' && (
+                     <div className="relative">
+                        <button
+                           type="button"
+                           onClick={() => {
+                             setIsViewRangeDropdownOpen(!isViewRangeDropdownOpen);
+                             setIsViewYearDropdownOpen(false);
+                           }}
+                           className={`flex items-center gap-2 pl-3 pr-8 py-1.5 text-sm font-medium rounded-lg border focus:ring-2 focus:ring-orange-500 focus:outline-none transition-colors ${
+                             isDarkMode 
+                               ? "border-zinc-800 text-zinc-300 hover:border-zinc-700 hover:bg-zinc-800/50" 
+                               : "border-zinc-200 text-zinc-700 hover:border-zinc-300 hover:bg-zinc-50"
+                           }`}
+                        >
+                           <span>
+                             {viewPeriod === 'Mensal' && ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'][viewRange]}
+                             {viewPeriod === 'Trimestral' && ['1º Trimestre (Jan-Mar)', '2º Trimestre (Abr-Jun)', '3º Trimestre (Jul-Set)', '4º Trimestre (Out-Dez)'][viewRange]}
+                             {viewPeriod === 'Semestral' && ['1º Semestre (Jan-Jun)', '2º Semestre (Jul-Dez)'][viewRange]}
+                           </span>
+                        </button>
+                        <ChevronDown size={14} className={`absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none transition-transform ${isViewRangeDropdownOpen ? 'rotate-180' : ''}`} />
+
+                        {isViewRangeDropdownOpen && (
+                          <div className={`absolute z-50 top-full mt-1 min-w-[150px] rounded-xl border shadow-2xl overflow-hidden max-h-[300px] overflow-y-auto custom-scrollbar ${isDarkMode ? 'border-zinc-700/50 bg-[#0a0a0a]' : 'border-zinc-200 bg-white'}`}>
+                            {viewPeriod === 'Mensal' && ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'].map((m, i) => (
+                              <button
+                                key={i}
+                                type="button"
+                                onClick={() => { setViewRange(i); setIsViewRangeDropdownOpen(false); }}
+                                className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${viewRange === i
+                                  ? 'bg-gradient-to-r from-orange-600/30 to-transparent text-orange-500 font-medium'
+                                  : isDarkMode ? 'text-white hover:bg-white/5' : 'text-zinc-900 hover:bg-zinc-100'
+                                }`}
+                              >
+                                {m}
+                              </button>
+                            ))}
+                            {viewPeriod === 'Trimestral' && ['1º Trimestre (Jan-Mar)', '2º Trimestre (Abr-Jun)', '3º Trimestre (Jul-Set)', '4º Trimestre (Out-Dez)'].map((m, i) => (
+                              <button
+                                key={i}
+                                type="button"
+                                onClick={() => { setViewRange(i); setIsViewRangeDropdownOpen(false); }}
+                                className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${viewRange === i
+                                  ? 'bg-gradient-to-r from-orange-600/30 to-transparent text-orange-500 font-medium'
+                                  : isDarkMode ? 'text-white hover:bg-white/5' : 'text-zinc-900 hover:bg-zinc-100'
+                                }`}
+                              >
+                                {m}
+                              </button>
+                            ))}
+                            {viewPeriod === 'Semestral' && ['1º Semestre (Jan-Jun)', '2º Semestre (Jul-Dez)'].map((m, i) => (
+                              <button
+                                key={i}
+                                type="button"
+                                onClick={() => { setViewRange(i); setIsViewRangeDropdownOpen(false); }}
+                                className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${viewRange === i
+                                  ? 'bg-gradient-to-r from-orange-600/30 to-transparent text-orange-500 font-medium'
+                                  : isDarkMode ? 'text-white hover:bg-white/5' : 'text-zinc-900 hover:bg-zinc-100'
+                                }`}
+                              >
+                                {m}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                     </div>
+                   )}
+                </div>
+
                 <div className="segmented-control">
-                  {['Geral', 'Diário', 'Semanal', 'Mensal'].map(p => (
+                  {['Mensal', 'Trimestral', 'Semestral', 'Anual'].map(p => (
                     <button
                       key={p}
-                      onClick={() => setPeriodo(p)}
-                      className={`segmented-control-item ${periodo === p ? 'active' : ''}`}
+                      onClick={() => {
+                        setViewPeriod(p); 
+                        // Reset range to sensible defaults when switching periods
+                        if (p === 'Mensal') setViewRange(new Date().getMonth());
+                        else if (p === 'Trimestral') setViewRange(Math.floor(new Date().getMonth() / 3));
+                        else if (p === 'Semestral') setViewRange(Math.floor(new Date().getMonth() / 6));
+                      }}
+                      className={`segmented-control-item ${viewPeriod === p ? 'active' : ''}`}
                     >
                       {p}
                     </button>
                   ))}
                 </div>
               </div>
-              <div className="h-64 flex items-end justify-between gap-2 relative">
-                {/* Mock Chart Lines */}
-                <div className="absolute inset-0 flex flex-col justify-between pointer-events-none">
-                  {[50, 40, 30, 20, 10, 0].map(val => (
-                    <div key={val} className="flex items-center gap-4">
-                      <span className="text-[10px] text-zinc-600 w-8 text-right">R${val}K</span>
-                      <div className={`flex-1 border-t ${isDarkMode ? "border-zinc-800/50" : "border-zinc-200/50"} border-dashed`}></div>
-                    </div>
-                  ))}
-                </div>
-                {/* Mock Chart Bars */}
-                <div className="absolute bottom-6 left-12 right-0 h-[2px] bg-red-500/50 shadow-[0_0_10px_rgba(239,68,68,0.5)]"></div>
-
-                {/* X Axis Labels */}
-                <div className="absolute bottom-0 left-12 right-0 flex justify-between text-[10px] text-zinc-600">
-                  <span>01</span><span>03</span><span>05</span><span>07</span><span>09</span><span>11</span><span>13</span><span>15</span><span>17</span><span>19</span><span>21</span><span>23</span><span>25</span><span>28</span>
-                </div>
+              <div className="h-64 w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="colorRealizado" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
+                        <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                      </linearGradient>
+                      <linearGradient id="colorProjetado" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.2}/>
+                        <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke={isDarkMode ? '#27272a' : '#e4e4e7'} vertical={false} />
+                    <XAxis 
+                      dataKey="axis" 
+                      axisLine={false} 
+                      tickLine={false} 
+                      tick={{ fill: '#71717a', fontSize: 10 }} 
+                    />
+                    <YAxis 
+                      axisLine={false} 
+                      tickLine={false} 
+                      tick={{ fill: '#71717a', fontSize: 10 }}
+                      tickFormatter={(value) => `R$${value >= 1000 ? (value/1000).toFixed(1) + 'k' : value}`}
+                    />
+                    <Tooltip 
+                      contentStyle={{ backgroundColor: isDarkMode ? '#18181b' : '#ffffff', borderColor: isDarkMode ? '#27272a' : '#e4e4e7', borderRadius: '8px' }}
+                      itemStyle={{ fontSize: '12px' }}
+                      labelStyle={{ color: '#71717a', fontSize: '10px', marginBottom: '4px' }}
+                      formatter={(value: number) => formatCurrency(value)}
+                      labelFormatter={(label) => isDailyView ? `Dia ${label}` : label}
+                    />
+                    <Area 
+                      type="monotone" 
+                      dataKey="Projetado" 
+                      stroke="#8b5cf6" 
+                      strokeDasharray="5 5"
+                      fillOpacity={1} 
+                      fill="url(#colorProjetado)" 
+                      name="Projeção"
+                    />
+                    <Area 
+                      type="monotone" 
+                      dataKey="Realizado" 
+                      stroke="#10b981" 
+                      strokeWidth={2}
+                      fillOpacity={1} 
+                      fill="url(#colorRealizado)" 
+                      name="Faturado Real"
+                    />
+                    {isDailyView && numViewYear === anoAtualHoje && periodStartMonth === mesAtualHoje && (
+                      <ReferenceLine x={diaAtualHoje.toString().padStart(2, '0')} stroke={isDarkMode ? '#52525b' : '#a1a1aa'} strokeDasharray="3 3" label={{ position: 'top', value: 'Hoje', fill: '#71717a', fontSize: 10 }} />
+                    )}
+                  </AreaChart>
+                </ResponsiveContainer>
               </div>
             </div>
 
             {/* Bottom Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 shrink-0">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 shrink-0">
               <div className="bg-[var(--bg-card)] border border-[var(--border-default)] rounded-2xl p-6 flex flex-col justify-between shadow-[var(--card-shadow)]">
                 <div className="flex items-center justify-between mb-6">
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-500">
                       <CheckCircle2 size={16} />
                     </div>
-                    <h3 className={`${isDarkMode ? "text-white" : "text-zinc-900"} font-bold`}>Previsão Financeira</h3>
+                    <h3 className={`${isDarkMode ? "text-white" : "text-zinc-900"} font-bold`}>Desempenho no Período</h3>
                   </div>
-                  <span className="text-[10px] font-bold bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 px-2 py-1 rounded-md uppercase tracking-wider">Saudável</span>
+                  <span className={`text-[10px] font-bold px-2 py-1 rounded-md uppercase tracking-wider ${projecaoFimView > totalDespesaView ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' : 'bg-orange-500/10 text-orange-500 border border-orange-500/20'}`}>
+                    {projecaoFimView > totalDespesaView ? 'Positivo' : 'Atenção'}
+                  </span>
                 </div>
                 <div className="space-y-4">
                   <div className={`flex items-center justify-between border-b ${isDarkMode ? "border-zinc-800/50" : "border-zinc-200/50"} pb-4`}>
-                    <span className="text-sm text-zinc-400">Receita média (3m)</span>
-                    <span className={`text-sm font-bold ${isDarkMode ? "text-white" : "text-zinc-900"}`}>R$ 0,00</span>
+                    <span className="text-sm text-zinc-400">Total Faturado</span>
+                    <span className={`text-sm font-bold ${isDarkMode ? "text-white" : "text-zinc-900"}`}>{formatCurrency(totalReceitaView)}</span>
                   </div>
                   <div className={`flex items-center justify-between border-b ${isDarkMode ? "border-zinc-800/50" : "border-zinc-200/50"} pb-4`}>
-                    <span className="text-sm text-zinc-400">Despesa média (3m)</span>
-                    <span className={`text-sm font-bold ${isDarkMode ? "text-white" : "text-zinc-900"}`}>R$ 0,00</span>
+                    <span className="text-sm text-zinc-400">Média (12m)</span>
+                    <span className={`text-sm font-bold ${isDarkMode ? "text-white" : "text-zinc-900"}`}>{isDailyView ? `${formatCurrency(avgReceitaDiaria)}/dia` : `${formatCurrency(avgReceitaMensal)}/mês`}</span>
                   </div>
                   <div className={`flex items-center justify-between border-b ${isDarkMode ? "border-zinc-800/50" : "border-zinc-200/50"} pb-4`}>
-                    <span className="text-sm text-zinc-400">Despesas recorrentes</span>
-                    <span className={`text-sm font-bold ${isDarkMode ? "text-white" : "text-zinc-900"}`}>R$ 0,00</span>
+                    <span className="text-sm text-zinc-400">Despesas aplicadas</span>
+                    <span className={`text-sm font-bold text-red-500`}>{formatCurrency(totalDespesaView)}</span>
                   </div>
                   <div className="flex items-center justify-between pt-2">
-                    <span className={`text-sm font-bold ${isDarkMode ? "text-white" : "text-zinc-900"}`}>Projeção 30 dias</span>
-                    <span className="text-sm font-bold text-emerald-500">R$ 0,00</span>
+                    <span className={`text-sm font-bold ${isDarkMode ? "text-white" : "text-zinc-900"}`}>Projeção Fechamento</span>
+                    <span className="text-[16px] font-black text-emerald-500">{formatCurrency(projecaoFimView)}</span>
                   </div>
                 </div>
               </div>
 
-              <div className={`md:col-span-2 bg-[var(--bg-card)] border border-[var(--border-default)] rounded-2xl p-6 flex flex-col shadow-[var(--card-shadow)]`}>
+              <div className="bg-[var(--bg-card)] border border-[var(--border-default)] rounded-2xl p-6 flex flex-col justify-between shadow-[var(--card-shadow)]">
+                <div className="flex items-center justify-between mb-4">
+                  <span className="text-[10px] font-bold text-zinc-500 tracking-wider uppercase">Total Pendente</span>
+                  <div className="w-8 h-8 rounded-lg bg-yellow-500/10 flex items-center justify-center text-yellow-500">
+                    <Clock size={16} />
+                  </div>
+                </div>
+                <div>
+                  <h3 className="text-3xl font-bold text-yellow-500 mb-1">{formatCurrency(totalPendenteView)}</h3>
+                  <p className="text-zinc-500 text-xs">{pendentesLengthView} despesa(s) p/ este período</p>
+                </div>
+              </div>
+
+              <div className={`lg:col-span-2 bg-[var(--bg-card)] border border-[var(--border-default)] rounded-2xl p-6 flex flex-col shadow-[var(--card-shadow)]`}>
                 <h3 className={`${isDarkMode ? "text-white" : "text-zinc-900"} font-bold mb-6`}>Despesas por Categoria</h3>
                 <div className="flex-1 flex items-center justify-center">
                   <span className="text-sm text-zinc-500 italic">Sem despesas no período</span>
@@ -3110,7 +4684,8 @@ const FinanceiroView = ({ expenses, setExpenses, isDarkMode = true }: any) => {
                       <th className="p-4">Categoria</th>
                       <th className="p-4">Data</th>
                       <th className="p-4">Status</th>
-                      <th className="p-4 pr-6 text-right">Valor</th>
+                      <th className="p-4 text-right">Valor</th>
+                      <th className="p-4 pr-6 text-right w-24">Ações</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -3124,7 +4699,13 @@ const FinanceiroView = ({ expenses, setExpenses, isDarkMode = true }: any) => {
                             {item.status.toUpperCase()}
                           </span>
                         </td>
-                        <td className="p-4 pr-6 text-right text-red-500 font-mono text-sm">-{formatCurrency(item.value)}</td>
+                        <td className="p-4 text-right text-red-500 font-mono text-sm">-{formatCurrency(item.value)}</td>
+                        <td className="p-4 pr-6 text-right">
+                          <div className="flex justify-end gap-2">
+                            <button onClick={() => handleToggleStatus(item)} className="p-1.5 rounded-lg bg-zinc-500/10 text-zinc-500 hover:bg-emerald-500/20 hover:text-emerald-500 transition-colors" title="Alternar Status"><CheckCircle2 size={16} /></button>
+                            <button onClick={() => handleDeleteExpense(item.id)} className="p-1.5 rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500/20 transition-colors" title="Excluir"><Trash2 size={16} /></button>
+                          </div>
+                        </td>
                       </tr>
                     )) : (
                       <tr>
@@ -3150,8 +4731,8 @@ const FinanceiroView = ({ expenses, setExpenses, isDarkMode = true }: any) => {
                   </div>
                 </div>
                 <div>
-                  <h3 className="text-3xl font-bold text-yellow-500 mb-1">{formatCurrency(totalPending)}</h3>
-                  <p className="text-zinc-500 text-xs">{pendingExpenses.length} contas a pagar</p>
+                  <h3 className="text-3xl font-bold text-yellow-500 mb-1">{formatCurrency(totalPendenteView)}</h3>
+                  <p className="text-zinc-500 text-xs">{pendentesLengthView} despesa(s) a pagar neste período</p>
                 </div>
               </div>
 
@@ -3263,7 +4844,8 @@ const FinanceiroView = ({ expenses, setExpenses, isDarkMode = true }: any) => {
                       <th className="p-4">Vencimento</th>
                       <th className="p-4">Categoria</th>
                       <th className="p-4">Valor</th>
-                      <th className="p-4 pr-6 text-right">Status</th>
+                      <th className="p-4 text-right">Status</th>
+                      <th className="p-4 pr-6 text-right w-24">Ações</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -3273,10 +4855,16 @@ const FinanceiroView = ({ expenses, setExpenses, isDarkMode = true }: any) => {
                         <td className="p-4 text-zinc-400 text-sm">{item.dueDate}</td>
                         <td className="p-4 text-zinc-400 text-sm">{item.category}</td>
                         <td className="p-4 text-red-500 font-mono text-sm">{formatCurrency(item.value)}</td>
-                        <td className="p-4 pr-6 text-right">
+                        <td className="p-4 text-right">
                           <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full tracking-wider ${item.status === 'Pendente' ? 'bg-yellow-500/10 text-yellow-500 border border-yellow-500/20' : 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20'}`}>
                             {item.status.toUpperCase()}
                           </span>
+                        </td>
+                        <td className="p-4 pr-6 text-right">
+                          <div className="flex justify-end gap-2">
+                            <button onClick={() => handleToggleStatus(item)} className="p-1.5 rounded-lg bg-zinc-500/10 text-zinc-500 hover:bg-emerald-500/20 hover:text-emerald-500 transition-colors" title="Alternar Status"><CheckCircle2 size={16} /></button>
+                            <button onClick={() => handleDeleteExpense(item.id)} className="p-1.5 rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500/20 transition-colors" title="Excluir"><Trash2 size={16} /></button>
+                          </div>
                         </td>
                       </tr>
                     )) : (
@@ -3326,17 +4914,39 @@ const FinanceiroView = ({ expenses, setExpenses, isDarkMode = true }: any) => {
               </div>
 
               <div className="grid grid-cols-2 gap-4">
-                <div>
+                <div className="relative">
                   <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Categoria</label>
-                  <select
-                    value={category}
-                    onChange={(e) => setCategory(e.target.value)}
-                    className={`w-full ${isDarkMode ? "bg-[#050505] border-zinc-800" : "bg-[var(--bg-surface)] border-[var(--border-default)]"} border rounded-xl px-4 py-3 ${isDarkMode ? "text-white" : "text-zinc-900"} focus:outline-none focus:border-orange-500 transition-colors`}
-                  >
-                    {categories.map(cat => (
-                      <option key={cat} value={cat}>{cat}</option>
-                    ))}
-                  </select>
+                  {(() => {
+                    return (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => setIsCatDropdownOpen(!isCatDropdownOpen)}
+                          className={`w-full flex items-center justify-between ${isDarkMode ? 'bg-[#050505] border-zinc-800 text-white' : 'bg-white border-zinc-200 text-zinc-900'} border rounded-xl px-4 py-3 focus:outline-none focus:border-orange-500 transition-colors text-left text-sm`}
+                        >
+                          <span>{category}</span>
+                          <ChevronDown className={`w-4 h-4 text-zinc-400 transition-transform ${isCatDropdownOpen ? 'rotate-180' : ''}`} />
+                        </button>
+                        {isCatDropdownOpen && (
+                          <div className={`absolute z-50 w-full mt-1 rounded-xl border shadow-2xl overflow-hidden ${isDarkMode ? 'border-zinc-700/50 bg-[#0a0a0a]' : 'border-zinc-200 bg-white'}`}>
+                            {categories.map((cat) => (
+                              <button
+                                key={cat}
+                                type="button"
+                                onClick={() => { setCategory(cat); setIsCatDropdownOpen(false); }}
+                                className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${category === cat
+                                  ? 'bg-gradient-to-r from-orange-600/30 to-transparent text-orange-500 font-medium'
+                                  : isDarkMode ? 'text-white hover:bg-white/5' : 'text-zinc-900 hover:bg-zinc-100'
+                                  }`}
+                              >
+                                {cat}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
                 </div>
                 <div>
                   <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Quantidade</label>
@@ -3363,11 +4973,10 @@ const FinanceiroView = ({ expenses, setExpenses, isDarkMode = true }: any) => {
                 </div>
                 <div>
                   <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Vencimento</label>
-                  <input
-                    type="date"
-                    value={dueDate}
-                    onChange={(e) => setDueDate(e.target.value)}
-                    className={`w-full ${isDarkMode ? "bg-[#050505] border-zinc-800" : "bg-[var(--bg-surface)] border-[var(--border-default)]"} border rounded-xl px-4 py-3 ${isDarkMode ? "text-white" : "text-zinc-900"} focus:outline-none focus:border-orange-500 transition-colors`}
+                  <CustomDatePicker
+                    selectedDate={dueDate}
+                    onChange={(date: string) => setDueDate(date)}
+                    isDarkMode={isDarkMode}
                   />
                 </div>
               </div>
@@ -3376,15 +4985,17 @@ const FinanceiroView = ({ expenses, setExpenses, isDarkMode = true }: any) => {
                 <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Status</label>
                 <div className="grid grid-cols-2 gap-2">
                   <button
+                    type="button"
                     onClick={() => setStatus('Pendente')}
-                    className={`py-2.5 rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2 ${status === 'Pendente' ? 'premium-button-active' : (isDarkMode ? 'bg-[#050505] text-zinc-500 border border-zinc-800 hover:border-zinc-700' : 'bg-zinc-100 text-zinc-500 border border-zinc-200 hover:bg-zinc-200')}`}
+                    className={`py-2.5 rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2 ${status === 'Pendente' ? 'bg-orange-500/10 text-orange-500 border border-orange-500/50' : (isDarkMode ? 'bg-[#050505] text-zinc-500 border border-zinc-800 hover:border-zinc-700' : 'bg-zinc-100 text-zinc-500 border border-zinc-200 hover:bg-zinc-200')}`}
                   >
                     <Clock size={14} />
                     Pendente
                   </button>
                   <button
+                    type="button"
                     onClick={() => setStatus('Pago')}
-                    className={`py-2.5 rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2 ${status === 'Pago' ? 'premium-button-active' : (isDarkMode ? 'bg-[#050505] text-zinc-500 border border-zinc-800 hover:border-zinc-700' : 'bg-zinc-100 text-zinc-500 border border-zinc-200 hover:bg-zinc-200')}`}
+                    className={`py-2.5 rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2 ${status === 'Pago' ? 'bg-orange-500/10 text-orange-500 border border-orange-500/50' : (isDarkMode ? 'bg-[#050505] text-zinc-500 border border-zinc-800 hover:border-zinc-700' : 'bg-zinc-100 text-zinc-500 border border-zinc-200 hover:bg-zinc-200')}`}
                   >
                     <CheckCircle2 size={14} />
                     Pago
@@ -3398,8 +5009,9 @@ const FinanceiroView = ({ expenses, setExpenses, isDarkMode = true }: any) => {
                   {['Não', 'Mensal', 'Semanal'].map(rec => (
                     <button
                       key={rec}
+                      type="button"
                       onClick={() => setRecurrence(rec)}
-                      className={`py-2.5 rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2 ${recurrence === rec ? 'bg-zinc-800 text-white border border-zinc-700' : (isDarkMode ? 'bg-[#050505] text-zinc-500 border border-zinc-800 hover:border-zinc-700' : 'bg-zinc-100 text-zinc-500 border border-zinc-200 hover:bg-zinc-200 shadow-sm')}`}
+                      className={`py-2.5 rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2 ${recurrence === rec ? 'bg-orange-500/10 text-orange-500 border border-orange-500/50' : (isDarkMode ? 'bg-[#050505] text-zinc-500 border border-zinc-800 hover:border-zinc-700' : 'bg-zinc-100 text-zinc-500 border border-zinc-200 hover:bg-zinc-200 shadow-sm')}`}
                     >
                       {rec !== 'Não' && <TrendingUp size={14} className="rotate-90" />}
                       {rec}
@@ -3426,7 +5038,40 @@ const FinanceiroView = ({ expenses, setExpenses, isDarkMode = true }: any) => {
           </div>
         </div>
       )}
-    </div>
+
+      {/* Delete Confirmation Modal */}
+      {
+        isDeleteModalOpen && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
+            <div className={`${isDarkMode ? "bg-[#18181b] border-red-900/30 shadow-[0_0_40px_rgba(239,68,68,0.15)]" : "bg-white border-zinc-200 shadow-2xl"} rounded-3xl w-full max-w-sm border overflow-hidden animate-in zoom-in-95 duration-200`}>
+              <div className={`p-6 border-b ${isDarkMode ? "border-zinc-800/80" : "border-zinc-100"}`}>
+                <div className="flex items-center justify-center w-16 h-16 rounded-full bg-red-500/10 mb-6 mx-auto border border-red-500/20">
+                  <AlertTriangle className="w-8 h-8 text-red-500" />
+                </div>
+                <h3 className={`text-xl font-bold text-center mb-2 tracking-tight ${isDarkMode ? 'text-white' : 'text-zinc-900'}`}>Excluir Lançamento</h3>
+                <p className={`text-center text-sm ${isDarkMode ? 'text-zinc-400' : 'text-zinc-500'}`}>
+                  Deseja realmente excluir este lançamento? Esta ação é permanente e removerá o item do controle financeiro.
+                </p>
+              </div>
+              <div className={`p-4 gap-3 flex flex-col md:flex-row justify-end ${isDarkMode ? 'bg-[#0a0a0a]' : 'bg-zinc-50'}`}>
+                <button
+                  onClick={cancelDelete}
+                  className={`w-full md:w-auto px-5 py-2.5 text-sm font-semibold rounded-xl transition-all ${isDarkMode ? 'text-zinc-400 hover:text-white hover:bg-zinc-800' : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200'}`}
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={confirmDelete}
+                  className="w-full md:w-auto px-5 py-2.5 text-sm font-semibold text-white bg-red-500 hover:bg-red-600 rounded-xl transition-all shadow-[0_0_15px_rgba(239,68,68,0.3)] hover:shadow-[0_0_20px_rgba(239,68,68,0.5)] flex items-center justify-center gap-2"
+                >
+                  <Trash2 size={16} /> Excluir
+                </button>
+              </div>
+            </div>
+          </div>
+        )
+      }
+    </div >
   );
 };
 
@@ -3592,8 +5237,10 @@ A clínica apresenta um cenário de estabilidade no curto prazo, porém com opor
                   <div className="absolute left-8 right-0 top-0 bottom-6 flex flex-col justify-between pointer-events-none">
                     {[0, 1, 2, 3, 4, 5].map(i => <div key={i} className={`border-t ${isDarkMode ? "border-zinc-800/50" : "border-zinc-200/50"} border-dashed w-full h-0`}></div>)}
                   </div>
-                  {/* Chart Line */}
-                  <div className="absolute bottom-6 left-8 right-0 h-[2px] bg-emerald-500/50 shadow-[0_0_10px_rgba(16,185,129,0.5)]"></div>
+                  {/* Empty State */}
+                  <div className="absolute inset-0 left-8 bottom-6 flex items-center justify-center pointer-events-none">
+                    <span className="text-sm text-zinc-500 italic">Sem dados suficientes</span>
+                  </div>
                   {/* X Axis */}
                   <div className={`absolute bottom-0 left-8 right-0 flex justify-between text-[10px] text-zinc-600 border-t ${isDarkMode ? "border-zinc-800" : "border-zinc-200"} pt-2`}>
                     <span>set/25</span><span>out/25</span><span>nov/25</span><span>dez/25</span><span>jan/26</span><span>fev/26</span>
@@ -3701,7 +5348,7 @@ A clínica apresenta um cenário de estabilidade no curto prazo, porém com opor
                   </div>
                 </div>
                 <div>
-                  <h3 className={`text-3xl font-bold ${isDarkMode ? "text-white" : "text-zinc-900"} mb-1`}>5</h3>
+                  <h3 className={`text-3xl font-bold ${isDarkMode ? "text-white" : "text-zinc-900"} mb-1`}>0</h3>
                   <p className="text-[10px] font-bold text-zinc-500 tracking-wider uppercase">Novos Clientes <span className="font-normal normal-case block mt-1">Últimos 6 meses</span></p>
                 </div>
               </div>
@@ -3756,18 +5403,9 @@ A clínica apresenta um cenário de estabilidade no curto prazo, porém com opor
                     {[0, 1, 2, 3, 4].map(i => <div key={i} className={`border-t ${isDarkMode ? "border-zinc-800/50" : "border-zinc-200/50"} border-dashed w-full h-0`}></div>)}
                   </div>
 
-                  {/* Chart Line - Mocked SVG */}
-                  <div className="absolute inset-0 left-8 bottom-6 pointer-events-none">
-                    <svg width="100%" height="100%" preserveAspectRatio="none" viewBox="0 0 100 100">
-                      <path d="M 0 100 L 20 100 L 40 100 L 60 100 L 80 90 L 100 20" fill="none" stroke="#10b981" strokeWidth="1" vectorEffect="non-scaling-stroke" />
-                    </svg>
-                  </div>
-
-                  {/* Tooltip Mock */}
-                  <div className={`absolute left-[30%] top-[40%] ${isDarkMode ? "bg-[#121214]" : "bg-zinc-50"} border border-zinc-800 rounded-lg p-3 shadow-xl z-10`}>
-                    <div className="text-[10px] text-zinc-500 mb-1">set/25</div>
-                    <div className="text-xs font-bold text-blue-400">Novos: R$ 0,00</div>
-                    <div className="text-xs font-bold text-emerald-400">Recorrentes: R$ 0,00</div>
+                  {/* Empty State */}
+                  <div className="absolute inset-0 left-8 bottom-6 flex items-center justify-center pointer-events-none">
+                    <span className="text-sm text-zinc-500 italic">Sem dados suficientes</span>
                   </div>
 
                   {/* X Axis */}
@@ -3890,12 +5528,31 @@ const SettingsView = ({
   setMatrixRole,
   isSaving,
   handleSave,
-  isDarkMode = true
+  isDarkMode = true,
+  clinicConfig,
+  setClinicConfig,
+  aiConfig,
+  setAiConfig,
+  timeoutConfig,
+  setTimeoutConfig
 }: any) => {
-  const [faqs, setFaqs] = useState([{ q: 'Dói fazer botox?', a: 'Utilizamos pomada anestésica de alta eficácia para garantir o máximo de conforto.' }]);
+  const { nomeAssistente, tomDeVoz, systemPrompt, restricoes, diferenciais, faqs } = aiConfig || { nomeAssistente: '', tomDeVoz: 'Empático e Acolhedor', systemPrompt: '', restricoes: '', diferenciais: '', faqs: [] };
+  const [keyInput, setKeyInput] = useState('');
+  const [isProviderDropdownOpen, setIsProviderDropdownOpen] = useState(false);
+  const [isModelDropdownOpen, setIsModelDropdownOpen] = useState(false);
   const [workingDays, setWorkingDays] = useState([true, true, true, true, true, true, false]);
-  const [aiTone, setAiTone] = useState('Empático e Acolhedor');
   const [isToneDropdownOpen, setIsToneDropdownOpen] = useState(false);
+  const [conselhoClasse, setConselhoClasse] = useState('CRM');
+  const [isConselhoDropdownOpen, setIsConselhoDropdownOpen] = useState(false);
+  const [fusoHorario, setFusoHorario] = useState('America/Sao_Paulo');
+  const [isFusoDropdownOpen, setIsFusoDropdownOpen] = useState(false);
+  const [isEstadoDropdownOpen, setIsEstadoDropdownOpen] = useState(false);
+  const [openFinCatId, setOpenFinCatId] = useState<string | null>(null);
+  const [tipoComissao, setTipoComissao] = useState('Porcentagem (%)');
+  const [isComissaoDropdownOpen, setIsComissaoDropdownOpen] = useState(false);
+  const [regimeTributario, setRegimeTributario] = useState('Simples Nacional');
+  const [isRegimeDropdownOpen, setIsRegimeDropdownOpen] = useState(false);
+  const [isTimeoutDropdownOpen, setIsTimeoutDropdownOpen] = useState(false);
   const [paymentMethods, setPaymentMethods] = useState([
     { name: 'PIX', tax: '0.00', days: '0', active: true },
     { name: 'Cartão de Débito', tax: '1.99', days: '1', active: true },
@@ -3912,6 +5569,95 @@ const SettingsView = ({
     { id: '3', name: 'Fornecedores (Botox/Preenchedores)', type: 'Despesa' },
     { id: '4', name: 'Aluguel & Condomínio', type: 'Despesa' }
   ]);
+  const [valorComissao, setValorComissao] = useState('30');
+  const [aliquotaIss, setAliquotaIss] = useState('5.00');
+
+  // ── Financeiro & Fiscal ────────────────────────────────────
+  useEffect(() => {
+    const docRef = doc(db, 'configuracoes', 'financeiro_fiscal');
+    const unsub = onSnapshot(docRef, (snap) => {
+      if (!snap.exists()) return;
+      const d = snap.data();
+      if (d.paymentMethods) setPaymentMethods(d.paymentMethods);
+      if (d.finCategories) setFinCategories(d.finCategories);
+      if (d.discountCardTax !== undefined) setDiscountCardTax(d.discountCardTax);
+      if (d.discountProductCost !== undefined) setDiscountProductCost(d.discountProductCost);
+      if (d.tipoComissao) setTipoComissao(d.tipoComissao);
+      if (d.valorComissao) setValorComissao(d.valorComissao);
+      if (d.regimeTributario) setRegimeTributario(d.regimeTributario);
+      if (d.aliquotaIss) setAliquotaIss(d.aliquotaIss);
+      if (d.autoEmission !== undefined) setAutoEmission(d.autoEmission);
+    });
+    return () => unsub();
+  }, []);
+
+  const handleSavePayments = async () => {
+    await setDoc(doc(db, 'configuracoes', 'financeiro_fiscal'), { paymentMethods }, { merge: true });
+  };
+
+  const handleSaveCategories = async () => {
+    await setDoc(doc(db, 'configuracoes', 'financeiro_fiscal'), { finCategories }, { merge: true });
+  };
+
+  const handleSaveCommission = async () => {
+    await setDoc(doc(db, 'configuracoes', 'financeiro_fiscal'), {
+      discountCardTax, discountProductCost, tipoComissao, valorComissao
+    }, { merge: true });
+  };
+
+  const handleSaveFiscal = async () => {
+    await setDoc(doc(db, 'configuracoes', 'financeiro_fiscal'), {
+      regimeTributario, aliquotaIss, autoEmission
+    }, { merge: true });
+  };
+  // ──────────────────────────────────────────────────────────
+
+  // ── Integrações & API ──────────────────────────────────────
+  const [integrationConfig, setIntegrationConfig] = useState<any>({
+    webhookUrl: '',
+    webhookEvents: {
+      novoAgendamento: false,
+      agendamentoCancelado: false,
+      novoCliente: false,
+      pagamentoConfirmado: false,
+    },
+    connectedServices: {
+      whatsapp: false,
+      stripe: false,
+      googleCalendar: false,
+      rdStation: false,
+    }
+  });
+
+  useEffect(() => {
+    const docRef = doc(db, 'configuracoes', 'api_integracoes');
+    const unsub = onSnapshot(docRef, (snap) => {
+      if (snap.exists()) {
+        setIntegrationConfig((prev: any) => ({ ...prev, ...snap.data() }));
+      }
+    });
+    return () => unsub();
+  }, []);
+
+  const handleSaveIntegration = async () => {
+    await setDoc(doc(db, 'configuracoes', 'api_integracoes'), integrationConfig, { merge: true });
+  };
+
+  const toggleWebhookEvent = (key: string) => {
+    setIntegrationConfig((prev: any) => ({
+      ...prev,
+      webhookEvents: { ...prev.webhookEvents, [key]: !prev.webhookEvents[key] }
+    }));
+  };
+
+  const toggleConnectedService = (key: string) => {
+    setIntegrationConfig((prev: any) => ({
+      ...prev,
+      connectedServices: { ...prev.connectedServices, [key]: !prev.connectedServices[key] }
+    }));
+  };
+  // ───────────────────────────────────────────────────────────
+
 
   return (
     <div className="flex-1 flex flex-col relative overflow-hidden">
@@ -3933,6 +5679,9 @@ const SettingsView = ({
           <SettingsNavItem icon={<Bot size={20} />} title="IA & Automação" subtitle="Assistente, governança e logs" active={activeSettingsMenu === 'IA & Automação'} onClick={() => setActiveSettingsMenu('IA & Automação')} isDarkMode={isDarkMode} />
           <SettingsNavItem icon={<Webhook size={20} />} title="API & Integrações" subtitle="Chaves, webhooks e conexões" active={activeSettingsMenu === 'API & Integrações'} onClick={() => setActiveSettingsMenu('API & Integrações')} isDarkMode={isDarkMode} />
           <SettingsNavItem icon={<DollarSign size={20} />} title="Financeiro & Fiscal" subtitle="Categorias e configuração contábil" active={activeSettingsMenu === 'Financeiro & Fiscal'} onClick={() => setActiveSettingsMenu('Financeiro & Fiscal')} isDarkMode={isDarkMode} />
+          {role === 'admin' && (
+            <SettingsNavItem icon={<Shield size={20} />} title="Segurança & Acessos" subtitle="Timeout e políticas de sessão" active={activeSettingsMenu === 'Segurança & Acessos'} onClick={() => setActiveSettingsMenu('Segurança & Acessos')} isDarkMode={isDarkMode} />
+          )}
         </div>
 
         {/* Settings Content */}
@@ -4023,23 +5772,12 @@ const SettingsView = ({
                   <span className={`font-semibold ${isDarkMode ? "text-zinc-300" : "text-zinc-900"}`}>Bloqueado</span>
                   <span className="text-zinc-500">Admin sempre possui todas as permissões.</span>
                 </div>
-                <button
+                <SaveButton
+                  defaultText="Salvar Configuração"
+                  savedText="Configuração Salva"
                   onClick={handleSave}
-                  disabled={isSaving}
-                  className={`px-6 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${isSaving
-                    ? 'bg-emerald-500/20 text-emerald-500 border border-emerald-500/50 cursor-default'
-                    : 'bg-orange-500 hover:bg-orange-600 text-white'
-                    }`}
-                >
-                  {isSaving ? (
-                    <>
-                      <CheckCircle2 size={16} />
-                      Configuração Salva
-                    </>
-                  ) : (
-                    'Salvar Configuração'
-                  )}
-                </button>
+                  isDarkMode={isDarkMode}
+                />
               </div>
             </div>
 
@@ -4111,25 +5849,25 @@ const SettingsView = ({
                       </div>
                     ) : (
                       <div className="flex flex-col gap-3">
-                        {pendingUsers.map(([email]: any) => (
-                          <div key={email} className={`flex items-center justify-between p-4 rounded-xl border ${isDarkMode ? "border-zinc-800/50" : "border-zinc-200/50"} ${isDarkMode ? "bg-zinc-900/20" : "bg-[var(--bg-card)] shadow-sm"}`}>
+                        {pendingUsers.map(([email, status, id, name]: any) => (
+                          <div key={id} className={`flex items-center justify-between p-4 rounded-xl border ${isDarkMode ? "border-zinc-800/50" : "border-zinc-200/50"} ${isDarkMode ? "bg-zinc-900/20" : "bg-[var(--bg-card)] shadow-sm"}`}>
                             <div className="flex items-center gap-4">
                               <div className="w-10 h-10 rounded-full bg-orange-500/20 flex items-center justify-center text-orange-500 font-bold">
-                                {email.charAt(0).toUpperCase()}
+                                {(name || email).charAt(0).toUpperCase()}
                               </div>
                               <div>
                                 <div className="flex items-center gap-2">
-                                  <span className={`font-medium ${isDarkMode ? "text-white" : "text-zinc-900"}`}>{email.split('@')[0]}</span>
+                                  <span className={`font-medium ${isDarkMode ? "text-white" : "text-zinc-900"}`}>{name || email.split('@')[0]}</span>
                                   <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-zinc-800 text-zinc-400 tracking-wider">PROFISSIONAL</span>
                                 </div>
                                 <div className="text-xs text-zinc-500 mt-0.5">{email} • Solicitado recentemente</div>
                               </div>
                             </div>
                             <div className="flex items-center gap-2">
-                              <button onClick={() => handleDeny(email)} className="px-4 py-2 rounded-lg text-sm font-medium text-red-400 hover:bg-red-400/10 border border-red-900/30 transition-colors">
+                              <button onClick={() => handleDeny(id)} className="px-4 py-2 rounded-lg text-sm font-medium text-red-400 hover:bg-red-400/10 border border-red-900/30 transition-colors">
                                 Negar
                               </button>
-                              <button onClick={() => handleApprove(email)} className="px-4 py-2 rounded-lg text-sm font-medium text-emerald-400 hover:bg-emerald-400/10 border border-emerald-900/30 transition-colors">
+                              <button onClick={() => handleApprove(id)} className="px-4 py-2 rounded-lg text-sm font-medium text-emerald-400 hover:bg-emerald-400/10 border border-emerald-900/30 transition-colors">
                                 Aprovar
                               </button>
                             </div>
@@ -4156,21 +5894,21 @@ const SettingsView = ({
                       </div>
                     ) : (
                       <div className="flex flex-col gap-3">
-                        {approvedUsers.map(([email]: any) => (
-                          <div key={email} className={`flex items-center justify-between p-4 rounded-xl border ${isDarkMode ? "border-zinc-800/50" : "border-zinc-200/50"} ${isDarkMode ? "bg-zinc-900/20" : "bg-[var(--bg-card)] shadow-sm"}`}>
+                        {approvedUsers.map(([email, status, id, name]: any) => (
+                          <div key={id} className={`flex items-center justify-between p-4 rounded-xl border ${isDarkMode ? "border-zinc-800/50" : "border-zinc-200/50"} ${isDarkMode ? "bg-zinc-900/20" : "bg-[var(--bg-card)] shadow-sm"}`}>
                             <div className="flex items-center gap-4">
                               <div className="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-500 font-bold">
-                                {email.charAt(0).toUpperCase()}
+                                {(name || email).charAt(0).toUpperCase()}
                               </div>
                               <div>
                                 <div className="flex items-center gap-2">
-                                  <span className={`font-medium ${isDarkMode ? "text-white" : "text-zinc-900"}`}>{email.split('@')[0]}</span>
+                                  <span className={`font-medium ${isDarkMode ? "text-white" : "text-zinc-900"}`}>{name || email.split('@')[0]}</span>
                                   <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-zinc-800 text-zinc-400 tracking-wider">PROFISSIONAL</span>
                                 </div>
                                 <div className="text-xs text-zinc-500 mt-0.5">{email}</div>
                               </div>
                             </div>
-                            <button onClick={() => handleDeny(email)} className={`px-4 py-2 rounded-lg text-sm font-medium text-zinc-400 hover:${isDarkMode ? "text-white" : "text-zinc-900"} ${isDarkMode ? "hover:bg-zinc-800" : "hover:bg-zinc-100"} border border-zinc-700 transition-colors`}>
+                            <button onClick={() => handleDeny(id)} className={`px-4 py-2 rounded-lg text-sm font-medium text-zinc-400 hover:${isDarkMode ? "text-white" : "text-zinc-900"} ${isDarkMode ? "hover:bg-zinc-800" : "hover:bg-zinc-100"} border border-zinc-700 transition-colors`}>
                               Revogar Acesso
                             </button>
                           </div>
@@ -4255,12 +5993,16 @@ const SettingsView = ({
 
               <div className="flex flex-col gap-6">
                 <div className="flex items-center gap-6">
-                  <div onClick={() => alert('Abrindo galeria de mídia para seleção de imagem...')} className={`w-24 h-24 rounded-2xl bg-zinc-900 border ${isDarkMode ? "border-zinc-800" : "border-zinc-200"} flex items-center justify-center relative group cursor-pointer overflow-hidden`}>
+                  <div onClick={() => document.getElementById('logo-upload')?.click()} className={`w-24 h-24 rounded-2xl bg-zinc-900 border ${isDarkMode ? "border-zinc-800" : "border-zinc-200"} flex items-center justify-center relative group cursor-pointer overflow-hidden`}>
+                    {clinicConfig.logoUrl ? (
+                      <img src={clinicConfig.logoUrl} alt="Logo da Clínica" className="w-full h-full object-cover" />
+                    ) : (
+                      <Building2 size={32} className="text-zinc-600 group-hover:opacity-0 transition-opacity" />
+                    )}
                     <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                       <Upload size={20} className={`${isDarkMode ? "text-white" : "text-zinc-900"} mb-1`} />
                       <span className={`text-[10px] font-medium ${isDarkMode ? "text-white" : "text-zinc-900"}`}>Alterar Logo</span>
                     </div>
-                    <Building2 size={32} className="text-zinc-600 group-hover:opacity-0 transition-opacity" />
                   </div>
                   <div>
                     <h4 className={`text-sm font-medium ${isDarkMode ? "text-white" : "text-zinc-900"} mb-1`}>Logo da Clínica</h4>
@@ -4268,11 +6010,20 @@ const SettingsView = ({
                     <label className={`px-4 py-2 rounded-lg ${isDarkMode ? "bg-zinc-900 border-zinc-800 hover:bg-zinc-800" : "bg-white border-[var(--border-default)] hover:bg-zinc-50 shadow-sm"} border text-sm font-medium ${isDarkMode ? "text-white" : "text-zinc-900"} transition-colors cursor-pointer inline-block text-center`}>
                       Fazer Upload
                       <input
+                        id="logo-upload"
                         type="file"
                         accept="image/png, image/jpeg"
                         className="hidden"
                         onChange={(e) => {
-                          if (e.target.files && e.target.files.length > 0) alert('Nova logo selecionada com sucesso!');
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            const reader = new FileReader();
+                            reader.onloadend = () => {
+                              setClinicConfig({ ...clinicConfig, logoUrl: reader.result as string });
+                              alert('Nova logo selecionada com sucesso!');
+                            };
+                            reader.readAsDataURL(file);
+                          }
                         }}
                       />
                     </label>
@@ -4282,34 +6033,39 @@ const SettingsView = ({
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Nome Fantasia</label>
-                    <input type="text" defaultValue="EstéticaPro" className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800 text-white" : "bg-white border-zinc-200 text-zinc-900"} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors`} />
+                    <input type="text" value={clinicConfig.nomeFantasia} onChange={e => setClinicConfig({ ...clinicConfig, nomeFantasia: e.target.value })} className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800 text-white" : "bg-white border-zinc-200 text-zinc-900"} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors`} />
                   </div>
                   <div>
                     <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Razão Social</label>
-                    <input type="text" defaultValue="EstéticaPro Clínica LTDA" className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800 text-white" : "bg-white border-zinc-200 text-zinc-900"} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors`} />
+                    <input type="text" value={clinicConfig.razaoSocial} onChange={e => setClinicConfig({ ...clinicConfig, razaoSocial: e.target.value })} className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800 text-white" : "bg-white border-zinc-200 text-zinc-900"} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors`} />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-3 gap-4">
                   <div>
                     <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">CNPJ / CPF</label>
-                    <input type="text" defaultValue="00.000.000/0001-00" className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800 text-white" : "bg-white border-zinc-200 text-zinc-900"} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors`} />
+                    <input type="text" value={clinicConfig.cnpj} onChange={e => setClinicConfig({ ...clinicConfig, cnpj: e.target.value })} className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800 text-white" : "bg-white border-zinc-200 text-zinc-900"} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors`} />
                   </div>
                   <div>
                     <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Inscrição Municipal</label>
-                    <input type="text" placeholder="Opcional" className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800 text-white" : "bg-white border-zinc-200 text-zinc-900"} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors`} />
+                    <input type="text" value={clinicConfig.inscricaoMunicipal} onChange={e => setClinicConfig({ ...clinicConfig, inscricaoMunicipal: e.target.value })} placeholder="Opcional" className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800 text-white" : "bg-white border-zinc-200 text-zinc-900"} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors`} />
                   </div>
                   <div>
                     <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Inscrição Estadual</label>
-                    <input type="text" placeholder="Opcional" className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800 text-white" : "bg-white border-zinc-200 text-zinc-900"} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors`} />
+                    <input type="text" value={clinicConfig.inscricaoEstadual} onChange={e => setClinicConfig({ ...clinicConfig, inscricaoEstadual: e.target.value })} placeholder="Opcional" className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800 text-white" : "bg-white border-zinc-200 text-zinc-900"} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors`} />
                   </div>
                 </div>
               </div>
 
               <div className="mt-6 flex justify-end">
-                <button onClick={() => alert('Perfil da clínica atualizado!')} className={`px-6 py-2 rounded-lg bg-orange-500 hover:bg-orange-600 ${isDarkMode ? "text-white" : "text-zinc-900"} text-sm font-medium transition-colors`}>
-                  Salvar Perfil
-                </button>
+                <SaveButton
+                  onClick={async () => {
+                    await setDoc(doc(db, 'configuracoes', 'conta_organizacao'), clinicConfig);
+                  }}
+                  defaultText="Salvar Perfil"
+                  savedText="Perfil Salvo"
+                  isDarkMode={isDarkMode}
+                />
               </div>
             </div>
 
@@ -4324,60 +6080,92 @@ const SettingsView = ({
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">E-mail Principal</label>
-                    <input type="email" defaultValue="contato@esteticapro.com" className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800 text-white" : "bg-white border-zinc-200 text-zinc-900"} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors`} />
+                    <input type="email" value={clinicConfig.email} onChange={e => setClinicConfig({ ...clinicConfig, email: e.target.value })} className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800 text-white" : "bg-white border-zinc-200 text-zinc-900"} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors`} />
                   </div>
                   <div>
                     <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Telefone / WhatsApp</label>
-                    <input type="text" defaultValue="(11) 99999-9999" className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800 text-white" : "bg-white border-zinc-200 text-zinc-900"} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors`} />
+                    <input type="text" value={clinicConfig.telefone} onChange={e => setClinicConfig({ ...clinicConfig, telefone: e.target.value })} className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800 text-white" : "bg-white border-zinc-200 text-zinc-900"} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors`} />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-4 gap-4">
                   <div className="col-span-1">
                     <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">CEP</label>
-                    <input type="text" defaultValue="00000-000" className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800 text-white" : "bg-white border-zinc-200 text-zinc-900"} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors`} />
+                    <input type="text" value={clinicConfig.cep} onChange={e => setClinicConfig({ ...clinicConfig, cep: e.target.value })} className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800 text-white" : "bg-white border-zinc-200 text-zinc-900"} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors`} />
                   </div>
                   <div className="col-span-3">
                     <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Logradouro</label>
-                    <input type="text" defaultValue="Av. Paulista" className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800 text-white" : "bg-white border-zinc-200 text-zinc-900"} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors`} />
+                    <input type="text" value={clinicConfig.logradouro} onChange={e => setClinicConfig({ ...clinicConfig, logradouro: e.target.value })} className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800 text-white" : "bg-white border-zinc-200 text-zinc-900"} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors`} />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-4 gap-4">
                   <div className="col-span-1">
                     <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Número</label>
-                    <input type="text" defaultValue="1000" className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800 text-white" : "bg-white border-zinc-200 text-zinc-900"} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors`} />
+                    <input type="text" value={clinicConfig.numero} onChange={e => setClinicConfig({ ...clinicConfig, numero: e.target.value })} className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800 text-white" : "bg-white border-zinc-200 text-zinc-900"} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors`} />
                   </div>
                   <div className="col-span-1">
                     <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Complemento</label>
-                    <input type="text" placeholder="Sala 101" className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800 text-white" : "bg-white border-zinc-200 text-zinc-900"} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors`} />
+                    <input type="text" value={clinicConfig.complemento} onChange={e => setClinicConfig({ ...clinicConfig, complemento: e.target.value })} placeholder="Sala 101" className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800 text-white" : "bg-white border-zinc-200 text-zinc-900"} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors`} />
                   </div>
                   <div className="col-span-2">
                     <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Bairro</label>
-                    <input type="text" defaultValue="Bela Vista" className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800 text-white" : "bg-white border-zinc-200 text-zinc-900"} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors`} />
+                    <input type="text" value={clinicConfig.bairro} onChange={e => setClinicConfig({ ...clinicConfig, bairro: e.target.value })} className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800 text-white" : "bg-white border-zinc-200 text-zinc-900"} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors`} />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-3 gap-4">
                   <div className="col-span-2">
                     <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Cidade</label>
-                    <input type="text" defaultValue="São Paulo" className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800 text-white" : "bg-white border-zinc-200 text-zinc-900"} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors`} />
+                    <input type="text" value={clinicConfig.cidade} onChange={e => setClinicConfig({ ...clinicConfig, cidade: e.target.value })} className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800 text-white" : "bg-white border-zinc-200 text-zinc-900"} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors`} />
                   </div>
-                  <div className="col-span-1">
+                  <div className="col-span-1 relative">
                     <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Estado</label>
-                    <select className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800 text-white" : "bg-white border-zinc-200 text-zinc-900"} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors`}>
-                      <option value="SP">SP</option>
-                      <option value="RJ">RJ</option>
-                      <option value="MG">MG</option>
-                    </select>
+                    {(() => {
+                      const estadoOptions = ['SP', 'RJ', 'MG'];
+                      return (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => setIsEstadoDropdownOpen(!isEstadoDropdownOpen)}
+                            className={`w-full flex items-center justify-between ${isDarkMode ? 'bg-[#121214] border-zinc-800 text-white' : 'bg-white border-zinc-200 text-zinc-900'} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors text-left`}
+                          >
+                            <span>{clinicConfig.estado}</span>
+                            <ChevronDown className={`w-4 h-4 text-zinc-400 transition-transform ${isEstadoDropdownOpen ? 'rotate-180' : ''}`} />
+                          </button>
+                          {isEstadoDropdownOpen && (
+                            <div className={`absolute z-50 w-full mt-1 rounded-xl border shadow-2xl overflow-hidden ${isDarkMode ? 'border-zinc-700/50 bg-[#0a0a0a]' : 'border-zinc-200 bg-white'}`}>
+                              {estadoOptions.map((opt) => (
+                                <button
+                                  key={opt}
+                                  type="button"
+                                  onClick={() => { setClinicConfig({ ...clinicConfig, estado: opt }); setIsEstadoDropdownOpen(false); }}
+                                  className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${clinicConfig.estado === opt
+                                    ? 'bg-gradient-to-r from-orange-600/30 to-transparent text-orange-500 font-medium'
+                                    : isDarkMode ? 'text-white hover:bg-white/5' : 'text-zinc-900 hover:bg-zinc-100'
+                                    }`}
+                                >
+                                  {opt}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
                   </div>
                 </div>
               </div>
 
               <div className="mt-6 flex justify-end">
-                <button onClick={() => alert('Informações de contato e endereço salvas!')} className={`px-6 py-2 rounded-lg bg-orange-500 hover:bg-orange-600 ${isDarkMode ? "text-white" : "text-zinc-900"} text-sm font-medium transition-colors`}>
-                  Salvar Contato
-                </button>
+                <SaveButton
+                  onClick={async () => {
+                    await setDoc(doc(db, 'configuracoes', 'conta_organizacao'), clinicConfig);
+                  }}
+                  defaultText="Salvar Contato"
+                  savedText="Contato Salvo"
+                  isDarkMode={isDarkMode}
+                />
               </div>
             </div>
 
@@ -4391,29 +6179,58 @@ const SettingsView = ({
               <div className="grid grid-cols-2 gap-4">
                 <div className="col-span-2">
                   <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Nome do Responsável</label>
-                  <input type="text" defaultValue="Dra. Ana Costa" className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800 text-white" : "bg-white border-zinc-200 text-zinc-900"} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors`} />
+                  <input type="text" value={clinicConfig.nomeResponsavel} onChange={e => setClinicConfig({ ...clinicConfig, nomeResponsavel: e.target.value })} placeholder="Ex: Dra. Ana Costa" className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800 text-white" : "bg-white border-zinc-200 text-zinc-900"} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors`} />
                 </div>
-                <div>
+                <div className="relative">
                   <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Conselho de Classe</label>
-                  <select className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800 text-white" : "bg-white border-zinc-200 text-zinc-900"} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors`}>
-                    <option value="CRM">CRM</option>
-                    <option value="CRO">CRO</option>
-                    <option value="COREN">COREN</option>
-                    <option value="CRF">CRF</option>
-                    <option value="CREFITO">CREFITO</option>
-                    <option value="Biomedicina">Biomedicina</option>
-                  </select>
+                  {(() => {
+                    const conselhoOptions = ['CRM', 'CRO', 'COREN', 'CRF', 'CREFITO', 'Biomedicina'];
+                    return (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => setIsConselhoDropdownOpen(!isConselhoDropdownOpen)}
+                          className={`w-full flex items-center justify-between ${isDarkMode ? 'bg-[#121214] border-zinc-800 text-white' : 'bg-white border-zinc-200 text-zinc-900'} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors text-left`}
+                        >
+                          <span>{clinicConfig.conselhoClasse}</span>
+                          <ChevronDown className={`w-4 h-4 text-zinc-400 transition-transform ${isConselhoDropdownOpen ? 'rotate-180' : ''}`} />
+                        </button>
+                        {isConselhoDropdownOpen && (
+                          <div className={`absolute z-50 w-full mt-1 rounded-xl border shadow-2xl overflow-hidden ${isDarkMode ? 'border-zinc-700/50 bg-[#0a0a0a]' : 'border-zinc-200 bg-white'}`}>
+                            {conselhoOptions.map((opt) => (
+                              <button
+                                key={opt}
+                                type="button"
+                                onClick={() => { setClinicConfig({ ...clinicConfig, conselhoClasse: opt }); setIsConselhoDropdownOpen(false); }}
+                                className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${clinicConfig.conselhoClasse === opt
+                                  ? 'bg-gradient-to-r from-orange-600/30 to-transparent text-orange-500 font-medium'
+                                  : isDarkMode ? 'text-white hover:bg-white/5' : 'text-zinc-900 hover:bg-zinc-100'
+                                  }`}
+                              >
+                                {opt}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
                 </div>
                 <div>
                   <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Número de Registro</label>
-                  <input type="text" defaultValue="123456-SP" className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800 text-white" : "bg-white border-zinc-200 text-zinc-900"} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors`} />
+                  <input type="text" value={clinicConfig.registroConselho} onChange={e => setClinicConfig({ ...clinicConfig, registroConselho: e.target.value })} placeholder="Ex: 123456-SP" className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800 text-white" : "bg-white border-zinc-200 text-zinc-900"} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors`} />
                 </div>
               </div>
 
               <div className="mt-6 flex justify-end">
-                <button onClick={() => alert('Dados do Responsável Técnico registrados!')} className={`px-6 py-2 rounded-lg bg-orange-500 hover:bg-orange-600 ${isDarkMode ? "text-white" : "text-zinc-900"} text-sm font-medium transition-colors`}>
-                  Salvar Responsável
-                </button>
+                <SaveButton
+                  onClick={async () => {
+                    await setDoc(doc(db, 'configuracoes', 'conta_organizacao'), clinicConfig);
+                  }}
+                  defaultText="Salvar Responsável"
+                  savedText="Responsável Salvo"
+                  isDarkMode={isDarkMode}
+                />
               </div>
             </div>
 
@@ -4461,21 +6278,57 @@ const SettingsView = ({
                   </div>
                 </div>
 
-                <div>
+                <div className="relative">
                   <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Fuso Horário (Timezone)</label>
-                  <select className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800 text-white" : "bg-white border-zinc-200 text-zinc-900"} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors`}>
-                    <option value="America/Sao_Paulo">(GMT-03:00) Horário de Brasília (São Paulo)</option>
-                    <option value="America/Manaus">(GMT-04:00) Manaus</option>
-                    <option value="America/Rio_Branco">(GMT-05:00) Rio Branco</option>
-                  </select>
+                  {(() => {
+                    const fusoOptions = [
+                      { value: 'America/Sao_Paulo', label: '(GMT-03:00) Horário de Brasília (São Paulo)' },
+                      { value: 'America/Manaus', label: '(GMT-04:00) Manaus' },
+                      { value: 'America/Rio_Branco', label: '(GMT-05:00) Rio Branco' },
+                    ];
+                    return (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => setIsFusoDropdownOpen(!isFusoDropdownOpen)}
+                          className={`w-full flex items-center justify-between ${isDarkMode ? 'bg-[#121214] border-zinc-800 text-white' : 'bg-white border-zinc-200 text-zinc-900'} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors text-left`}
+                        >
+                          <span>{fusoOptions.find(o => o.value === fusoHorario)?.label || fusoHorario}</span>
+                          <ChevronDown className={`w-4 h-4 text-zinc-400 transition-transform ${isFusoDropdownOpen ? 'rotate-180' : ''}`} />
+                        </button>
+                        {isFusoDropdownOpen && (
+                          <div className={`absolute z-50 w-full mt-1 rounded-xl border shadow-2xl overflow-hidden ${isDarkMode ? 'border-zinc-700/50 bg-[#0a0a0a]' : 'border-zinc-200 bg-white'}`}>
+                            {fusoOptions.map((opt) => (
+                              <button
+                                key={opt.value}
+                                type="button"
+                                onClick={() => { setFusoHorario(opt.value); setIsFusoDropdownOpen(false); }}
+                                className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${fusoHorario === opt.value
+                                  ? 'bg-gradient-to-r from-orange-600/30 to-transparent text-orange-500 font-medium'
+                                  : isDarkMode ? 'text-white hover:bg-white/5' : 'text-zinc-900 hover:bg-zinc-100'
+                                  }`}
+                              >
+                                {opt.label}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
                   <p className="text-xs text-zinc-500 mt-2">Importante para garantir que lembretes de agendamento sejam enviados na hora certa.</p>
                 </div>
               </div>
 
               <div className="mt-6 flex justify-end">
-                <button onClick={() => alert('Grade de horários e fuso horário configurados!')} className={`px-6 py-2 rounded-lg bg-orange-500 hover:bg-orange-600 ${isDarkMode ? "text-white" : "text-zinc-900"} text-sm font-medium transition-colors`}>
-                  Salvar Configurações
-                </button>
+                <SaveButton
+                  onClick={async () => {
+                    await new Promise(r => setTimeout(r, 500)); // Simulating API call
+                  }}
+                  defaultText="Salvar Configurações"
+                  savedText="Configurações Salvas"
+                  isDarkMode={isDarkMode}
+                />
               </div>
             </div>
           </div>
@@ -4486,6 +6339,141 @@ const SettingsView = ({
             <div className="mb-8 shrink-0">
               <h2 className={`text-xl font-semibold ${isDarkMode ? "text-white" : "text-zinc-900"} mb-1`}>IA & Automação</h2>
               <p className={`text-sm ${isDarkMode ? "text-zinc-400" : "text-zinc-500"}`}>Treinamento, comportamento e base de conhecimento da IA.</p>
+            </div>
+
+            {/* Provedor de IA & API Key */}
+            <div className={` ${isDarkMode ? "bg-[#0c0c0e] border-zinc-800/80 shadow-black/50" : "bg-[var(--bg-card)] border-[var(--border-default)] shadow-[var(--card-shadow)]"} border rounded-xl p-6 mb-8 transition-colors duration-300 shrink-0 `}>
+              <div className="flex items-center gap-3 mb-6">
+                <Key className="text-zinc-400" size={20} />
+                <h3 className={`font-medium ${isDarkMode ? "text-white" : "text-zinc-900"}`}>Provedor de IA & Chave de API</h3>
+              </div>
+
+              <div className="flex flex-col gap-6">
+                {/* Provider Dropdown */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="relative">
+                    <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Provedor</label>
+                    <button
+                      type="button"
+                      onClick={() => setIsProviderDropdownOpen(!isProviderDropdownOpen)}
+                      className={`w-full flex items-center justify-between ${isDarkMode ? 'bg-[#121214] border-zinc-800 text-white' : 'bg-white border-zinc-200 text-zinc-900'} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors text-left`}
+                    >
+                      <span>{aiConfig?.apiProvider || 'Selecione o provedor'}</span>
+                      <ChevronDown className={`w-4 h-4 text-zinc-400 transition-transform ${isProviderDropdownOpen ? 'rotate-180' : ''}`} />
+                    </button>
+                    {isProviderDropdownOpen && (
+                      <div className={`absolute z-50 w-full mt-1 rounded-xl border shadow-2xl overflow-hidden ${isDarkMode ? 'border-zinc-700/50 bg-[#0a0a0a]' : 'border-zinc-200 bg-white'}`}>
+                        {['OpenAI', 'Anthropic (Claude)', 'Google (Gemini)'].map((prov) => (
+                          <button
+                            key={prov}
+                            type="button"
+                            onClick={() => { setAiConfig({ ...aiConfig, apiProvider: prov, aiModel: '' }); setIsProviderDropdownOpen(false); }}
+                            className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${aiConfig?.apiProvider === prov
+                              ? 'bg-gradient-to-r from-orange-600/30 to-transparent text-orange-500 font-medium'
+                              : isDarkMode ? 'text-white hover:bg-white/5' : 'text-zinc-900 hover:bg-zinc-100'
+                              }`}
+                          >
+                            {prov}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Model Dropdown */}
+                  <div className="relative">
+                    <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Modelo</label>
+                    {(() => {
+                      const modelMap: Record<string, string[]> = {
+                        'OpenAI': ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'gpt-3.5-turbo'],
+                        'Anthropic (Claude)': ['claude-sonnet-4-20250514', 'claude-3-5-haiku-20241022', 'claude-3-opus-20240229'],
+                        'Google (Gemini)': ['gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-2.0-flash'],
+                      };
+                      const models = modelMap[aiConfig?.apiProvider || ''] || [];
+                      return (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => models.length > 0 && setIsModelDropdownOpen(!isModelDropdownOpen)}
+                            className={`w-full flex items-center justify-between ${isDarkMode ? 'bg-[#121214] border-zinc-800 text-white' : 'bg-white border-zinc-200 text-zinc-900'} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors text-left ${models.length === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
+                          >
+                            <span>{aiConfig?.aiModel || (models.length === 0 ? 'Selecione o provedor primeiro' : 'Selecione o modelo')}</span>
+                            <ChevronDown className={`w-4 h-4 text-zinc-400 transition-transform ${isModelDropdownOpen ? 'rotate-180' : ''}`} />
+                          </button>
+                          {isModelDropdownOpen && models.length > 0 && (
+                            <div className={`absolute z-50 w-full mt-1 rounded-xl border shadow-2xl overflow-hidden ${isDarkMode ? 'border-zinc-700/50 bg-[#0a0a0a]' : 'border-zinc-200 bg-white'}`}>
+                              {models.map((model) => (
+                                <button
+                                  key={model}
+                                  type="button"
+                                  onClick={() => { setAiConfig({ ...aiConfig, aiModel: model }); setIsModelDropdownOpen(false); }}
+                                  className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${aiConfig?.aiModel === model
+                                    ? 'bg-gradient-to-r from-orange-600/30 to-transparent text-orange-500 font-medium'
+                                    : isDarkMode ? 'text-white hover:bg-white/5' : 'text-zinc-900 hover:bg-zinc-100'
+                                    }`}
+                                >
+                                  {model}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
+                  </div>
+                </div>
+
+                {/* API Key - Write Only */}
+                <div>
+                  <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Chave de API</label>
+                  {aiConfig?.apiKeyMasked ? (
+                    <div className={`flex items-center justify-between ${isDarkMode ? 'bg-[#121214] border-zinc-800' : 'bg-white border-zinc-200'} border rounded-xl px-4 py-3`}>
+                      <div className="flex items-center gap-3">
+                        <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></div>
+                        <span className={`text-sm font-mono ${isDarkMode ? 'text-zinc-300' : 'text-zinc-700'}`}>Chave vinculada: {aiConfig.apiKeyMasked}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const updated = { ...aiConfig, apiKey: '', apiKeyMasked: '' };
+                          setAiConfig(updated);
+                          const { apiKey: _removed, ...safeData } = updated;
+                          try { await setDoc(doc(db, 'configuracoes', 'ia_automacao'), safeData); } catch (e) { console.error(e); }
+                        }}
+                        className="text-xs text-red-500 hover:text-red-400 font-medium flex items-center gap-1 transition-colors"
+                      >
+                        <Trash2 size={14} /> Revogar e Substituir
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex gap-3">
+                      <input
+                        type="password"
+                        value={keyInput}
+                        onChange={(e) => setKeyInput(e.target.value)}
+                        placeholder="sk-proj-..."
+                        className={`flex-1 ${isDarkMode ? "bg-[#121214] border-zinc-800 text-white" : "bg-white border-zinc-200 text-zinc-900"} border rounded-xl px-4 py-2.5 text-sm font-mono focus:outline-none focus:border-orange-500 transition-colors`}
+                      />
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          if (!keyInput.trim() || !aiConfig?.apiProvider) { alert('Selecione um provedor e cole a chave.'); return; }
+                          const masked = keyInput.slice(0, 3) + '...' + keyInput.slice(-4);
+                          const updated = { ...aiConfig, apiKey: keyInput, apiKeyMasked: masked };
+                          setAiConfig(updated);
+                          setKeyInput('');
+                          const { apiKey: _removed, ...safeData } = updated;
+                          try { await setDoc(doc(db, 'configuracoes', 'ia_automacao'), safeData); alert('Chave vinculada com sucesso!'); } catch (e) { console.error(e); alert('Erro ao salvar.'); }
+                        }}
+                        className={`px-5 py-2.5 rounded-xl bg-gradient-to-r from-orange-400 to-orange-500 hover:from-orange-500 hover:to-orange-600 text-black text-sm font-semibold transition-all shadow-[0_0_15px_rgba(249,115,22,0.15)] flex items-center gap-2`}
+                      >
+                        <Key size={14} /> Vincular
+                      </button>
+                    </div>
+                  )}
+                  <p className="text-xs text-zinc-500 mt-2">A chave é mantida apenas na sessão atual por segurança. Após recarregar a página, será necessário reinserí-la.</p>
+                </div>
+              </div>
             </div>
 
             {/* Identidade e Comportamento */}
@@ -4499,7 +6487,7 @@ const SettingsView = ({
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Nome do Assistente</label>
-                    <input type="text" defaultValue="Estetix AI" className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800 text-white" : "bg-white border-zinc-200 text-zinc-900"} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors`} />
+                    <input type="text" value={nomeAssistente} onChange={e => setAiConfig({ ...aiConfig, nomeAssistente: e.target.value })} placeholder="Ex: Estetix AI" className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800 text-white" : "bg-white border-zinc-200 text-zinc-900"} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors`} />
                   </div>
                   <div>
                     <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Tom de Voz</label>
@@ -4509,7 +6497,7 @@ const SettingsView = ({
                         onClick={() => setIsToneDropdownOpen(!isToneDropdownOpen)}
                         className={`w-full flex items-center justify-between ${isDarkMode ? "bg-[#121214] border-zinc-800 text-white" : "bg-white border-zinc-200 text-zinc-900"} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors relative z-10`}
                       >
-                        {aiTone}
+                        {tomDeVoz}
                         <ChevronDown size={16} className={`transition-transform duration-200 ${isToneDropdownOpen ? 'rotate-180' : ''} text-zinc-500`} />
                       </button>
                       {isToneDropdownOpen && (
@@ -4521,18 +6509,18 @@ const SettingsView = ({
                           />
 
                           {/* Dropdown Menu */}
-                          <div className={`absolute top-full left-0 w-full mt-2 z-50 rounded-xl border shadow-xl overflow-hidden ${isDarkMode ? "bg-[#121214] border-zinc-800" : "bg-white border-zinc-200"}`}>
+                          <div className={`absolute top-full left-0 w-full mt-2 z-50 rounded-xl border shadow-2xl overflow-hidden ${isDarkMode ? "border-zinc-700/50 bg-[#0a0a0a]" : "border-zinc-200 bg-white"}`}>
                             {['Empático e Acolhedor', 'Profissional e Técnico', 'Descontraído e Jovem', 'Focado em Vendas'].map((tone) => (
                               <button
                                 key={tone}
                                 type="button"
                                 onClick={() => {
-                                  setAiTone(tone);
+                                  setAiConfig({ ...aiConfig, tomDeVoz: tone });
                                   setIsToneDropdownOpen(false);
                                 }}
-                                className={`w-full text-left px-4 py-2.5 text-sm transition-colors relative z-50 ${aiTone === tone
-                                  ? 'bg-orange-500/10 text-orange-500 font-medium'
-                                  : (isDarkMode ? 'text-zinc-300 hover:bg-zinc-800' : 'text-zinc-700 hover:bg-zinc-100')
+                                className={`w-full text-left px-4 py-2.5 text-sm transition-colors relative z-50 ${tomDeVoz === tone
+                                  ? 'bg-gradient-to-r from-orange-600/30 to-transparent text-orange-500 font-medium'
+                                  : (isDarkMode ? 'text-white hover:bg-white/5' : 'text-zinc-900 hover:bg-zinc-100')
                                   }`}
                               >
                                 {tone}
@@ -4547,20 +6535,25 @@ const SettingsView = ({
 
                 <div>
                   <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Instrução Base (System Prompt)</label>
-                  <textarea rows={4} defaultValue="Você é a assistente virtual da clínica EstéticaPro. Seu objetivo é tirar dúvidas sobre procedimentos, ser educada e incentivar o agendamento de avaliações." className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800" : "bg-[var(--bg-surface)] border-[var(--border-default)]"} border rounded-xl px-4 py-3 ${isDarkMode ? "text-white" : "text-zinc-900"} text-sm focus:outline-none focus:border-orange-500 transition-colors resize-none`}></textarea>
+                  <textarea rows={4} value={systemPrompt} onChange={e => setAiConfig({ ...aiConfig, systemPrompt: e.target.value })} placeholder="Defina o comportamento geral e o objetivo principal da IA." className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800" : "bg-[var(--bg-surface)] border-[var(--border-default)]"} border rounded-xl px-4 py-3 ${isDarkMode ? "text-white" : "text-zinc-900"} text-sm focus:outline-none focus:border-orange-500 transition-colors resize-none`}></textarea>
                   <p className="text-xs text-zinc-500 mt-2">Define o comportamento geral e o objetivo principal da IA.</p>
                 </div>
 
                 <div>
                   <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Restrições (O que NÃO fazer)</label>
-                  <textarea rows={3} defaultValue="- Nunca dê diagnósticos médicos.&#10;- Nunca prometa resultados 100% garantidos.&#10;- Não ofereça descontos além de 10%." className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800" : "bg-[var(--bg-surface)] border-[var(--border-default)]"} border rounded-xl px-4 py-3 ${isDarkMode ? "text-white" : "text-zinc-900"} text-sm focus:outline-none focus:border-orange-500 transition-colors resize-none`}></textarea>
+                  <textarea rows={3} value={restricoes} onChange={e => setAiConfig({ ...aiConfig, restricoes: e.target.value })} placeholder="- Nunca dê diagnósticos médicos.&#10;- Nunca prometa resultados 100% garantidos." className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800" : "bg-[var(--bg-surface)] border-[var(--border-default)]"} border rounded-xl px-4 py-3 ${isDarkMode ? "text-white" : "text-zinc-900"} text-sm focus:outline-none focus:border-orange-500 transition-colors resize-none`}></textarea>
                 </div>
               </div>
 
               <div className="mt-6 flex justify-end">
-                <button onClick={() => alert('Configurações de Identidade e Persona salvas com sucesso!')} className={`px-6 py-2 rounded-lg bg-orange-500 hover:bg-orange-600 ${isDarkMode ? "text-white" : "text-zinc-900"} text-sm font-medium transition-colors`}>
-                  Salvar Persona
-                </button>
+                <SaveButton
+                  onClick={async () => {
+                    await setDoc(doc(db, 'configuracoes', 'ia_automacao'), aiConfig);
+                  }}
+                  defaultText="Salvar Persona"
+                  savedText="Persona Salva"
+                  isDarkMode={isDarkMode}
+                />
               </div>
             </div>
 
@@ -4590,7 +6583,7 @@ const SettingsView = ({
                 {/* Diferenciais */}
                 <div>
                   <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Diferenciais da Clínica</label>
-                  <textarea rows={3} defaultValue="- Estacionamento gratuito no local com manobrista.&#10;- Utilizamos apenas produtos importados e aprovados pela ANVISA.&#10;- Oferecemos café expresso e capuccino para todos os clientes." className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800" : "bg-[var(--bg-surface)] border-[var(--border-default)]"} border rounded-xl px-4 py-3 ${isDarkMode ? "text-white" : "text-zinc-900"} text-sm focus:outline-none focus:border-orange-500 transition-colors resize-none`}></textarea>
+                  <textarea rows={3} value={diferenciais} onChange={e => setAiConfig({ ...aiConfig, diferenciais: e.target.value })} placeholder="- Estacionamento gratuito.&#10;- Produtos importados." className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800" : "bg-[var(--bg-surface)] border-[var(--border-default)]"} border rounded-xl px-4 py-3 ${isDarkMode ? "text-white" : "text-zinc-900"} text-sm focus:outline-none focus:border-orange-500 transition-colors resize-none`}></textarea>
                 </div>
 
                 {/* FAQ */}
@@ -4598,7 +6591,7 @@ const SettingsView = ({
                   <div className="flex items-center justify-between mb-3">
                     <label className="block text-[10px] font-bold text-zinc-500 tracking-wider uppercase">Perguntas Frequentes (FAQ)</label>
                     <button
-                      onClick={() => setFaqs([...faqs, { q: '', a: '' }])}
+                      onClick={() => setAiConfig({ ...aiConfig, faqs: [...faqs, { q: '', a: '' }] })}
                       className="text-xs text-orange-500 hover:text-orange-400 font-medium flex items-center gap-1"
                     >
                       <Plus size={14} /> Adicionar Pergunta
@@ -4612,17 +6605,17 @@ const SettingsView = ({
                           <input type="text" placeholder="Pergunta (Ex: Dói fazer botox?)" value={faq.q} onChange={(e) => {
                             const newFaqs = [...faqs];
                             newFaqs[index].q = e.target.value;
-                            setFaqs(newFaqs);
+                            setAiConfig({ ...aiConfig, faqs: newFaqs });
                           }} className={`w-full bg-transparent border-b ${isDarkMode ? "border-zinc-800" : "border-zinc-200"} pb-2 ${isDarkMode ? "text-white" : "text-zinc-900"} text-sm focus:outline-none focus:border-orange-500 transition-colors`} />
                           <input type="text" placeholder="Resposta da IA" value={faq.a} onChange={(e) => {
                             const newFaqs = [...faqs];
                             newFaqs[index].a = e.target.value;
-                            setFaqs(newFaqs);
+                            setAiConfig({ ...aiConfig, faqs: newFaqs });
                           }} className={`w-full bg-transparent text-zinc-400 text-sm focus:outline-none focus:${isDarkMode ? "text-zinc-300" : "text-zinc-900"} transition-colors`} />
                         </div>
                         <button onClick={() => {
-                          const newFaqs = faqs.filter((_, i) => i !== index);
-                          setFaqs(newFaqs);
+                          const newFaqs = faqs.filter((_: any, i: number) => i !== index);
+                          setAiConfig({ ...aiConfig, faqs: newFaqs });
                         }} className="p-2 text-zinc-600 hover:text-red-500 transition-colors">
                           <Trash2 size={16} />
                         </button>
@@ -4633,9 +6626,14 @@ const SettingsView = ({
               </div>
 
               <div className="mt-8 flex justify-end">
-                <button onClick={() => alert('Documentos de treinamento e Diferenciais salvos na Base de Conhecimento!')} className={`px-6 py-2 rounded-lg bg-orange-500 hover:bg-orange-600 ${isDarkMode ? "text-white" : "text-zinc-900"} text-sm font-medium transition-colors`}>
-                  Salvar Base de Conhecimento
-                </button>
+                <SaveButton
+                  onClick={async () => {
+                    await setDoc(doc(db, 'configuracoes', 'ia_automacao'), aiConfig);
+                  }}
+                  defaultText="Salvar Base de Conhecimento"
+                  savedText="Base Salva"
+                  isDarkMode={isDarkMode}
+                />
               </div>
             </div>
           </div>
@@ -4668,11 +6666,22 @@ const SettingsView = ({
                         <p className="text-[10px] text-zinc-500">Meta API Oficial</p>
                       </div>
                     </div>
-                    <span className="text-[10px] font-bold bg-emerald-500/10 text-emerald-500 px-2 py-1 rounded">CONECTADO</span>
+                    <span className={`text-[10px] font-bold px-2 py-1 rounded ${
+                      integrationConfig.connectedServices?.whatsapp
+                        ? 'bg-emerald-500/10 text-emerald-500'
+                        : 'bg-zinc-800 text-zinc-500'
+                    }`}>{integrationConfig.connectedServices?.whatsapp ? 'CONECTADO' : 'DESCONECTADO'}</span>
                   </div>
                   <p className="text-xs text-zinc-400 mb-4 line-clamp-2">Envio automático de lembretes, confirmações de agendamento e atendimento via IA.</p>
-                  <button onClick={() => alert('Abrindo painel de configuração do WhatsApp Business...')} className={`w-full py-2 rounded-lg border ${isDarkMode ? "border-zinc-700 hover:bg-zinc-800" : "border-zinc-200 hover:bg-zinc-100"} ${isDarkMode ? "text-zinc-300" : "text-zinc-900"} text-xs font-medium transition-colors`}>
-                    Configurar
+                  <button
+                    onClick={() => toggleConnectedService('whatsapp')}
+                    className={`w-full py-2 rounded-lg ${
+                      integrationConfig.connectedServices?.whatsapp
+                        ? `border ${isDarkMode ? 'border-zinc-700 hover:bg-zinc-800' : 'border-zinc-200 hover:bg-zinc-100'} ${isDarkMode ? 'text-zinc-300' : 'text-zinc-900'}`
+                        : 'bg-orange-500 hover:bg-orange-600 text-white'
+                    } text-xs font-medium transition-colors`}
+                  >
+                    {integrationConfig.connectedServices?.whatsapp ? 'Gerenciar' : 'Conectar'}
                   </button>
                 </div>
 
@@ -4688,11 +6697,22 @@ const SettingsView = ({
                         <p className="text-[10px] text-zinc-500">Gateway de Pagamento</p>
                       </div>
                     </div>
-                    <span className="text-[10px] font-bold bg-zinc-800 text-zinc-500 px-2 py-1 rounded">DESCONECTADO</span>
+                    <span className={`text-[10px] font-bold px-2 py-1 rounded ${
+                      integrationConfig.connectedServices?.stripe
+                        ? 'bg-emerald-500/10 text-emerald-500'
+                        : 'bg-zinc-800 text-zinc-500'
+                    }`}>{integrationConfig.connectedServices?.stripe ? 'CONECTADO' : 'DESCONECTADO'}</span>
                   </div>
                   <p className="text-xs text-zinc-400 mb-4 line-clamp-2">Processe pagamentos online, gere links de cobrança e gerencie assinaturas.</p>
-                  <button onClick={() => alert('Iniciando autenticação com o Stripe...')} className={`w-full py-2 rounded-lg bg-orange-500 hover:bg-orange-600 ${isDarkMode ? "text-white" : "text-zinc-900"} text-xs font-medium transition-colors`}>
-                    Conectar
+                  <button
+                    onClick={() => toggleConnectedService('stripe')}
+                    className={`w-full py-2 rounded-lg ${
+                      integrationConfig.connectedServices?.stripe
+                        ? `border ${isDarkMode ? 'border-zinc-700 hover:bg-zinc-800' : 'border-zinc-200 hover:bg-zinc-100'} ${isDarkMode ? 'text-zinc-300' : 'text-zinc-900'}`
+                        : 'bg-orange-500 hover:bg-orange-600 text-white'
+                    } text-xs font-medium transition-colors`}
+                  >
+                    {integrationConfig.connectedServices?.stripe ? 'Gerenciar' : 'Conectar'}
                   </button>
                 </div>
 
@@ -4708,11 +6728,22 @@ const SettingsView = ({
                         <p className="text-[10px] text-zinc-500">Sincronização de Agenda</p>
                       </div>
                     </div>
-                    <span className="text-[10px] font-bold bg-zinc-800 text-zinc-500 px-2 py-1 rounded">DESCONECTADO</span>
+                    <span className={`text-[10px] font-bold px-2 py-1 rounded ${
+                      integrationConfig.connectedServices?.googleCalendar
+                        ? 'bg-emerald-500/10 text-emerald-500'
+                        : 'bg-zinc-800 text-zinc-500'
+                    }`}>{integrationConfig.connectedServices?.googleCalendar ? 'CONECTADO' : 'DESCONECTADO'}</span>
                   </div>
                   <p className="text-xs text-zinc-400 mb-4 line-clamp-2">Sincronize a agenda do sistema com o calendário pessoal dos profissionais.</p>
-                  <button onClick={() => alert('Solicitando permissões do Google Calendar...')} className={`w-full py-2 rounded-lg bg-orange-500 hover:bg-orange-600 ${isDarkMode ? "text-white" : "text-zinc-900"} text-xs font-medium transition-colors`}>
-                    Conectar
+                  <button
+                    onClick={() => toggleConnectedService('googleCalendar')}
+                    className={`w-full py-2 rounded-lg ${
+                      integrationConfig.connectedServices?.googleCalendar
+                        ? `border ${isDarkMode ? 'border-zinc-700 hover:bg-zinc-800' : 'border-zinc-200 hover:bg-zinc-100'} ${isDarkMode ? 'text-zinc-300' : 'text-zinc-900'}`
+                        : 'bg-orange-500 hover:bg-orange-600 text-white'
+                    } text-xs font-medium transition-colors`}
+                  >
+                    {integrationConfig.connectedServices?.googleCalendar ? 'Gerenciar' : 'Conectar'}
                   </button>
                 </div>
 
@@ -4728,13 +6759,32 @@ const SettingsView = ({
                         <p className="text-[10px] text-zinc-500">Automação de Marketing</p>
                       </div>
                     </div>
-                    <span className="text-[10px] font-bold bg-zinc-800 text-zinc-500 px-2 py-1 rounded">DESCONECTADO</span>
+                    <span className={`text-[10px] font-bold px-2 py-1 rounded ${
+                      integrationConfig.connectedServices?.rdStation
+                        ? 'bg-emerald-500/10 text-emerald-500'
+                        : 'bg-zinc-800 text-zinc-500'
+                    }`}>{integrationConfig.connectedServices?.rdStation ? 'CONECTADO' : 'DESCONECTADO'}</span>
                   </div>
                   <p className="text-xs text-zinc-400 mb-4 line-clamp-2">Sincronize leads do CRM e envie campanhas de e-mail marketing direcionadas.</p>
-                  <button onClick={() => alert('Iniciando integração com RD Station Marketing...')} className={`w-full py-2 rounded-lg bg-orange-500 hover:bg-orange-600 ${isDarkMode ? "text-white" : "text-zinc-900"} text-xs font-medium transition-colors`}>
-                    Conectar
+                  <button
+                    onClick={() => toggleConnectedService('rdStation')}
+                    className={`w-full py-2 rounded-lg ${
+                      integrationConfig.connectedServices?.rdStation
+                        ? `border ${isDarkMode ? 'border-zinc-700 hover:bg-zinc-800' : 'border-zinc-200 hover:bg-zinc-100'} ${isDarkMode ? 'text-zinc-300' : 'text-zinc-900'}`
+                        : 'bg-orange-500 hover:bg-orange-600 text-white'
+                    } text-xs font-medium transition-colors`}
+                  >
+                    {integrationConfig.connectedServices?.rdStation ? 'Gerenciar' : 'Conectar'}
                   </button>
                 </div>
+              </div>
+              <div className="mt-6 flex justify-end">
+                <SaveButton
+                  onClick={handleSaveIntegration}
+                  defaultText="Salvar Integrações"
+                  savedText="Integrações Salvas"
+                  isDarkMode={isDarkMode}
+                />
               </div>
             </div>
 
@@ -4809,36 +6859,34 @@ const SettingsView = ({
 
                 <div>
                   <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">URL do Webhook (Endpoint)</label>
-                  <input type="url" placeholder="https://sua-api.com/webhook" className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800 text-white" : "bg-white border-zinc-200 text-zinc-900"} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors`} />
+                  <input
+                    type="url"
+                    placeholder="https://sua-api.com/webhook"
+                    value={integrationConfig.webhookUrl || ''}
+                    onChange={(e) => setIntegrationConfig((p: any) => ({ ...p, webhookUrl: e.target.value }))}
+                    className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800 text-white" : "bg-white border-zinc-200 text-zinc-900"} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors`}
+                  />
                 </div>
 
                 <div>
                   <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-3 uppercase">Eventos a serem enviados</label>
                   <div className={`grid grid-cols-1 md:grid-cols-2 gap-3 ${isDarkMode ? "bg-[#121214] border-zinc-800" : "bg-[var(--bg-surface)] border-[var(--border-default)]"} border rounded-xl p-4`}>
-                    <label className="flex items-center gap-3 cursor-pointer group">
-                      <div className={`w-4 h-4 rounded border ${isDarkMode ? "border-zinc-700 bg-zinc-900" : "border-zinc-300 bg-white"} flex items-center justify-center group-hover:border-orange-500 transition-colors`}>
-                        <CheckCircle2 size={12} className="text-orange-500 opacity-0" />
-                      </div>
-                      <span className={`text-sm ${isDarkMode ? "text-zinc-300" : "text-zinc-900"}`}>Novo Agendamento Criado</span>
-                    </label>
-                    <label className="flex items-center gap-3 cursor-pointer group">
-                      <div className={`w-4 h-4 rounded border ${isDarkMode ? "border-zinc-700 bg-zinc-900" : "border-zinc-300 bg-white"} flex items-center justify-center group-hover:border-orange-500 transition-colors`}>
-                        <CheckCircle2 size={12} className="text-orange-500 opacity-0" />
-                      </div>
-                      <span className={`text-sm ${isDarkMode ? "text-zinc-300" : "text-zinc-900"}`}>Agendamento Cancelado</span>
-                    </label>
-                    <label className="flex items-center gap-3 cursor-pointer group">
-                      <div className={`w-4 h-4 rounded border ${isDarkMode ? "border-zinc-700 bg-zinc-900" : "border-zinc-300 bg-white"} flex items-center justify-center group-hover:border-orange-500 transition-colors`}>
-                        <CheckCircle2 size={12} className="text-orange-500 opacity-0" />
-                      </div>
-                      <span className={`text-sm ${isDarkMode ? "text-zinc-300" : "text-zinc-900"}`}>Novo Cliente Cadastrado</span>
-                    </label>
-                    <label className="flex items-center gap-3 cursor-pointer group">
-                      <div className={`w-4 h-4 rounded border ${isDarkMode ? "border-zinc-700 bg-zinc-900" : "border-zinc-300 bg-white"} flex items-center justify-center group-hover:border-orange-500 transition-colors`}>
-                        <CheckCircle2 size={12} className="text-orange-500 opacity-0" />
-                      </div>
-                      <span className={`text-sm ${isDarkMode ? "text-zinc-300" : "text-zinc-900"}`}>Pagamento Confirmado</span>
-                    </label>
+                    {[
+                      { key: 'novoAgendamento', label: 'Novo Agendamento Criado' },
+                      { key: 'agendamentoCancelado', label: 'Agendamento Cancelado' },
+                      { key: 'novoCliente', label: 'Novo Cliente Cadastrado' },
+                      { key: 'pagamentoConfirmado', label: 'Pagamento Confirmado' },
+                    ].map(({ key, label }) => {
+                      const isChecked = integrationConfig.webhookEvents?.[key] ?? false;
+                      return (
+                        <label key={key} onClick={() => toggleWebhookEvent(key)} className="flex items-center gap-3 cursor-pointer group">
+                          <div className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${isChecked ? 'bg-orange-500 border-orange-500' : isDarkMode ? 'border-zinc-700 bg-zinc-900 group-hover:border-orange-500' : 'border-zinc-300 bg-white group-hover:border-orange-500'}`}>
+                            {isChecked && <CheckCircle2 size={10} className="text-white" />}
+                          </div>
+                          <span className={`text-sm ${isDarkMode ? "text-zinc-300" : "text-zinc-900"}`}>{label}</span>
+                        </label>
+                      );
+                    })}
                   </div>
                 </div>
               </div>
@@ -4848,9 +6896,12 @@ const SettingsView = ({
                   <Zap size={16} />
                   Testar Webhook
                 </button>
-                <button onClick={() => alert('Endpoint e configurações de Webhook salvos com sucesso!')} className={`px-6 py-2 rounded-lg bg-orange-500 hover:bg-orange-600 ${isDarkMode ? "text-white" : "text-zinc-900"} text-sm font-medium transition-colors`}>
-                  Salvar Webhook
-                </button>
+                <SaveButton
+                  onClick={handleSaveIntegration}
+                  defaultText="Salvar Webhook"
+                  savedText="Webhook Salvo"
+                  isDarkMode={isDarkMode}
+                />
               </div>
             </div>
           </div>
@@ -4883,8 +6934,32 @@ const SettingsView = ({
                     <div className={`col-span-4 text-sm ${isDarkMode ? "text-zinc-300" : "text-zinc-900"} font-medium`}>{method.name}</div>
                     <div className="col-span-3 flex justify-center">
                       <div className="relative w-24">
-                        <input type="text" defaultValue={method.days} className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800" : "bg-[var(--bg-surface)] border-[var(--border-default)]"} border rounded-lg px-3 py-1.5 ${isDarkMode ? "text-white" : "text-zinc-900"} text-xs text-center focus:outline-none focus:border-orange-500 transition-colors`} />
-                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-zinc-500 text-xs">D</span>
+                        <input
+                          type="text"
+                          value={method.tax}
+                          onChange={(e) => {
+                            const newMethods = [...paymentMethods];
+                            newMethods[index] = { ...newMethods[index], tax: e.target.value };
+                            setPaymentMethods(newMethods);
+                          }}
+                          className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800" : "bg-[var(--bg-surface)] border-[var(--border-default)]"} border rounded-lg px-3 py-1.5 ${isDarkMode ? "text-white" : "text-zinc-900"} text-xs text-center focus:outline-none focus:border-orange-500 transition-colors`}
+                        />
+                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-zinc-500">%</span>
+                      </div>
+                    </div>
+                    <div className="col-span-3 flex justify-center">
+                      <div className="relative w-24">
+                        <input
+                          type="text"
+                          value={method.days}
+                          onChange={(e) => {
+                            const newMethods = [...paymentMethods];
+                            newMethods[index] = { ...newMethods[index], days: e.target.value };
+                            setPaymentMethods(newMethods);
+                          }}
+                          className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800" : "bg-[var(--bg-surface)] border-[var(--border-default)]"} border rounded-lg px-3 py-1.5 ${isDarkMode ? "text-white" : "text-zinc-900"} text-xs text-center focus:outline-none focus:border-orange-500 transition-colors`}
+                        />
+                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-zinc-500">D</span>
                       </div>
                     </div>
                     <div className="col-span-2 flex justify-center">
@@ -4904,9 +6979,12 @@ const SettingsView = ({
               </div>
 
               <div className="mt-6 flex justify-end">
-                <button onClick={() => alert('Taxas salvas com sucesso!')} className={`px-6 py-2 rounded-lg bg-orange-500 hover:bg-orange-600 ${isDarkMode ? "text-white" : "text-zinc-900"} text-sm font-medium transition-colors`}>
-                  Salvar Taxas
-                </button>
+                <SaveButton
+                  onClick={handleSavePayments}
+                  defaultText="Salvar Taxas"
+                  savedText="Taxas Salvas"
+                  isDarkMode={isDarkMode}
+                />
               </div>
             </div>
 
@@ -4942,18 +7020,38 @@ const SettingsView = ({
                           className={`w-full bg-transparent border-b border-zinc-800 pb-1 ${isDarkMode ? "text-white" : "text-zinc-900"} text-sm focus:outline-none focus:border-orange-500 transition-colors`}
                         />
                       </div>
-                      <select
-                        value={cat.type}
-                        onChange={(e) => {
-                          const newCats = [...finCategories];
-                          newCats[index].type = e.target.value;
-                          setFinCategories(newCats);
-                        }}
-                        className={`${isDarkMode ? "bg-zinc-900 border-zinc-800 text-zinc-300" : "bg-white border-zinc-200 text-zinc-900"} border rounded-lg px-2 py-1 text-xs focus:outline-none focus:border-orange-500`}
-                      >
-                        <option value="Receita">Receita</option>
-                        <option value="Despesa">Despesa</option>
-                      </select>
+                      <div className="relative">
+                        <button
+                          type="button"
+                          onClick={() => setOpenFinCatId(openFinCatId === cat.id ? null : cat.id)}
+                          className={`flex items-center justify-between gap-2 ${isDarkMode ? 'bg-zinc-900 border-zinc-800 text-zinc-300' : 'bg-white border-zinc-200 text-zinc-900'} border rounded-lg px-2 py-1 text-xs focus:outline-none focus:border-orange-500 min-w-[100px]`}
+                        >
+                          <span>{cat.type}</span>
+                          <ChevronDown className={`w-3 h-3 text-zinc-400 transition-transform ${openFinCatId === cat.id ? 'rotate-180' : ''}`} />
+                        </button>
+                        {openFinCatId === cat.id && (
+                          <div className={`absolute z-50 w-full mt-1 rounded-xl border shadow-2xl overflow-hidden ${isDarkMode ? 'border-zinc-700/50 bg-[#0a0a0a]' : 'border-zinc-200 bg-white'}`}>
+                            {['Receita', 'Despesa'].map((opt) => (
+                              <button
+                                key={opt}
+                                type="button"
+                                onClick={() => {
+                                  const newCats = [...finCategories];
+                                  newCats[index].type = opt;
+                                  setFinCategories(newCats);
+                                  setOpenFinCatId(null);
+                                }}
+                                className={`w-full text-left px-4 py-2 text-xs transition-colors ${cat.type === opt
+                                  ? 'bg-gradient-to-r from-orange-600/30 to-transparent text-orange-500 font-medium'
+                                  : isDarkMode ? 'text-white hover:bg-white/5' : 'text-zinc-900 hover:bg-zinc-100'
+                                  }`}
+                              >
+                                {opt}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     </div>
                     <button
                       onClick={() => setFinCategories(finCategories.filter(c => c.id !== cat.id))}
@@ -4966,9 +7064,12 @@ const SettingsView = ({
               </div>
 
               <div className="mt-6 flex justify-end">
-                <button onClick={() => alert('Categorias salvas com sucesso!')} className={`px-6 py-2 rounded-lg bg-orange-500 hover:bg-orange-600 ${isDarkMode ? "text-white" : "text-zinc-900"} text-sm font-medium transition-colors`}>
-                  Salvar Categorias
-                </button>
+                <SaveButton
+                  onClick={handleSaveCategories}
+                  defaultText="Salvar Categorias"
+                  savedText="Categorias Salvas"
+                  isDarkMode={isDarkMode}
+                />
               </div>
             </div>
 
@@ -4997,24 +7098,60 @@ const SettingsView = ({
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
-                  <div>
+                  <div className="relative">
                     <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Tipo de Comissão Padrão</label>
-                    <select className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800 text-white" : "bg-white border-zinc-200 text-zinc-900"} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors`}>
-                      <option>Porcentagem (%)</option>
-                      <option>Valor Fixo (R$)</option>
-                    </select>
+                    {(() => {
+                      const comissaoOptions = ['Porcentagem (%)', 'Valor Fixo (R$)'];
+                      return (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => setIsComissaoDropdownOpen(!isComissaoDropdownOpen)}
+                            className={`w-full flex items-center justify-between ${isDarkMode ? 'bg-[#121214] border-zinc-800 text-white' : 'bg-white border-zinc-200 text-zinc-900'} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors text-left`}
+                          >
+                            <span>{tipoComissao}</span>
+                            <ChevronDown className={`w-4 h-4 text-zinc-400 transition-transform ${isComissaoDropdownOpen ? 'rotate-180' : ''}`} />
+                          </button>
+                          {isComissaoDropdownOpen && (
+                            <div className={`absolute z-50 w-full mt-1 rounded-xl border shadow-2xl overflow-hidden ${isDarkMode ? 'border-zinc-700/50 bg-[#0a0a0a]' : 'border-zinc-200 bg-white'}`}>
+                              {comissaoOptions.map((opt) => (
+                                <button
+                                  key={opt}
+                                  type="button"
+                                  onClick={() => { setTipoComissao(opt); setIsComissaoDropdownOpen(false); }}
+                                  className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${tipoComissao === opt
+                                    ? 'bg-gradient-to-r from-orange-600/30 to-transparent text-orange-500 font-medium'
+                                    : isDarkMode ? 'text-white hover:bg-white/5' : 'text-zinc-900 hover:bg-zinc-100'
+                                    }`}
+                                >
+                                  {opt}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
                   </div>
                   <div>
                     <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Valor/Porcentagem Padrão</label>
-                    <input type="text" defaultValue="30" className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800 text-white" : "bg-white border-zinc-200 text-zinc-900"} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors`} />
+                    <input
+                      type="text"
+                      value={valorComissao}
+                      onChange={(e) => setValorComissao(e.target.value)}
+                      className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800 text-white" : "bg-white border-zinc-200 text-zinc-900"} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors`}
+                    />
                   </div>
                 </div>
               </div>
 
               <div className="mt-6 flex justify-end">
-                <button onClick={() => alert('Regras salvas com sucesso!')} className={`px-6 py-2 rounded-lg bg-orange-500 hover:bg-orange-600 ${isDarkMode ? "text-white" : "text-zinc-900"} text-sm font-medium transition-colors`}>
-                  Salvar Regras
-                </button>
+                <SaveButton
+                  onClick={handleSaveCommission}
+                  defaultText="Salvar Regras"
+                  savedText="Regras Salvas"
+                  isDarkMode={isDarkMode}
+                />
               </div>
             </div>
 
@@ -5027,18 +7164,49 @@ const SettingsView = ({
 
               <div className="flex flex-col gap-6">
                 <div className="grid grid-cols-2 gap-4">
-                  <div>
+                  <div className="relative">
                     <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Regime Tributário</label>
-                    <select className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800 text-white" : "bg-white border-zinc-200 text-zinc-900"} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors`}>
-                      <option>Simples Nacional</option>
-                      <option>Lucro Presumido</option>
-                      <option>Lucro Real</option>
-                      <option>MEI</option>
-                    </select>
+                    {(() => {
+                      const regimeOptions = ['Simples Nacional', 'Lucro Presumido', 'Lucro Real', 'MEI'];
+                      return (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => setIsRegimeDropdownOpen(!isRegimeDropdownOpen)}
+                            className={`w-full flex items-center justify-between ${isDarkMode ? 'bg-[#121214] border-zinc-800 text-white' : 'bg-white border-zinc-200 text-zinc-900'} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors text-left`}
+                          >
+                            <span>{regimeTributario}</span>
+                            <ChevronDown className={`w-4 h-4 text-zinc-400 transition-transform ${isRegimeDropdownOpen ? 'rotate-180' : ''}`} />
+                          </button>
+                          {isRegimeDropdownOpen && (
+                            <div className={`absolute z-50 w-full mt-1 rounded-xl border shadow-2xl overflow-hidden ${isDarkMode ? 'border-zinc-700/50 bg-[#0a0a0a]' : 'border-zinc-200 bg-white'}`}>
+                              {regimeOptions.map((opt) => (
+                                <button
+                                  key={opt}
+                                  type="button"
+                                  onClick={() => { setRegimeTributario(opt); setIsRegimeDropdownOpen(false); }}
+                                  className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${regimeTributario === opt
+                                    ? 'bg-gradient-to-r from-orange-600/30 to-transparent text-orange-500 font-medium'
+                                    : isDarkMode ? 'text-white hover:bg-white/5' : 'text-zinc-900 hover:bg-zinc-100'
+                                    }`}
+                                >
+                                  {opt}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
                   </div>
                   <div>
                     <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Alíquota de ISS (%)</label>
-                    <input type="text" defaultValue="5.00" className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800 text-white" : "bg-white border-zinc-200 text-zinc-900"} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors`} />
+                    <input
+                      type="text"
+                      value={aliquotaIss}
+                      onChange={(e) => setAliquotaIss(e.target.value)}
+                      className={`w-full ${isDarkMode ? "bg-[#121214] border-zinc-800 text-white" : "bg-white border-zinc-200 text-zinc-900"} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors`}
+                    />
                   </div>
                 </div>
 
@@ -5071,16 +7239,109 @@ const SettingsView = ({
               </div>
 
               <div className="mt-6 flex justify-end">
-                <button onClick={() => alert('Dados Fiscais salvos com sucesso!')} className={`px-6 py-2 rounded-lg bg-orange-500 hover:bg-orange-600 ${isDarkMode ? "text-white" : "text-zinc-900"} text-sm font-medium transition-colors`}>
-                  Salvar Dados Fiscais
-                </button>
+                <SaveButton
+                  onClick={handleSaveFiscal}
+                  defaultText="Salvar Dados Fiscais"
+                  savedText="Dados Salvos"
+                  isDarkMode={isDarkMode}
+                />
               </div>
             </div>
           </div>
         )}
 
+        {activeSettingsMenu === 'Segurança & Acessos' && role === 'admin' && (
+          <div className="flex-1 flex flex-col max-w-4xl overflow-y-auto pr-4 custom-scrollbar">
+            <div className="mb-8 shrink-0">
+              <h2 className={`text-xl font-semibold ${isDarkMode ? "text-white" : "text-zinc-900"} mb-1`}>Segurança & Acessos</h2>
+              <p className={`text-sm ${isDarkMode ? "text-zinc-400" : "text-zinc-500"}`}>Controle de tempo de sessão e políticas de segurança globais.</p>
+            </div>
 
+            <div className={` ${isDarkMode ? "bg-[#0c0c0e] border-zinc-800/80 shadow-black/50" : "bg-[var(--bg-card)] border-[var(--border-default)] shadow-[var(--card-shadow)]"} border rounded-xl p-6 mb-8 transition-colors duration-300 shrink-0 `}>
+              <div className="flex items-center gap-3 mb-6">
+                <Shield className="text-zinc-400" size={20} />
+                <h3 className={`font-medium ${isDarkMode ? "text-white" : "text-zinc-900"}`}>Inatividade e Logout Automático</h3>
+              </div>
+              
+              <div className="flex flex-col gap-4">
+                <p className="text-sm text-zinc-400">Proteja a clínica de acessos indevidos definindo um tempo máximo de inatividade. O sistema deslogará todos os usuários (incluindo admins) automaticamente ao bater esse limite.</p>
+                
+                <div className="w-64 mt-2">
+                  <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Tempo Limite Global</label>
+                  <div className="relative">
+                    {(() => {
+                      const timeoutOptions = [
+                        { value: 15, label: '15 minutos (Recomendado)' },
+                        { value: 30, label: '30 minutos' },
+                        { value: 60, label: '1 hora' },
+                        { value: 120, label: '2 horas' },
+                        { value: 0, label: 'Desativado (Nunca deslogar)' }
+                      ];
+                      const selectedOpt = timeoutOptions.find(opt => opt.value === timeoutConfig.inactivityTimeout);
+                      const displayLabel = selectedOpt ? selectedOpt.label : 'Selecione';
+                      
+                      return (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => setIsTimeoutDropdownOpen(!isTimeoutDropdownOpen)}
+                            className={`w-full flex items-center justify-between ${isDarkMode ? 'bg-[#121214] border-zinc-800 text-white' : 'bg-white border-zinc-200 text-zinc-900'} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors text-left`}
+                          >
+                            <span>{displayLabel}</span>
+                            <ChevronDown className={`w-4 h-4 text-zinc-400 transition-transform ${isTimeoutDropdownOpen ? 'rotate-180' : ''}`} />
+                          </button>
+                          {isTimeoutDropdownOpen && (
+                            <div className={`absolute z-50 w-full mt-1 rounded-xl border shadow-2xl overflow-hidden ${isDarkMode ? 'border-zinc-700/50 bg-[#0a0a0a]' : 'border-zinc-200 bg-white'}`}>
+                              {timeoutOptions.map((opt) => (
+                                <button
+                                  key={opt.value}
+                                  type="button"
+                                  onClick={() => { setTimeoutConfig({ inactivityTimeout: opt.value }); setIsTimeoutDropdownOpen(false); }}
+                                  className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${timeoutConfig.inactivityTimeout === opt.value
+                                    ? 'bg-gradient-to-r from-orange-600/30 to-transparent text-orange-500 font-medium'
+                                    : isDarkMode ? 'text-white hover:bg-white/5' : 'text-zinc-900 hover:bg-zinc-100'
+                                    }`}
+                                >
+                                  {opt.label}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
+                  </div>
+                </div>
+              </div>
 
+              <div className="mt-8 flex justify-end">
+                <SaveButton
+                  onClick={async () => {
+                    try {
+                      await setDoc(doc(db, 'configuracoes', 'seguranca'), timeoutConfig);
+                      await logAuditEvent({
+                        userId: auth.currentUser?.uid || 'unknown',
+                        userEmail: auth.currentUser?.email || 'unknown',
+                        userName: auth.currentUser?.displayName || 'Admin',
+                        action: 'ALTEROU_CONFIGURACAO',
+                        module: 'Segurança',
+                        details: `Alterou o timeout de sessão para ${timeoutConfig.inactivityTimeout} minutos.`
+                      });
+                    } catch (e) {
+                      console.error('Erro ao salvar segurança:', e);
+                      throw e; // throw unhandled so SaveButton fails, though handle is mostly UI here
+                    }
+                  }}
+                  defaultText="Salvar Configurações"
+                  savedText="Configurações Salvas"
+                  isDarkMode={isDarkMode}
+                />
+              </div>
+            </div>
+
+            <AuditLogPanel isDarkMode={isDarkMode} />
+          </div>
+        )}
 
       </div>
     </div>
@@ -5088,6 +7349,9 @@ const SettingsView = ({
 };
 
 export default function App() {
+  useDynamicPWA();
+  const { user, users, updateUserStatus, isAuthLoading } = useAuth();
+
   const [isDarkMode, setIsDarkMode] = useState(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('theme');
@@ -5095,14 +7359,14 @@ export default function App() {
     }
     return true;
   });
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [currentUserEmail, setCurrentUserEmail] = useState('');
-  const [userStatuses, setUserStatuses] = useState<Record<string, AccessStatus>>({
-    'camila@estetica.com': 'pending'
-  });
+
+  const isAuthenticated = !!user;
+  const currentUserEmail = user?.email || '';
+  const role = user?.role || 'profissional';
+
+  const [userStatuses, setUserStatuses] = useState<Record<string, any>>({});
   const [activeMenu, setActiveMenu] = useState('Dashboard');
   const [activeSettingsMenu, setActiveSettingsMenu] = useState('Conta & Organização');
-  const [role, setRole] = useState<'admin' | 'profissional'>('admin');
   const [matrixRole, setMatrixRole] = useState<'admin' | 'profissional'>('admin');
   const [activeTab, setActiveTab] = useState('Pendentes');
   const [isSaving, setIsSaving] = useState(false);
@@ -5112,6 +7376,85 @@ export default function App() {
   const [chatHistory, setChatHistory] = useState([
     { role: 'assistant', text: 'Olá! Sou o Estetix AI. Como posso ajudar com a gestão da sua clínica hoje?' }
   ]);
+  const [clinicConfig, setClinicConfig] = useState({
+    logoUrl: null as string | null,
+    nomeFantasia: '',
+    razaoSocial: '',
+    cnpj: '',
+    inscricaoMunicipal: '',
+    inscricaoEstadual: '',
+    email: '',
+    telefone: '',
+    cep: '',
+    logradouro: '',
+    numero: '',
+    complemento: '',
+    bairro: '',
+    cidade: '',
+    estado: 'SP',
+    nomeResponsavel: '',
+    conselhoClasse: 'CRM',
+    registroConselho: ''
+  });
+
+  // Sync clinicConfig from Firestore
+  useEffect(() => {
+    if (isAuthenticated) {
+      const docRef = doc(db, 'configuracoes', 'conta_organizacao');
+      const unsub = onSnapshot(docRef, (snap) => {
+        if (snap.exists()) {
+          const data = snap.data();
+          setClinicConfig(prev => ({ ...prev, ...data }));
+        }
+      });
+      return () => unsub();
+    }
+  }, [isAuthenticated]);
+
+  const [aiConfig, setAiConfig] = useState({
+    nomeAssistente: '',
+    tomDeVoz: 'Empático e Acolhedor',
+    systemPrompt: '',
+    restricoes: '',
+    diferenciais: '',
+    faqs: [] as { q: string; a: string }[],
+    apiProvider: '',
+    apiKeyMasked: '',
+    apiKey: '',
+    aiModel: ''
+  });
+
+  // Sync aiConfig from Firestore
+  useEffect(() => {
+    if (isAuthenticated) {
+      const docRef = doc(db, 'configuracoes', 'ia_automacao');
+      const unsub = onSnapshot(docRef, (snap) => {
+        if (snap.exists()) {
+          const data = snap.data();
+          setAiConfig(prev => ({ ...prev, ...data }));
+        }
+      });
+      return () => unsub();
+    }
+  }, [isAuthenticated]);
+
+  const [timeoutConfig, setTimeoutConfig] = useState({ inactivityTimeout: 30 });
+
+  // Sync timeoutConfig from Firestore
+  useEffect(() => {
+    if (isAuthenticated && role === 'admin') {
+      const docRef = doc(db, 'configuracoes', 'seguranca');
+      const unsub = onSnapshot(docRef, (snap) => {
+        if (snap.exists()) {
+          const data = snap.data();
+          if (data.inactivityTimeout !== undefined) {
+             setTimeoutConfig({ inactivityTimeout: data.inactivityTimeout });
+          }
+        }
+      });
+      return () => unsub();
+    }
+  }, [isAuthenticated, role]);
 
   // Sync theme class on <html> element for CSS custom properties
   React.useEffect(() => {
@@ -5125,29 +7468,128 @@ export default function App() {
       localStorage.setItem('theme', 'light');
     }
   }, [isDarkMode]);
-
+  // isAuthLoading removed from here to follow hook order
   const [patients, setPatients] = useState<any[]>([]);
-  const [professionals, setProfessionals] = useState([
-    { id: '1', name: 'Dr. Rafael Costa', specialty: '', color: '#ef4444', active: true },
-    { id: '2', name: 'Dr. Teste Upload', specialty: 'Dermatologista', color: '#10b981', active: true },
-    { id: '3', name: 'Dra. Ana Oliveira', specialty: '', color: '#8b5cf6', active: true },
-    { id: '4', name: 'Dra. Camila Santos', specialty: '', color: '#0ea5e9', active: true },
-  ]);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      try {
+        const colRef = collection(db, 'clientes');
+        onSnapshot(colRef, (snapshot) => {
+          const data = snapshot.docs.map(d => {
+            const raw = d.data();
+            return {
+              ...raw,
+              notes: decryptField(raw.notes || ''),
+              history: (raw.history || []).map((h: any) => ({
+                ...h,
+                content: decryptField(h.content || '')
+              }))
+            };
+          });
+          setPatients(data);
+        }, () => { setPatients([]); });
+      } catch {}
+    }
+  }, [isAuthenticated]);
+  const [professionals, setProfessionals] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      try {
+        const colRef = collection(db, 'profissionais');
+        onSnapshot(colRef, (snapshot) => {
+          const data = snapshot.docs.map(d => d.data());
+          setProfessionals(data);
+        }, () => { setProfessionals([]); });
+      } catch {}
+    }
+  }, [isAuthenticated]);
   const [columns, setColumns] = useState<{ id: string, title: string, cardIds: string[] }[]>([]);
-  const [services, setServices] = useState([
-    { id: '1', name: 'Botox', category: 'Injetáveis', duration: 30, price: 1200, tax: 0, description: 'Sem descrição.', items: [{ id: '1', itemId: 'inv1', quantity: 1 }] },
-    { id: '2', name: 'Harmonização Facial', category: 'Outros', duration: 90, price: 2500, tax: 0, description: 'Conjunto de procedimentos para equilibrar e realçar os traços do rosto.', items: [] },
-    { id: '3', name: 'Limpeza de Pele', category: 'Facial', duration: 60, price: 250, tax: 0, description: 'Limpeza profunda com extração e hidratação para uma pele renovada e radiante.', items: [] }
-  ]);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      const initCrmDb = async () => {
+        try {
+          const colRef = collection(db, 'crm_columns');
+          const snap = await getDocs(colRef);
+
+          if (snap.empty) {
+
+            const batch = writeBatch(db);
+            const defaultCols = [
+              { id: 'col-1', title: 'Novos Leads', cardIds: [], order: 0 },
+              { id: 'col-2', title: 'Em Atendimento', cardIds: [], order: 1 },
+              { id: 'col-3', title: 'Agendados', cardIds: [], order: 2 },
+              { id: 'col-4', title: 'Concluídos', cardIds: [], order: 3 },
+              { id: 'col-5', title: 'Perdidos', cardIds: [], order: 4 },
+            ];
+
+            defaultCols.forEach(col => {
+              const docRef = doc(db, 'crm_columns', col.id);
+              batch.set(docRef, col);
+            });
+            await batch.commit();
+          }
+
+          const unsubscribe = onSnapshot(colRef, (snapshot) => {
+            const data = snapshot.docs.map(d => d.data() as any);
+
+
+            // Ordene em memória para evitar problemas com documentos sem o campo 'order'
+            data.sort((a, b) => (a.order || 0) - (b.order || 0));
+
+            setColumns(data);
+          }, () => {});
+
+          return () => unsubscribe();
+        } catch {}
+      };
+      initCrmDb();
+    }
+  }, [isAuthenticated]);
+  const [services, setServices] = useState<any[]>([]);
+  const [appointments, setAppointments] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      try {
+        const colRef = collection(db, 'servicos');
+        onSnapshot(colRef, (snapshot) => {
+          const data = snapshot.docs.map(d => d.data());
+          setServices(data);
+        }, () => { setServices([]); });
+      } catch {}
+    }
+  }, [isAuthenticated]);
   const [expenses, setExpenses] = useState<any[]>([]);
-  const [inventory, setInventory] = useState([
-    { id: 'inv1', name: 'Toxina Botulínica (100U)', category: 'Insumos', price: 850, salePrice: 0, stock: 15, minStock: 5 },
-    { id: 'inv2', name: 'Ácido Hialurônico (1ml)', category: 'Insumos', price: 350, salePrice: 0, stock: 8, minStock: 10 },
-    { id: 'inv3', name: 'Seringa Descartável', category: 'Materiais', price: 0.35, salePrice: 0, stock: 250, minStock: 50 },
-    { id: 'inv4', name: 'Agulha 30G', category: 'Materiais', price: 0.15, salePrice: 0, stock: 400, minStock: 100 },
-    { id: 'inv5', name: 'Fios de PDO (un)', category: 'Insumos', price: 80, salePrice: 200, stock: 30, minStock: 10 },
-    { id: 'inv6', name: 'Gaze Estéril (pacote)', category: 'Materiais', price: 0.50, salePrice: 0, stock: 15, minStock: 20 }
-  ]);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      try {
+        const colRef = collection(db, 'financeiro');
+        const q = query(colRef);
+        onSnapshot(q, (snapshot) => {
+          const data = snapshot.docs.map(d => d.data());
+          setExpenses(data);
+        }, () => { setExpenses([]); });
+      } catch {}
+    }
+  }, [isAuthenticated]);
+
+  const [inventory, setInventory] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      try {
+        const colRef = collection(db, 'estoque');
+        onSnapshot(colRef, (snapshot) => {
+          const data = snapshot.docs.map(d => d.data());
+          setInventory(data);
+        }, () => { setInventory([]); });
+      } catch {}
+    }
+  }, [isAuthenticated]);
 
   const [profissionalPermissions, setProfissionalPermissions] = useState<ModulePermissions>({
     dashboard: { view: true, create: false, edit: false, delete: false },
@@ -5158,21 +7600,29 @@ export default function App() {
     financeiro: { view: false, create: false, edit: false, delete: false },
     relatorios: { view: true, create: false, edit: false, delete: false },
     estoque: { view: true, create: true, edit: false, delete: false },
+    profissionais: { view: false, create: false, edit: false, delete: false },
+    servicos: { view: false, create: false, edit: false, delete: false },
   });
 
+  // Fetch das permissões salvas no Firestore
+  useEffect(() => {
+    const fetchPermissions = async () => {
+      if (isAuthenticated) {
+        try {
+          const docRef = doc(db, 'configuracoes', 'regras_acesso');
+          const docSnap = await getDoc(docRef);
+          if (docSnap.exists() && docSnap.data().profissional) {
+            setProfissionalPermissions(docSnap.data().profissional as ModulePermissions);
+          }
+        } catch {}
+      }
+    };
+    fetchPermissions();
+  }, [isAuthenticated]);
+
   const handleLogin = (email: string) => {
-    const isAdm = email.toLowerCase().includes('admin');
-    setRole(isAdm ? 'admin' : 'profissional');
-    setCurrentUserEmail(email);
-
-    if (!isAdm && !userStatuses[email]) {
-      setUserStatuses(prev => ({ ...prev, [email]: 'pending' }));
-    }
-
-    // Set default active menu based on role
-    setActiveMenu('Dashboard');
-
-    setIsAuthenticated(true);
+    // Removida velha regra "admin" com mocks e estados hardcoded da UI antiga
+    // Autenticação agora é orientada de forma reativa pelo estado unificado do Firebase em AuthContext.tsx
   };
 
 
@@ -5195,20 +7645,29 @@ export default function App() {
     }
   };
 
-  const handleLogout = () => {
-    setIsAuthenticated(false);
-    setCurrentUserEmail('');
-    setActiveMenu('Dashboard');
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      setActiveMenu('Dashboard');
+    } catch {}
   };
+
+  if (isAuthLoading) {
+    return (
+      <div className="min-h-screen bg-[#050505] flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-orange-500"></div>
+      </div>
+    );
+  }
 
   if (!isAuthenticated) {
     return <LoginScreen onLogin={handleLogin} isDarkMode={isDarkMode} />;
   }
 
   if (role === 'profissional') {
-    const status = userStatuses[currentUserEmail];
-    if (status === 'pending') return <PendingScreen onLogout={handleLogout} isDarkMode={isDarkMode} />;
-    if (status === 'denied') return <DeniedScreen onLogout={handleLogout} isDarkMode={isDarkMode} />;
+    const status = user?.status;
+    if (status === 'PENDING') return <PendingScreen onLogout={handleLogout} isDarkMode={isDarkMode} />;
+    if (status === 'REJECTED' || status === 'denied') return <DeniedScreen onLogout={handleLogout} isDarkMode={isDarkMode} />;
   }
 
   const permissions: ModulePermissions = {
@@ -5220,6 +7679,8 @@ export default function App() {
     financeiro: { view: true, create: true, edit: true, delete: true },
     relatorios: { view: true, create: true, edit: true, delete: true },
     estoque: { view: true, create: true, edit: true, delete: true },
+    profissionais: { view: true, create: true, edit: true, delete: true },
+    servicos: { view: true, create: true, edit: true, delete: true },
   };
 
   const modules = [
@@ -5231,6 +7692,8 @@ export default function App() {
     { id: 'financeiro', name: 'Financeiro' },
     { id: 'relatorios', name: 'Relatórios' },
     { id: 'estoque', name: 'Estoque' },
+    { id: 'profissionais', name: 'Profissionais' },
+    { id: 'servicos', name: 'Serviços' },
   ];
 
   const handleToggle = (moduleId: string, action: keyof Permissions) => {
@@ -5252,23 +7715,51 @@ export default function App() {
   const currentPermissions = matrixRole === 'admin' ? permissions : profissionalPermissions;
   const activeUserPermissions = role === 'admin' ? permissions : profissionalPermissions;
 
-  const pendingUsers = Object.entries(userStatuses).filter(([_, status]) => status === 'pending');
-  const approvedUsers = Object.entries(userStatuses).filter(([_, status]) => status === 'approved');
-  const deniedUsers = Object.entries(userStatuses).filter(([_, status]) => status === 'denied');
+  const pendingUsers = users.filter((u) => u.status === 'PENDING').map(u => [u.email, u.status, u.id, u.name]);
+  const approvedUsers = users.filter((u) => u.status === 'APPROVED' && u.role !== 'admin').map(u => [u.email, u.status, u.id, u.name]);
+  const deniedUsers = users.filter((u) => u.status === 'REJECTED').map(u => [u.email, u.status, u.id, u.name]);
 
-  const handleApprove = (email: string) => {
-    setUserStatuses(prev => ({ ...prev, [email]: 'approved' }));
+  const handleApprove = (userId: string) => {
+    updateUserStatus(userId, 'APPROVED');
+    const approvedUser = users.find(u => u.id === userId);
+    logAuditEvent({ userId: auth.currentUser?.uid || '', userEmail: auth.currentUser?.email || '', userName: auth.currentUser?.displayName || 'Admin', action: 'APROVOU_USUARIO', module: 'Usuários', details: `Aprovou o usuário: ${approvedUser?.name || userId}.` });
+    // Adicionar profissional aprovado à lista de profissionais automaticamente
+    if (approvedUser) {
+      const alreadyAdded = professionals.some(p => p.id === userId);
+      if (!alreadyAdded) {
+        const colors = ['#ef4444', '#10b981', '#0ea5e9', '#f59e0b', '#8b5cf6', '#ec4899'];
+        const randomColor = colors[Math.floor(Math.random() * colors.length)];
+        setProfessionals(prev => [...prev, {
+          id: userId,
+          name: approvedUser.name,
+          specialty: '',
+          color: randomColor,
+          active: true
+        }]);
+      }
+    }
   };
 
-  const handleDeny = (email: string) => {
-    setUserStatuses(prev => ({ ...prev, [email]: 'denied' }));
+  const handleDeny = (userId: string) => {
+    updateUserStatus(userId, 'REJECTED');
+    const deniedUser = users.find(u => u.id === userId);
+    logAuditEvent({ userId: auth.currentUser?.uid || '', userEmail: auth.currentUser?.email || '', userName: auth.currentUser?.displayName || 'Admin', action: 'REJEITOU_USUARIO', module: 'Usuários', details: `Rejeitou o usuário: ${deniedUser?.name || userId}.` });
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     setIsSaving(true);
-    setTimeout(() => {
+    try {
+      const docRef = doc(db, 'configuracoes', 'regras_acesso');
+      await setDoc(docRef, { profissional: profissionalPermissions }, { merge: true });
+      // Simula feedback para UX
+      setTimeout(() => {
+        setIsSaving(false);
+      }, 500);
+    } catch (error) {
+      console.error("Erro ao salvar regras de acesso:", error);
       setIsSaving(false);
-    }, 2000);
+      alert("Houve um erro ao salvar suas permissões. Tente novamente.");
+    }
   };
 
   return (
@@ -5292,9 +7783,9 @@ export default function App() {
           {activeUserPermissions.agenda?.view && <NavItem icon={<Calendar size={18} />} label="Agenda" active={activeMenu === 'Agenda'} onClick={() => setActiveMenu('Agenda')} isDarkMode={isDarkMode} />}
           {activeUserPermissions.crm?.view && <NavItem icon={<BarChart3 size={18} />} label="CRM" active={activeMenu === 'CRM'} onClick={() => setActiveMenu('CRM')} isDarkMode={isDarkMode} />}
           {activeUserPermissions.clientes?.view && <NavItem icon={<Users size={18} />} label="Clientes" active={activeMenu === 'Clientes'} onClick={() => setActiveMenu('Clientes')} isDarkMode={isDarkMode} />}
-          <NavItem icon={<FileSignature size={18} />} label="Receituário" active={activeMenu === 'Receituário'} onClick={() => setActiveMenu('Receituário')} isDarkMode={isDarkMode} />
-          <NavItem icon={<User size={18} />} label="Profissionais" active={activeMenu === 'Profissionais'} onClick={() => setActiveMenu('Profissionais')} isDarkMode={isDarkMode} />
-          <NavItem icon={<Briefcase size={18} />} label="Serviços" active={activeMenu === 'Serviços'} onClick={() => setActiveMenu('Serviços')} isDarkMode={isDarkMode} />
+          {activeUserPermissions.receituario?.view && <NavItem icon={<FileSignature size={18} />} label="Receituário" active={activeMenu === 'Receituário'} onClick={() => setActiveMenu('Receituário')} isDarkMode={isDarkMode} />}
+          {activeUserPermissions.profissionais?.view && <NavItem icon={<User size={18} />} label="Profissionais" active={activeMenu === 'Profissionais'} onClick={() => setActiveMenu('Profissionais')} isDarkMode={isDarkMode} />}
+          {activeUserPermissions.servicos?.view && <NavItem icon={<Briefcase size={18} />} label="Serviços" active={activeMenu === 'Serviços'} onClick={() => setActiveMenu('Serviços')} isDarkMode={isDarkMode} />}
           {activeUserPermissions.estoque?.view && <NavItem icon={<Box size={18} />} label="Estoque" active={activeMenu === 'Estoque'} onClick={() => setActiveMenu('Estoque')} isDarkMode={isDarkMode} />}
           {activeUserPermissions.financeiro?.view && <NavItem icon={<DollarSign size={18} />} label="Financeiro" active={activeMenu === 'Financeiro'} onClick={() => setActiveMenu('Financeiro')} isDarkMode={isDarkMode} />}
           {activeUserPermissions.relatorios?.view && <NavItem icon={<PieChart size={18} />} label="Relatórios" active={activeMenu === 'Relatórios'} onClick={() => setActiveMenu('Relatórios')} isDarkMode={isDarkMode} />}
@@ -5344,17 +7835,23 @@ export default function App() {
             isSaving={isSaving}
             handleSave={handleSave}
             isDarkMode={isDarkMode}
+            clinicConfig={clinicConfig}
+            setClinicConfig={setClinicConfig}
+            aiConfig={aiConfig}
+            setAiConfig={setAiConfig}
+            timeoutConfig={timeoutConfig}
+            setTimeoutConfig={setTimeoutConfig}
           />
         ) : activeMenu === 'Dashboard' ? (
-          <DashboardView isDarkMode={isDarkMode} />
+          <DashboardView inventory={inventory} setActiveMenu={setActiveMenu} appointments={appointments} services={services} expenses={expenses} isDarkMode={isDarkMode} />
         ) : activeMenu === 'Agenda' ? (
-          <AgendaView professionals={professionals} services={services} onCompleteService={handleCompleteService} isDarkMode={isDarkMode} />
+          <AgendaView professionals={professionals} services={services} appointments={appointments} setAppointments={setAppointments} onCompleteService={handleCompleteService} isDarkMode={isDarkMode} />
         ) : activeMenu === 'CRM' ? (
           <CrmView patients={patients} setPatients={setPatients} columns={columns} setColumns={setColumns} onGenerateReceituario={handleGenerateReceituario} isDarkMode={isDarkMode} />
         ) : activeMenu === 'Clientes' ? (
-          <ClientesView patients={patients} setPatients={setPatients} onGenerateReceituario={handleGenerateReceituario} isDarkMode={isDarkMode} />
+          <ClientesView patients={patients} setPatients={setPatients} columns={columns} onGenerateReceituario={handleGenerateReceituario} isDarkMode={isDarkMode} />
         ) : activeMenu === 'Receituário' ? (
-          <ReceituarioView patients={patients} professionals={professionals} selectedPatientId={selectedPatientForReceituario} isDarkMode={isDarkMode} />
+          <ReceituarioView patients={patients} professionals={professionals} selectedPatientId={selectedPatientForReceituario} isDarkMode={isDarkMode} clinicConfig={clinicConfig} />
         ) : activeMenu === 'Profissionais' ? (
           <ProfissionaisView professionals={professionals} setProfessionals={setProfessionals} isDarkMode={isDarkMode} />
         ) : activeMenu === 'Serviços' ? (

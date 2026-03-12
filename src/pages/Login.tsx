@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
 import { Sparkles } from 'lucide-react';
+import { signInWithEmailAndPassword } from 'firebase/auth';
+import { auth } from '../lib/firebase';
 
 /* ─────────────────────────────────────────────
    Hero Light Canvas – lightweight particle layer
@@ -94,7 +95,6 @@ export const Login = () => {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const { login, user } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -102,30 +102,19 @@ export const Login = () => {
     setLoading(true);
     setError('');
     try {
-      await login(email, password);
+      await signInWithEmailAndPassword(auth, email, password);
+      navigate('/dashboard');
     } catch (err: any) {
       console.error(err);
       let errorMessage = err.message || 'Erro ao fazer login';
-      if (errorMessage.includes('Invalid login credentials')) {
+      if (errorMessage.includes('auth/invalid-credential') || errorMessage.includes('auth/wrong-password') || errorMessage.includes('auth/user-not-found')) {
         errorMessage = 'Email ou senha incorretos.';
-      } else if (errorMessage.includes('Email not confirmed')) {
-        errorMessage = 'Por favor, confirme seu email antes de fazer login.';
       }
       setError(errorMessage);
     } finally {
       setLoading(false);
     }
   };
-
-  useEffect(() => {
-    if (user) {
-      if (user.role === 'ADMIN') {
-        navigate('/admin');
-      } else {
-        navigate('/professional');
-      }
-    }
-  }, [user, navigate]);
 
   return (
     <div className="min-h-screen bg-[#050505] text-white relative overflow-hidden selection:bg-orange-500/30">

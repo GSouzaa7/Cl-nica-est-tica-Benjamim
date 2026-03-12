@@ -1,0 +1,11 @@
+﻿src/App.tsx(6230,30): error TS2304: Cannot find name 'patients'.
+src/App.tsx(6230,53): error TS2304: Cannot find name 'setPatients'.
+src/App.tsx(6232,35): error TS2304: Cannot find name 'patients'.
+src/App.tsx(6232,58): error TS2304: Cannot find name 'setPatients'.
+src/App.tsx(6234,38): error TS2304: Cannot find name 'patients'.
+src/lib/firebase.ts(6,25): error TS2339: Property 'env' does not exist on type 'ImportMeta'.
+src/lib/firebase.ts(7,29): error TS2339: Property 'env' does not exist on type 'ImportMeta'.
+src/lib/firebase.ts(8,28): error TS2339: Property 'env' does not exist on type 'ImportMeta'.
+src/lib/firebase.ts(9,32): error TS2339: Property 'env' does not exist on type 'ImportMeta'.
+src/lib/firebase.ts(10,36): error TS2339: Property 'env' does not exist on type 'ImportMeta'.
+src/lib/firebase.ts(11,24): error TS2339: Property 'env' does not exist on type 'ImportMeta'.
