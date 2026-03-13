@@ -67,10 +67,11 @@ import {
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
 
 import { useAuth } from './contexts/AuthContext';
+import { useToast } from './contexts/ToastContext';
 import { signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import { auth, db } from './lib/firebase';
+import { registrarNovoUsuario, resetarSenha, verificarEmailExiste } from './lib/authService';
 import { doc, getDoc, setDoc, collection, getDocs, onSnapshot, writeBatch, deleteDoc, query, orderBy, arrayRemove, arrayUnion } from 'firebase/firestore';
-import { registrarNovoUsuario } from './lib/authService';
 import { ReceituarioView } from './ReceituarioView';
 import { SaveButton } from './components/SaveButton';
 import { logAuditEvent } from './lib/auditLogger';
@@ -149,32 +150,33 @@ type ModulePermissions = {
 };
 
 const LoginScreen = ({ onLogin, isDarkMode = true }: { onLogin: (email: string) => void, isDarkMode?: boolean }) => {
+  const { addToast } = useToast();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [isRegistering, setIsRegistering] = useState(false);
+  const [isForgotPage, setIsForgotPage] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [resetSuccess, setResetSuccess] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setLoading(true);
 
     try {
       if (isRegistering) {
         if (email && name && password) {
-
-          const user = await registrarNovoUsuario(email, password, name);
-
+          await registrarNovoUsuario(email, password, name);
           setShowSuccessModal(true);
         } else {
-          alert("Preencha todos os campos para registrar.");
+          addToast("Preencha todos os campos para registrar.", "warning");
         }
       } else {
         if (email && password) {
-
-          const result = await signInWithEmailAndPassword(auth, email, password);
-
+          await signInWithEmailAndPassword(auth, email, password);
         } else {
-          alert("Preencha email e senha para entrar.");
+          addToast("Preencha email e senha para entrar.", "warning");
         }
       }
     } catch (err: any) {
@@ -183,7 +185,38 @@ const LoginScreen = ({ onLogin, isDarkMode = true }: { onLogin: (email: string) 
       if (msgs.includes('auth/invalid-credential') || msgs.includes('auth/wrong-password') || msgs.includes('auth/user-not-found')) msgs = 'Email ou senha incorretos.';
       if (msgs.includes('auth/email-already-in-use')) msgs = 'Este email já está cadastrado no sistema.';
       if (msgs.includes('auth/weak-password')) msgs = 'A senha deve ter pelo menos 6 caracteres.';
-      alert(msgs);
+      addToast(msgs, "error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email) {
+      addToast("Por favor, insira seu e-mail para recuperar a senha.", "info");
+      return;
+    }
+    setLoading(true);
+    try {
+      // 1. Verifica se o email existe no banco
+      const existe = await verificarEmailExiste(email);
+      
+      if (!existe) {
+        addToast("E-mail não encontrado no sistema.", "error");
+        setIsForgotPage(false); // Retorna ao login
+        return;
+      }
+
+      // 2. Se existe, envia o e-mail
+      await resetarSenha(email);
+      setResetSuccess(true);
+      addToast("E-mail de recuperação enviado com sucesso!", "success");
+      setTimeout(() => setResetSuccess(false), 5000);
+    } catch (err: any) {
+      addToast("Erro ao enviar e-mail de recuperação. Verifique o endereço digitado.", "error");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -245,12 +278,15 @@ const LoginScreen = ({ onLogin, isDarkMode = true }: { onLogin: (email: string) 
                   <Asterisk className="!text-white" size={28} />
                 </div>
                 <h1 className="!text-white font-bricolage text-4xl font-light tracking-tight mb-2">
-                  Estética<span className="font-semibold !text-orange-500">Pro</span>
+                  {isForgotPage ? 'Recuperar' : 'Estética'}<span className="font-semibold !text-orange-500">{isForgotPage ? 'Senha' : 'Pro'}</span>
                 </h1>
+                {isForgotPage && (
+                   <p className="text-neutral-400 font-sans text-sm mt-2">Insira seu e-mail para receber as instruções.</p>
+                )}
               </div>
 
-              <form onSubmit={handleSubmit} className="flex flex-col gap-5 w-full font-sans">
-                {isRegistering && (
+              <form onSubmit={isForgotPage ? handleResetPassword : handleSubmit} className="flex flex-col gap-5 w-full font-sans">
+                {isRegistering && !isForgotPage && (
                   <div className="w-full animate-entry">
                     <label className="block text-xs font-semibold !text-neutral-400 mb-2 uppercase tracking-wider">Nome Completo</label>
                     <input
@@ -264,40 +300,53 @@ const LoginScreen = ({ onLogin, isDarkMode = true }: { onLogin: (email: string) 
                   </div>
                 )}
                 <div className="w-full">
-                  <label className="block text-xs font-semibold !text-neutral-400 mb-2 uppercase tracking-wider">{isRegistering ? 'E-mail' : 'E-mail Corporativo'}</label>
+                  <label className="block text-xs font-semibold !text-neutral-400 mb-2 uppercase tracking-wider">
+                    {isForgotPage ? 'Seu E-mail de Recuperação' : (isRegistering ? 'E-mail' : 'E-mail Corporativo')}
+                  </label>
                   <input
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className="w-full !bg-black/40 border !border-white/10 rounded-xl px-5 py-3.5 !text-white placeholder-neutral-500 focus:outline-none focus:border-orange-500 transition-colors font-sans text-sm"
-                    placeholder={isRegistering ? "seu@email.com" : "clinica@esteticapro.com"}
+                    placeholder={isForgotPage || isRegistering ? "seu@email.com" : "clinica@esteticapro.com"}
                     required
                   />
                 </div>
-                <div className="w-full">
-                  <label className="block text-xs font-semibold !text-neutral-400 mb-2 uppercase tracking-wider">{isRegistering ? 'Senha' : 'Senha de Acesso'}</label>
-                  <input
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="w-full !bg-black/40 border !border-white/10 rounded-xl px-5 py-3.5 !text-white placeholder-neutral-500 focus:outline-none focus:border-orange-500 transition-colors font-sans text-sm"
-                    placeholder="••••••••"
-                    required
-                  />
-                  {!isRegistering && (
-                    <div className="flex justify-end mt-2 animate-entry">
-                      <button type="button" onClick={() => alert('Função de recuperação de senha será enviada por e-mail.')} className="text-xs font-medium !text-orange-500 hover:!text-orange-400 transition-colors">
-                        Esqueceu a senha?
-                      </button>
-                    </div>
-                  )}
-                </div>
+                {!isForgotPage && (
+                  <div className="w-full">
+                    <label className="block text-xs font-semibold !text-neutral-400 mb-2 uppercase tracking-wider">{isRegistering ? 'Senha' : 'Senha de Acesso'}</label>
+                    <input
+                      type="password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="w-full !bg-black/40 border !border-white/10 rounded-xl px-5 py-3.5 !text-white placeholder-neutral-500 focus:outline-none focus:border-orange-500 transition-colors font-sans text-sm"
+                      placeholder="••••••••"
+                      required
+                    />
+                    {!isRegistering && (
+                      <div className="flex flex-col items-end mt-2 animate-entry">
+                        {resetSuccess && (
+                          <span className="text-[10px] text-emerald-500 font-medium mb-1">E-mail enviado!</span>
+                        )}
+                        <button 
+                          type="button" 
+                          onClick={() => setIsForgotPage(true)} 
+                          disabled={loading}
+                          className="text-xs font-medium !text-orange-500 hover:!text-orange-400 transition-colors disabled:opacity-50"
+                        >
+                          Esqueceu a senha?
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 <button
                   type="submit"
-                  className={`w-full bg-gradient-to-r from-orange-400 to-orange-600 text-[#2c1306] shadow-[0_0_20px_rgba(249,115,22,0.4)] hover:shadow-[0_0_40px_rgba(249,115,22,0.7)] hover:scale-[1.02] border-none font-bold py-3.5 rounded-xl transition-all duration-300 mt-2 font-sans`}
+                  disabled={loading}
+                  className={`w-full bg-gradient-to-r from-orange-400 to-orange-600 text-[#2c1306] shadow-[0_0_20px_rgba(249,115,22,0.4)] hover:shadow-[0_0_40px_rgba(249,115,22,0.7)] hover:scale-[1.02] border-none font-bold py-3.5 rounded-xl transition-all duration-300 mt-2 font-sans disabled:opacity-50`}
                 >
-                  {isRegistering ? 'Criar Conta' : 'Entrar no Sistema'}
+                  {loading ? 'Processando...' : (isForgotPage ? 'Enviar E-mail' : (isRegistering ? 'Criar Conta' : 'Entrar no Sistema'))}
                 </button>
 
                 <div className="flex items-center gap-4 my-2">
@@ -308,10 +357,18 @@ const LoginScreen = ({ onLogin, isDarkMode = true }: { onLogin: (email: string) 
 
                 <button
                   type="button"
-                  onClick={() => setIsRegistering(!isRegistering)}
+                  onClick={() => {
+                    if (isForgotPage) {
+                      setIsForgotPage(false);
+                    } else {
+                      setIsRegistering(!isRegistering);
+                    }
+                  }}
                   className="text-sm font-medium !text-neutral-400 hover:!text-white transition-colors"
                 >
-                  {isRegistering ? (
+                  {isForgotPage ? (
+                    'Voltar para o Login'
+                  ) : isRegistering ? (
                     <>Já tem uma conta? <span className="font-bold underline decoration-orange-500/50 underline-offset-4">Fazer login</span></>
                   ) : (
                     <span className="font-bold underline decoration-orange-500/50 underline-offset-4">Criar uma conta</span>
@@ -7765,7 +7822,7 @@ export default function App() {
   };
 
   return (
-    <div className="flex h-screen font-sans overflow-hidden selection:bg-orange-500/30 transition-colors duration-300" style={{ backgroundColor: 'var(--bg-base)', color: 'var(--text-primary)' }}>
+    <div className="flex min-h-screen font-sans overflow-hidden selection:bg-orange-500/30 transition-colors duration-300" style={{ backgroundColor: 'var(--bg-base)', color: 'var(--text-primary)' }}>
       {/* Mobile Sidebar Overlay */}
       {isMobileMenuOpen && (
         <div 

@@ -20,11 +20,24 @@ export const ProfessionalLayout = () => {
         <div className="glow-blob absolute bottom-0 right-0 w-[600px] h-[600px] bg-orange-950/20 blur-[100px] rounded-full"></div>
       </div>
 
-      <nav className="relative z-10 border-b border-white/5 bg-[#050505]/80 backdrop-blur-md px-6 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="text-xl font-bricolage tracking-tight text-white">Portal do Profissional</span>
+      <nav className="relative z-10 border-b border-white/5 bg-[#050505]/80 backdrop-blur-md px-4 md:px-6 py-3 md:py-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+        <div className="flex items-center justify-between md:justify-start gap-2">
+          <span className="text-lg md:text-xl font-bricolage tracking-tight text-white">Portal do Profissional</span>
+          <div className="md:hidden flex items-center gap-3">
+            <div className="flex items-center gap-1 text-xs text-neutral-400">
+              <UserCircle className="w-4 h-4" />
+              <span className="max-w-[120px] truncate">{user?.name}</span>
+            </div>
+            <button
+              onClick={handleLogout}
+              className="text-xs text-neutral-400 hover:text-white transition-colors flex items-center gap-1"
+            >
+              <LogOut className="w-4 h-4" />
+              Sair
+            </button>
+          </div>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="hidden md:flex items-center gap-4">
           <div className="flex items-center gap-2 text-sm text-neutral-400">
             <UserCircle className="w-5 h-5" />
             {user?.name}
@@ -39,7 +52,7 @@ export const ProfessionalLayout = () => {
         </div>
       </nav>
 
-      <main className="flex-1 relative z-10 p-8 max-w-7xl mx-auto w-full">
+      <main className="flex-1 relative z-10 px-4 py-6 md:p-8 max-w-7xl mx-auto w-full">
         <Outlet />
       </main>
     </div>

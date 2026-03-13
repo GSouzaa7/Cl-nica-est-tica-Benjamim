@@ -1,6 +1,28 @@
-import { createUserWithEmailAndPassword } from "firebase/auth";
+import { createUserWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
 import { collection, getDocs, limit, setDoc, doc, getDoc, serverTimestamp, query } from "firebase/firestore";
 import { auth, db } from "./firebase";
+import { query, where } from "firebase/firestore";
+
+export const verificarEmailExiste = async (email: string): Promise<boolean> => {
+    try {
+        const usuariosRef = collection(db, "usuarios");
+        const q = query(usuariosRef, where("email", "==", email), limit(1));
+        const querySnapshot = await getDocs(q);
+        return !querySnapshot.empty;
+    } catch (error) {
+        console.error("Erro ao verificar existência do e-mail:", error);
+        return false;
+    }
+};
+
+export const resetarSenha = async (email: string) => {
+    try {
+        await sendPasswordResetEmail(auth, email);
+    } catch (error) {
+        console.error("Erro ao enviar email de recuperação:", error);
+        throw error;
+    }
+};
 
 export const registrarNovoUsuario = async (email: string, senha: string, nome?: string) => {
     try {
