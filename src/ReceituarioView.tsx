@@ -255,7 +255,7 @@ export const ReceituarioView = ({
             <div style="font-family: Arial, sans-serif; font-size: 10px; font-weight: bold; color: #737373; text-transform: uppercase; letter-spacing: 0.05em;">
               <div style="margin-bottom: 2px;">${profSpec}</div>
               <div style="margin-bottom: 2px;">${selectedProfessional?.doc?.type || 'CRM'} ${selectedProfessional?.doc?.uf || 'SP'} ${selectedProfessional?.doc?.number || '11111'}</div>
-              ${selectedProfessional?.rqe?.numero ? `<div style="margin-bottom: 2px;">RQE ${selectedProfessional.rqe.numero}</div>` : '<div>RQE 222222</div>'}
+              ${selectedProfessional?.rqe?.numero ? `<div style="margin-bottom: 2px;">RQE ${selectedProfessional.rqe.numero}</div>` : ''}
               <div style="margin-top: 4px; font-weight: 500; color: #a3a3a3; text-transform: lowercase;">
                 ${selectedProfessional?.phone || '11999999999'} • ${selectedProfessional?.email || 'rafael@ig.com'}
               </div>
@@ -714,7 +714,7 @@ export const ReceituarioView = ({
                         {selectedProfessional?.doc?.type || 'CRM'} {selectedProfessional?.doc?.uf || 'SP'} {selectedProfessional?.doc?.number || '11111'}
                       </span>
                       <span className="mb-0.5">
-                        {selectedProfessional?.rqe?.numero ? `RQE ${selectedProfessional.rqe.numero}` : 'RQE 222222'}
+                        {selectedProfessional?.rqe?.numero ? `RQE ${selectedProfessional.rqe.numero}` : ''}
                       </span>
                       <div className="flex gap-2 mt-1 lowercase font-medium text-black">
                         <span>{selectedProfessional?.phone || '11999999999'}</span>
@@ -828,8 +828,12 @@ export const ReceituarioView = ({
                           <span className="flex-1 border-b border-black">{selectedProfessional?.doc?.number || '11111'}</span>
                           <span className="font-semibold mr-1">UF</span>
                           <span className="w-10 border-b border-black text-center">{selectedProfessional?.doc?.uf || 'SP'}</span>
-                          <span className="font-semibold mr-1">RQE</span>
-                          <span className="text-center w-16 border-b border-black">{selectedProfessional?.rqe?.numero || '&nbsp;'}</span>
+                          {selectedProfessional?.rqe?.numero && (
+                            <>
+                              <span className="font-semibold mr-1">RQE</span>
+                              <span className="text-center w-16 border-b border-black">{selectedProfessional.rqe.numero}</span>
+                            </>
+                          )}
                         </div>
                         <div className="flex items-baseline">
                           <span className="font-semibold mr-1 whitespace-nowrap">Endereço Completo e Telefone</span>
