@@ -3,6 +3,8 @@ import { useNavigate, Link } from 'react-router-dom';
 import { Sparkles } from 'lucide-react';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../lib/firebase';
+import { resetarSenha, verificarEmailExiste } from '../lib/authService';
+import { useToast } from '../contexts/ToastContext';
 
 /* ─────────────────────────────────────────────
    Hero Light Canvas – lightweight particle layer
@@ -91,10 +93,13 @@ const HeroLightCanvas = () => {
    Login Page
    ───────────────────────────────────────────── */
 export const Login = () => {
+  const { addToast } = useToast();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [resetSent, setResetSent] = useState(false);
+  const [isForgotPage, setIsForgotPage] = useState(false);
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -110,7 +115,37 @@ export const Login = () => {
       if (errorMessage.includes('auth/invalid-credential') || errorMessage.includes('auth/wrong-password') || errorMessage.includes('auth/user-not-found')) {
         errorMessage = 'Email ou senha incorretos.';
       }
-      setError(errorMessage);
+      addToast(errorMessage, "error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email) {
+      addToast('Por favor, insira seu e-mail para recuperar a senha.', 'info');
+      return;
+    }
+    setLoading(true);
+    setError('');
+    try {
+      // 1. Verifica se o email existe no banco
+      const existe = await verificarEmailExiste(email);
+      
+      if (!existe) {
+        addToast('E-mail não encontrado no sistema.', 'error');
+        setIsForgotPage(false); // Retorna ao login como solicitado
+        return;
+      }
+
+      // 2. Se existe, envia o e-mail
+      await resetarSenha(email);
+      setResetSent(true);
+      addToast('E-mail de recuperação enviado! Verifique sua caixa de entrada.', 'success');
+      setError('');
+    } catch (err: any) {
+      addToast('Erro ao enviar e-mail de recuperação. Verifique o endereço digitado.', 'error');
     } finally {
       setLoading(false);
     }
@@ -223,9 +258,13 @@ export const Login = () => {
                     WebkitTextFillColor: 'transparent',
                   }}
                 >
-                  Login
+                  {isForgotPage ? 'Recuperar Senha' : 'Login'}
                 </h3>
-                <p className="text-sm text-neutral-400 mb-8 leading-relaxed font-sans w-full">Insira suas credenciais abaixo.</p>
+                <p className="text-sm text-neutral-400 mb-8 leading-relaxed font-sans w-full">
+                  {isForgotPage 
+                    ? 'Insira seu e-mail para receber as instruções.' 
+                    : 'Insira suas credenciais abaixo.'}
+                </p>
 
                 {error && (
                   <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-3 rounded-lg text-sm mb-6 w-full text-left">
@@ -233,7 +272,13 @@ export const Login = () => {
                   </div>
                 )}
 
-                <form onSubmit={handleSubmit} className="space-y-5 w-full">
+                {resetSent && (
+                  <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 p-3 rounded-lg text-sm mb-6 w-full text-left">
+                    E-mail de recuperação enviado! Verifique sua caixa de entrada.
+                  </div>
+                )}
+
+                <form onSubmit={isForgotPage ? handleResetPassword : handleSubmit} className="space-y-5 w-full">
                   <div className="w-full">
                     <label className="block text-sm font-medium text-neutral-300 mb-2 font-sans">E-mail</label>
                     <div className="flex items-center rounded-lg bg-[#050505] border border-white/10 focus-within:border-white/20 transition-all w-full">
@@ -248,38 +293,54 @@ export const Login = () => {
                     </div>
                   </div>
 
-                  <div className="w-full">
-                    <label className="block text-sm font-medium text-neutral-300 mb-2 font-sans">Senha</label>
-                    <div className="flex items-center rounded-lg bg-[#050505] border border-white/10 focus-within:border-white/20 transition-all w-full">
-                      <input
-                        type="password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        className="w-full bg-transparent border-none text-sm text-white px-4 py-3 focus:outline-none placeholder:text-neutral-600 font-sans h-12 rounded-lg"
-                        placeholder="••••••••"
-                        required
-                      />
+                  {!isForgotPage && (
+                    <div className="w-full">
+                      <label className="block text-sm font-medium text-neutral-300 mb-2 font-sans">Senha</label>
+                      <div className="flex items-center rounded-lg bg-[#050505] border border-white/10 focus-within:border-white/20 transition-all w-full">
+                        <input
+                          type="password"
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          className="w-full bg-transparent border-none text-sm text-white px-4 py-3 focus:outline-none placeholder:text-neutral-600 font-sans h-12 rounded-lg"
+                          placeholder="••••••••"
+                          required
+                        />
+                      </div>
+                      <div className="flex justify-end mt-2">
+                        <button 
+                          type="button" 
+                          onClick={() => setIsForgotPage(true)}
+                          className="text-xs text-orange-500 hover:text-orange-400 transition-colors font-sans"
+                        >
+                          Esqueceu a senha?
+                        </button>
+                      </div>
                     </div>
-                  </div>
+                  )}
 
-                  {/* Button – visual only changes */}
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="w-full relative flex items-center justify-center gap-2.5 rounded-full px-8 py-3 text-sm font-medium text-[#2c1306] ring-1 ring-inset ring-white/40 transition-all duration-300 hover:scale-105 disabled:opacity-50 mt-4"
-                    style={{
-                      background: 'linear-gradient(to top, #fde68a, #fb923c, #f97316)',
-                      boxShadow: '0 0 40px -5px rgba(249,115,22,0.6)',
-                    }}
-                    onMouseEnter={(e) => {
-                      (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 0 60px -5px rgba(249,115,22,0.8)';
-                    }}
-                    onMouseLeave={(e) => {
-                      (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 0 40px -5px rgba(249,115,22,0.6)';
-                    }}
-                  >
-                    {loading ? 'Entrando...' : 'Acessar Sistema'}
-                  </button>
+                  <div className="pt-2 flex flex-col gap-3">
+                    <button
+                      type="submit"
+                      disabled={loading}
+                      className="w-full relative flex items-center justify-center gap-2.5 rounded-full px-8 py-3 text-sm font-medium text-[#2c1306] ring-1 ring-inset ring-white/40 transition-all duration-300 hover:scale-105 disabled:opacity-50"
+                      style={{
+                        background: 'linear-gradient(to top, #fde68a, #fb923c, #f97316)',
+                        boxShadow: '0 0 40px -5px rgba(249,115,22,0.6)',
+                      }}
+                    >
+                      {loading ? 'Processando...' : (isForgotPage ? 'Enviar Instruções' : 'Acessar Sistema')}
+                    </button>
+
+                    {isForgotPage && (
+                      <button
+                        type="button"
+                        onClick={() => setIsForgotPage(false)}
+                        className="w-full text-sm text-neutral-400 hover:text-white transition-colors py-2 font-sans"
+                      >
+                        Voltar para o Login
+                      </button>
+                    )}
+                  </div>
                 </form>
 
                 <div className="mt-8 relative w-full h-px bg-gradient-to-r from-transparent via-orange-500/50 to-transparent flex items-center justify-center">
