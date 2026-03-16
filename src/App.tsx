@@ -2879,7 +2879,7 @@ const ClientesView = ({ patients, setPatients, columns, onGenerateReceituario, i
     const phoneRaw = (p.phone || '');
     const phoneMatch = phoneRaw ? (phoneRaw.includes(term) || phoneRaw.replace(/\D/g, '').includes(term.replace(/\D/g, ''))) : false;
     return nameMatch || cpfMatch || phoneMatch;
-  });
+  }).sort((a: any, b: any) => (a.name || '').localeCompare(b.name || ''));
 
   return (
     <div className="flex-1 flex flex-col relative overflow-hidden">
