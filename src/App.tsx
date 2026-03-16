@@ -1008,7 +1008,7 @@ const SERVICE_INVENTORY_MAP: Record<string, string> = {
   'default': 'Kit Descartável Padrão, Gel Condutor, Luvas Nitrílicas'
 };
 
-const AgendaView = ({ professionals, services = [], appointments = [], setAppointments, onCompleteService, isDarkMode = true }: any) => {
+const AgendaView = ({ professionals, services = [], appointments = [], setAppointments, onCompleteService, isDarkMode = true, patients = [] }: any) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedTime, setSelectedTime] = useState('08:00');
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -1016,11 +1016,15 @@ const AgendaView = ({ professionals, services = [], appointments = [], setAppoin
   const [datePickerMonth, setDatePickerMonth] = useState(new Date().getMonth());
   const [datePickerYear, setDatePickerYear] = useState(new Date().getFullYear());
   const [selectedService, setSelectedService] = useState('');
+  const [additionalServices, setAdditionalServices] = useState<string[]>([]); // multiple services
   const [selectedProfessional, setSelectedProfessional] = useState('');
   const [isProfDropdownOpen, setIsProfDropdownOpen] = useState(false);
   const [isTimeDropdownOpen, setIsTimeDropdownOpen] = useState(false);
   const [isServiceDropdownOpen, setIsServiceDropdownOpen] = useState(false);
+  const [additionalServiceDropdownIndex, setAdditionalServiceDropdownIndex] = useState<number | null>(null);
   const [patientName, setPatientName] = useState('');
+  const [patientSearchQuery, setPatientSearchQuery] = useState('');
+  const [isPatientDropdownOpen, setIsPatientDropdownOpen] = useState(false);
   // appointments state moved to App.tsx
   const [selectedAppDetails, setSelectedAppDetails] = useState<any | null>(null);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
@@ -1262,9 +1266,9 @@ const AgendaView = ({ professionals, services = [], appointments = [], setAppoin
       {/* New Appointment Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className={`${isDarkMode ? "bg-[#0a0a0a] border-orange-900/30 shadow-[0_0_50px_rgba(249,115,22,0.1)]" : "bg-white border-[var(--border-default)] shadow-2xl"} border rounded-3xl w-full max-w-md p-8 relative`}>
+          <div className={`${isDarkMode ? "bg-[#0a0a0a] border-orange-900/30 shadow-[0_0_50px_rgba(249,115,22,0.1)]" : "bg-white border-[var(--border-default)] shadow-2xl"} border rounded-3xl w-full max-w-md p-8 relative max-h-[90vh] overflow-y-auto custom-scrollbar`}>
             <button
-              onClick={() => { setIsModalOpen(false); setIsProfDropdownOpen(false); setIsServiceDropdownOpen(false); setSelectedProfessional(''); }}
+              onClick={() => { setIsModalOpen(false); setIsProfDropdownOpen(false); setIsServiceDropdownOpen(false); setSelectedProfessional(''); setAdditionalServices([]); setPatientSearchQuery(''); setIsPatientDropdownOpen(false); }}
               className={`absolute top-6 right-6 text-zinc-500 hover:${isDarkMode ? "text-white" : "text-zinc-900"} transition-colors`}
             >
               <X size={20} />
@@ -1273,15 +1277,50 @@ const AgendaView = ({ professionals, services = [], appointments = [], setAppoin
             <h2 className={`text-2xl font-bold ${isDarkMode ? "text-white" : "text-zinc-900"} mb-8`}>Novo Agendamento</h2>
 
             <div className="flex flex-col gap-6">
-              <div>
+              {/* Patient search with autocomplete */}
+              <div className="relative">
                 <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Paciente</label>
                 <input
                   type="text"
                   placeholder="Buscar paciente..."
-                  value={patientName}
-                  onChange={(e) => setPatientName(e.target.value)}
+                  value={patientSearchQuery}
+                  onChange={(e) => {
+                    setPatientSearchQuery(e.target.value);
+                    setPatientName(e.target.value);
+                    setIsPatientDropdownOpen(true);
+                  }}
+                  onFocus={() => setIsPatientDropdownOpen(true)}
                   className={`w-full bg-[#050505] border border-zinc-800 rounded-xl px-4 py-3 ${isDarkMode ? "text-white" : "text-zinc-900"} focus:outline-none focus:border-orange-500 transition-colors`}
                 />
+                {isPatientDropdownOpen && patientSearchQuery.length > 0 && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setIsPatientDropdownOpen(false)} />
+                    <div className={`absolute top-full left-0 w-full mt-2 z-50 rounded-xl border shadow-2xl overflow-hidden max-h-48 overflow-y-auto custom-scrollbar ${isDarkMode ? "border-zinc-700/50 bg-[#0a0a0a]" : "border-zinc-200 bg-white"}`}>
+                      {(patients || [])
+                        .filter((p: any) => p.name?.toLowerCase().includes(patientSearchQuery.toLowerCase()))
+                        .length === 0 ? (
+                          <div className="px-4 py-3 text-sm text-zinc-500">Nenhum paciente encontrado</div>
+                        ) : (
+                          (patients || [])
+                            .filter((p: any) => p.name?.toLowerCase().includes(patientSearchQuery.toLowerCase()))
+                            .map((p: any) => (
+                              <button
+                                key={p.id}
+                                type="button"
+                                onClick={() => {
+                                  setPatientName(p.name);
+                                  setPatientSearchQuery(p.name);
+                                  setIsPatientDropdownOpen(false);
+                                }}
+                                className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${isDarkMode ? 'text-white hover:bg-white/5' : 'text-zinc-900 hover:bg-zinc-100'}`}
+                              >
+                                {p.name}
+                              </button>
+                            ))
+                        )}
+                    </div>
+                  </>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -1426,21 +1465,35 @@ const AgendaView = ({ professionals, services = [], appointments = [], setAppoin
                 </div>
               </div>
 
+              {/* Service section — optional, with +ADICIONAR button */}
               <div>
-                <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Serviço</label>
-                <div className="relative">
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-[10px] font-bold text-zinc-500 tracking-wider uppercase">Serviço <span className="text-zinc-600 normal-case font-normal">(opcional)</span></label>
+                  <button
+                    type="button"
+                    onClick={() => setAdditionalServices(prev => [...prev, ''])}
+                    className="flex items-center gap-1 text-[10px] font-bold text-orange-500 hover:text-orange-400 tracking-wider uppercase transition-colors"
+                  >
+                    <Plus size={12} />
+                    Adicionar
+                  </button>
+                </div>
+
+                {/* Primary service */}
+                <div className="relative mb-2">
                   <button
                     type="button"
                     onClick={() => setIsServiceDropdownOpen(!isServiceDropdownOpen)}
                     className={`w-full flex items-center justify-between bg-[#050505] border border-zinc-800 rounded-xl px-4 py-3 ${isDarkMode ? "text-white" : "text-zinc-900"} focus:outline-none focus:border-orange-500 transition-colors relative z-10`}
                   >
-                    <span className="truncate">{(services && selectedService) ? services.find((s: any) => s.id === selectedService)?.name : 'Selecione um serviço'}</span>
+                    <span className={`truncate ${!selectedService ? 'text-zinc-500' : ''}`}>{(services && selectedService) ? services.find((s: any) => s.id === selectedService)?.name : 'Selecione um serviço'}</span>
                     <ChevronDown size={16} className={`shrink-0 transition-transform duration-200 ${isServiceDropdownOpen ? 'rotate-180' : ''} text-zinc-500`} />
                   </button>
                   {isServiceDropdownOpen && (
                     <>
                       <div className="fixed inset-0 z-40" onClick={() => setIsServiceDropdownOpen(false)} />
                       <div className={`absolute top-full left-0 w-full mt-2 z-50 rounded-xl border shadow-2xl overflow-hidden max-h-48 overflow-y-auto custom-scrollbar ${isDarkMode ? "border-zinc-700/50 bg-[#0a0a0a]" : "border-zinc-200 bg-white"}`}>
+                        <button type="button" onClick={() => { setSelectedService(''); setIsServiceDropdownOpen(false); }} className={`w-full text-left px-4 py-2.5 text-sm transition-colors text-zinc-500 italic ${isDarkMode ? 'hover:bg-white/5' : 'hover:bg-zinc-100'}`}>Nenhum</button>
                         {(services || []).map((service: any) => (
                           <button key={service.id} type="button" onClick={() => { setSelectedService(service.id); setIsServiceDropdownOpen(false); }} className={`w-full text-left px-4 py-2.5 text-sm transition-colors relative z-50 ${selectedService === service.id ? 'bg-gradient-to-r from-orange-600/30 to-transparent text-orange-500 font-medium' : (isDarkMode ? 'text-white hover:bg-white/5' : 'text-zinc-900 hover:bg-zinc-100')}`}>{service.name}</button>
                         ))}
@@ -1448,18 +1501,58 @@ const AgendaView = ({ professionals, services = [], appointments = [], setAppoin
                     </>
                   )}
                 </div>
+
+                {/* Additional services */}
+                {additionalServices.map((svcId, idx) => (
+                  <div key={idx} className="relative flex items-center gap-2 mb-2">
+                    <div className="relative flex-1">
+                      <button
+                        type="button"
+                        onClick={() => setAdditionalServiceDropdownIndex(additionalServiceDropdownIndex === idx ? null : idx)}
+                        className={`w-full flex items-center justify-between bg-[#050505] border border-zinc-800 rounded-xl px-4 py-3 ${isDarkMode ? "text-white" : "text-zinc-900"} focus:outline-none focus:border-orange-500 transition-colors relative z-10`}
+                      >
+                        <span className={`truncate ${!svcId ? 'text-zinc-500' : ''}`}>{(services && svcId) ? services.find((s: any) => s.id === svcId)?.name : 'Selecione um serviço'}</span>
+                        <ChevronDown size={16} className={`shrink-0 transition-transform duration-200 ${additionalServiceDropdownIndex === idx ? 'rotate-180' : ''} text-zinc-500`} />
+                      </button>
+                      {additionalServiceDropdownIndex === idx && (
+                        <>
+                          <div className="fixed inset-0 z-40" onClick={() => setAdditionalServiceDropdownIndex(null)} />
+                          <div className={`absolute top-full left-0 w-full mt-2 z-50 rounded-xl border shadow-2xl overflow-hidden max-h-48 overflow-y-auto custom-scrollbar ${isDarkMode ? "border-zinc-700/50 bg-[#0a0a0a]" : "border-zinc-200 bg-white"}`}>
+                            {(services || []).map((service: any) => (
+                              <button key={service.id} type="button" onClick={() => {
+                                setAdditionalServices(prev => prev.map((s, i) => i === idx ? service.id : s));
+                                setAdditionalServiceDropdownIndex(null);
+                              }} className={`w-full text-left px-4 py-2.5 text-sm transition-colors relative z-50 ${svcId === service.id ? 'bg-gradient-to-r from-orange-600/30 to-transparent text-orange-500 font-medium' : (isDarkMode ? 'text-white hover:bg-white/5' : 'text-zinc-900 hover:bg-zinc-100')}`}>{service.name}</button>
+                            ))}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setAdditionalServices(prev => prev.filter((_, i) => i !== idx))}
+                      className="p-2 text-zinc-500 hover:text-red-500 transition-colors shrink-0"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+                ))}
               </div>
 
               <button
                 onClick={() => {
-                  if (!patientName || !selectedService || !selectedProfessional || !selectedTime) {
-                    alert('Erro: Preencha todos os campos antes de confirmar.');
+                  if (!patientName || !selectedProfessional || !selectedTime) {
+                    alert('Erro: Preencha Paciente, Profissional e Horário antes de confirmar.');
                     return;
                   }
+                  const allServiceNames = [
+                    selectedService ? services.find((s: any) => s.id === selectedService)?.name : null,
+                    ...additionalServices.map(sid => sid ? services.find((s: any) => s.id === sid)?.name : null)
+                  ].filter(Boolean);
                   const newApp = {
                     id: Date.now(),
                     patient: patientName,
-                    service: services.find((s: any) => s.id === selectedService)?.name || 'Serviço',
+                    service: allServiceNames.join(', ') || 'Sem serviço',
                     time: selectedTime,
                     professionalId: selectedProfessional,
                   };
@@ -1467,7 +1560,10 @@ const AgendaView = ({ professionals, services = [], appointments = [], setAppoin
                   // Cleanup Total de Estados
                   setIsModalOpen(false);
                   setPatientName('');
+                  setPatientSearchQuery('');
+                  setIsPatientDropdownOpen(false);
                   setSelectedService('');
+                  setAdditionalServices([]);
                   setSelectedProfessional('');
                   setIsProfDropdownOpen(false);
                   setIsServiceDropdownOpen(false);
@@ -2874,10 +2970,11 @@ const ClientesView = ({ patients, setPatients, columns, onGenerateReceituario, i
     const term = searchTerm.toLowerCase().trim();
     if (!term) return true;
     const nameMatch = (p.name || '').toLowerCase().includes(term);
-    const cpfRaw = (p.cpf || '');
-    const cpfMatch = cpfRaw ? (cpfRaw.includes(term) || cpfRaw.replace(/\D/g, '').includes(term.replace(/\D/g, ''))) : false;
-    const phoneRaw = (p.phone || '');
-    const phoneMatch = phoneRaw ? (phoneRaw.includes(term) || phoneRaw.replace(/\D/g, '').includes(term.replace(/\D/g, ''))) : false;
+    const termDigits = term.replace(/\D/g, '');
+    const cpfRaw = (p.cpf || '').replace(/\D/g, '');
+    const cpfMatch = termDigits.length > 0 && cpfRaw.length > 0 && cpfRaw.includes(termDigits);
+    const phoneRaw = (p.phone || '').replace(/\D/g, '');
+    const phoneMatch = termDigits.length > 0 && phoneRaw.length > 0 && phoneRaw.includes(termDigits);
     return nameMatch || cpfMatch || phoneMatch;
   }).sort((a: any, b: any) => (a.name || '').localeCompare(b.name || ''));
 
@@ -8431,6 +8528,7 @@ export default function App() {
             const raw = d.data();
             return {
               ...raw,
+              id: d.id,
               notes: decryptField(raw.notes || ''),
               history: (raw.history || []).map((h: any) => ({
                 ...h,
@@ -8823,7 +8921,7 @@ export default function App() {
         ) : activeMenu === 'Dashboard' ? (
           <DashboardView inventory={inventory} setActiveMenu={setActiveMenu} appointments={appointments} services={services} expenses={expenses} isDarkMode={isDarkMode} />
         ) : activeMenu === 'Agenda' ? (
-          <AgendaView professionals={professionals} services={services} appointments={appointments} setAppointments={setAppointments} onCompleteService={handleCompleteService} isDarkMode={isDarkMode} />
+          <AgendaView professionals={professionals} services={services} appointments={appointments} setAppointments={setAppointments} onCompleteService={handleCompleteService} isDarkMode={isDarkMode} patients={patients} />
         ) : activeMenu === 'CRM' ? (
           <CrmView patients={patients} setPatients={setPatients} columns={columns} setColumns={setColumns} onGenerateReceituario={handleGenerateReceituario} isDarkMode={isDarkMode} />
         ) : activeMenu === 'Clientes' ? (
