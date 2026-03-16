@@ -376,7 +376,6 @@ const LoginScreen = ({ onLogin, isDarkMode = true }: { onLogin: (email: string) 
         }
       }
     } catch (err: any) {
-      console.error("❌ Erro Capturado no handleSubmit:", err);
       let msgs = err.message || 'Erro de autenticação';
       if (msgs.includes('auth/invalid-credential') || msgs.includes('auth/wrong-password') || msgs.includes('auth/user-not-found')) msgs = 'Email ou senha incorretos.';
       if (msgs.includes('auth/email-already-in-use')) msgs = 'Este email já está cadastrado no sistema.';
