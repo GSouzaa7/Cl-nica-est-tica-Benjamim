@@ -5728,8 +5728,8 @@ const FinanceiroView = ({ expenses, setExpenses, isDarkMode = true }: any) => {
                         setIsViewRangeDropdownOpen(false);
                       }}
                       className={`flex items-center gap-2 pl-3 pr-8 py-1.5 text-sm font-medium rounded-lg border focus:ring-2 focus:ring-orange-500 focus:outline-none transition-colors ${isDarkMode
-                          ? "border-zinc-800 text-zinc-300 hover:border-zinc-700 hover:bg-zinc-800/50"
-                          : "border-zinc-200 text-zinc-700 hover:border-zinc-300 hover:bg-zinc-50"
+                        ? "border-zinc-800 text-zinc-300 hover:border-zinc-700 hover:bg-zinc-800/50"
+                        : "border-zinc-200 text-zinc-700 hover:border-zinc-300 hover:bg-zinc-50"
                         }`}
                     >
                       <span>{viewYear}</span>
@@ -5765,8 +5765,8 @@ const FinanceiroView = ({ expenses, setExpenses, isDarkMode = true }: any) => {
                           setIsViewYearDropdownOpen(false);
                         }}
                         className={`flex items-center gap-2 pl-3 pr-8 py-1.5 text-sm font-medium rounded-lg border focus:ring-2 focus:ring-orange-500 focus:outline-none transition-colors ${isDarkMode
-                            ? "border-zinc-800 text-zinc-300 hover:border-zinc-700 hover:bg-zinc-800/50"
-                            : "border-zinc-200 text-zinc-700 hover:border-zinc-300 hover:bg-zinc-50"
+                          ? "border-zinc-800 text-zinc-300 hover:border-zinc-700 hover:bg-zinc-800/50"
+                          : "border-zinc-200 text-zinc-700 hover:border-zinc-300 hover:bg-zinc-50"
                           }`}
                       >
                         <span>
@@ -6391,9 +6391,54 @@ const RelatoriosView = ({ isDarkMode = true, expenses = [], appointments = [], p
   const [isGenerating, setIsGenerating] = useState(false);
   const [reportContent, setReportContent] = useState('');
 
-  const now = new Date();
-  const thisMonth = now.getMonth();
-  const thisYear = now.getFullYear();
+  // States for filters (mirrored from Financial tab)
+  const currentYearStr = new Date().getFullYear().toString();
+  const [viewYear, setViewYear] = useState(currentYearStr);
+  const [viewPeriod, setViewPeriod] = useState('Mensal'); // 'Mensal', 'Trimestral', 'Semestral', 'Anual'
+  const [viewRange, setViewRange] = useState(new Date().getMonth()); // 0-11 for months, 0-3 for trimesters, 0-1 for semesters
+  const [isViewYearDropdownOpen, setIsViewYearDropdownOpen] = useState(false);
+  const [isViewRangeDropdownOpen, setIsViewRangeDropdownOpen] = useState(false);
+
+  // States for Clientes VIP filter
+  const [vipViewYear, setVipViewYear] = useState(currentYearStr);
+  const [vipViewPeriod, setVipViewPeriod] = useState('Semestral'); 
+  const [vipViewRange, setVipViewRange] = useState(Math.floor(new Date().getMonth() / 6)); 
+  const [isVipViewYearDropdownOpen, setIsVipViewYearDropdownOpen] = useState(false);
+  const [isVipViewRangeDropdownOpen, setIsVipViewRangeDropdownOpen] = useState(false);
+
+  // Helper to get start and end months based on period filters
+  let periodStartMonth = 0;
+  let periodEndMonth = 11;
+  if (viewPeriod === 'Mensal') {
+    periodStartMonth = viewRange;
+    periodEndMonth = viewRange;
+  } else if (viewPeriod === 'Trimestral') {
+    periodStartMonth = viewRange * 3;
+    periodEndMonth = periodStartMonth + 2;
+  } else if (viewPeriod === 'Semestral') {
+    periodStartMonth = viewRange * 6;
+    periodEndMonth = periodStartMonth + 5;
+  }
+
+  // Generate an array of objects to map X-axis based on period
+  // We'll use this generic axis array to map both financial and patient data.
+  const isDailyView = viewPeriod === 'Mensal';
+  const numViewYear = parseInt(viewYear);
+  const namesMeses = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+
+  let axisLabels: string[] = [];
+  if (isDailyView) {
+    const diasNoMes = new Date(numViewYear, periodStartMonth + 1, 0).getDate();
+    for (let i = 1; i <= diasNoMes; i++) {
+      axisLabels.push(String(i).padStart(2, '0'));
+    }
+  } else {
+    for (let m = periodStartMonth; m <= periodEndMonth; m++) {
+      axisLabels.push(namesMeses[m]);
+    }
+  }
+
+  const numDataPoints = axisLabels.length;
 
   // ─── FINANCEIRO KPIs ───────────────────────────────────────────────
   const receitas = expenses.filter(e => e.type === 'Receita');
@@ -6404,30 +6449,37 @@ const RelatoriosView = ({ isDarkMode = true, expenses = [], appointments = [], p
   const margemLucro = totalReceitas > 0 ? ((lucroLiquido / totalReceitas) * 100).toFixed(1) : '0.0';
   const ticketMedio = receitas.length > 0 ? (totalReceitas / receitas.length).toFixed(2) : '0.00';
 
-  // Histórico Mensal (Últimos 6 meses)
-  const past6Months = Array.from({length: 6}, (_, i) => {
-    const d = new Date();
-    d.setMonth(d.getMonth() - (5 - i));
-    return d;
-  });
-  const monthNames = past6Months.map(d => `${d.toLocaleString('pt-BR', { month: 'short' })}/${d.getFullYear().toString().slice(2)}`);
+  // ─── EVOLUÇÃO RECEITA VS LUCRO (Filtered) ──────────────────────────────────
+  const receitaPerMonth = Array(numDataPoints).fill(0);
+  const lucroPerMonth = Array(numDataPoints).fill(0);
 
-  const receitaPerMonth = [0,0,0,0,0,0];
-  const lucroPerMonth = [0,0,0,0,0,0];
-  expenses.forEach(e => {
+  expenses.forEach(exp => {
     try {
-      const d = e.id ? new Date(Number(e.id)) : new Date();
-      if(isNaN(d.getTime())) return;
-      const mIdx = past6Months.findIndex(m => m.getMonth() === d.getMonth() && m.getFullYear() === d.getFullYear());
-      if (mIdx !== -1) {
-        const val = Number(e.value || 0);
-        if (e.type === 'Receita') receitaPerMonth[mIdx] += val;
-        else lucroPerMonth[mIdx] -= val;
+      const [yearStr, monthStr, dayStr] = (exp.dueDate || '').split('-');
+      if (yearStr && parseInt(yearStr) === numViewYear) {
+        const month = parseInt(monthStr) - 1;
+        if (month >= periodStartMonth && month <= periodEndMonth) {
+          let idx = -1;
+          if (isDailyView) {
+            idx = parseInt(dayStr) - 1;
+          } else {
+            idx = month - periodStartMonth;
+          }
+          if (idx >= 0 && idx < numDataPoints) {
+            const val = Number(exp.value || 0);
+            if (exp.type === 'Receita') {
+              receitaPerMonth[idx] += val;
+              lucroPerMonth[idx] += val;
+            } else {
+              lucroPerMonth[idx] -= val;
+            }
+          }
+        }
       }
-    } catch {}
+    } catch { }
   });
-  receitaPerMonth.forEach((r, i) => lucroPerMonth[i] += r);
-  const maxReceitaAxis = Math.max(...receitaPerMonth, 50000);
+
+  const maxReceitaAxis = Math.max(...receitaPerMonth, 1000);
 
   // Top Procedimentos
   const serviceCounts: Record<string, number> = {};
@@ -6451,7 +6503,7 @@ const RelatoriosView = ({ isDarkMode = true, expenses = [], appointments = [], p
       try {
         const d = new Date(a.time);
         if (!isNaN(d.getTime())) apptsByDay[d.getDay()]++;
-      } catch {}
+      } catch { }
     }
   });
   const maxApptDay = Math.max(...apptsByDay, 4);
@@ -6471,31 +6523,95 @@ const RelatoriosView = ({ isDarkMode = true, expenses = [], appointments = [], p
   const totalComAgenda = Object.keys(patientAppCount).length;
   const taxaRetencao = totalComAgenda > 0 ? ((recorrentes / totalComAgenda) * 100).toFixed(1) : '0.0';
   const ltv = totalClientes > 0 ? (totalReceitas / totalClientes).toFixed(2) : '0.00';
-  const vipList = Object.entries(patientAppCount).sort((a, b) => b[1] - a[1]).slice(0, 5);
 
-  const novosPerMonth = [0,0,0,0,0,0];
-  const recorrentesPerMonth = [0,0,0,0,0,0];
+  let vipStartMonth = 0;
+  let vipEndMonth = 11;
+  if (vipViewPeriod === 'Mensal') {
+    vipStartMonth = vipViewRange;
+    vipEndMonth = vipViewRange;
+  } else if (vipViewPeriod === 'Trimestral') {
+    vipStartMonth = vipViewRange * 3;
+    vipEndMonth = vipStartMonth + 2;
+  } else if (vipViewPeriod === 'Semestral') {
+    vipStartMonth = vipViewRange * 6;
+    vipEndMonth = vipStartMonth + 5;
+  }
+
+  const numVipYear = parseInt(vipViewYear);
+  const vipPatientAppCount: Record<string, number> = {};
+
+  appointments.forEach(a => {
+    if (!a.patient) return;
+    try {
+      let dStr = a.time;
+      if (!dStr && a.id && !isNaN(Number(a.id))) dStr = Number(a.id);
+      if (!dStr) return;
+      const d = new Date(dStr);
+      if (isNaN(d.getTime())) return;
+      
+      if (vipViewPeriod === 'Anual') {
+        if (d.getFullYear() === numVipYear) {
+          vipPatientAppCount[a.patient] = (vipPatientAppCount[a.patient] || 0) + 1;
+        }
+      } else {
+        if (d.getFullYear() === numVipYear) {
+          const month = d.getMonth();
+          if (month >= vipStartMonth && month <= vipEndMonth) {
+            vipPatientAppCount[a.patient] = (vipPatientAppCount[a.patient] || 0) + 1;
+          }
+        }
+      }
+    } catch { }
+  });
+  const vipList = Object.entries(vipPatientAppCount).sort((a, b) => b[1] - a[1]).slice(0, 5);
+
+  const novosPerMonth = Array(numDataPoints).fill(0);
+  const recorrentesPerMonth = Array(numDataPoints).fill(0);
+
   patients.forEach(p => {
     try {
-      // p.id might be a string timestamp like '1710620000000' or similar
       const d = (p.id && !isNaN(Number(p.id))) ? new Date(Number(p.id)) : new Date();
-      if(isNaN(d.getTime())) return;
-      const mIdx = past6Months.findIndex(m => m.getMonth() === d.getMonth() && m.getFullYear() === d.getFullYear());
-      if (mIdx !== -1) novosPerMonth[mIdx]++;
-    } catch {}
+      if (isNaN(d.getTime())) return;
+      if (d.getFullYear() === numViewYear) {
+        const month = d.getMonth();
+        if (month >= periodStartMonth && month <= periodEndMonth) {
+          let idx = -1;
+          if (isDailyView) {
+            idx = d.getDate() - 1;
+          } else {
+            idx = month - periodStartMonth;
+          }
+          if (idx >= 0 && idx < numDataPoints) {
+            novosPerMonth[idx]++;
+          }
+        }
+      }
+    } catch { }
   });
+
   appointments.forEach(a => {
     try {
       let dStr = a.time;
-      // Some old data might not have time but created date
       if (!dStr && a.id && !isNaN(Number(a.id))) dStr = Number(a.id);
-      if(!dStr) return;
+      if (!dStr) return;
       const d = new Date(dStr);
-      if(isNaN(d.getTime())) return;
-      const mIdx = past6Months.findIndex(m => m.getMonth() === d.getMonth() && m.getFullYear() === d.getFullYear());
-      // count as recorrente point vaguely associated with appointment date
-      if (mIdx !== -1) recorrentesPerMonth[mIdx]++;
-    } catch {}
+      if (isNaN(d.getTime())) return;
+
+      if (d.getFullYear() === numViewYear) {
+        const month = d.getMonth();
+        if (month >= periodStartMonth && month <= periodEndMonth) {
+          let idx = -1;
+          if (isDailyView) {
+            idx = d.getDate() - 1;
+          } else {
+            idx = month - periodStartMonth;
+          }
+          if (idx >= 0 && idx < numDataPoints) {
+            recorrentesPerMonth[idx]++;
+          }
+        }
+      }
+    } catch { }
   });
   const maxClientesAxis = Math.max(...novosPerMonth, ...recorrentesPerMonth, 8);
 
@@ -6646,11 +6762,155 @@ A clínica apresenta um cenário de estabilidade no curto prazo, porém com opor
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 shrink-0">
               <div className={`md:col-span-2 bg-[#0a0a0a] border ${isDarkMode ? "border-zinc-800/80" : "border-zinc-200/80"} rounded-2xl p-6 flex flex-col h-96`}>
-                <h3 className={`${isDarkMode ? "text-white" : "text-zinc-900"} font-bold mb-6`}>Evolução Receita vs Lucro</h3>
+                <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 mb-6">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-4 flex-wrap">
+                    <h3 className={`${isDarkMode ? "text-white" : "text-zinc-900"} font-bold text-lg`}>Evolução Receita vs Lucro</h3>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto">
+                    <div className="flex items-center gap-3 w-full sm:w-auto">
+                      <div className="relative">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsViewYearDropdownOpen(!isViewYearDropdownOpen);
+                            setIsViewRangeDropdownOpen(false);
+                          }}
+                          className={`flex items-center gap-2 pl-3 pr-8 py-1.5 text-sm font-medium rounded-lg border focus:ring-2 focus:ring-orange-500 focus:outline-none transition-colors ${isDarkMode
+                            ? "border-zinc-800 text-zinc-300 hover:border-zinc-700 hover:bg-zinc-800/50"
+                            : "border-zinc-200 text-zinc-700 hover:border-zinc-300 hover:bg-zinc-50"
+                            }`}
+                        >
+                          <span>{viewYear}</span>
+                        </button>
+                        <ChevronDown size={14} className={`absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none transition-transform ${isViewYearDropdownOpen ? 'rotate-180' : ''}`} />
+
+                        {isViewYearDropdownOpen && (
+                          <div className={`absolute z-50 top-full mt-1 w-full min-w-[100px] rounded-xl border shadow-2xl overflow-hidden max-h-[250px] overflow-y-auto custom-scrollbar ${isDarkMode ? 'border-zinc-700/50 bg-[#0a0a0a]' : 'border-zinc-200 bg-white'}`}>
+                            {Array.from({ length: 21 }, (_, i) => (parseInt(currentYearStr) - 10 + i).toString()).map((yr) => (
+                              <button
+                                key={yr}
+                                type="button"
+                                onClick={() => { setViewYear(yr); setIsViewYearDropdownOpen(false); }}
+                                className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${viewYear === yr
+                                  ? 'bg-gradient-to-r from-orange-600/30 to-transparent text-orange-500 font-medium'
+                                  : isDarkMode ? 'text-white hover:bg-white/5' : 'text-zinc-900 hover:bg-zinc-100'
+                                  }`}
+                              >
+                                {yr}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {viewPeriod !== 'Anual' && (
+                        <div className="relative">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsViewRangeDropdownOpen(!isViewRangeDropdownOpen);
+                              setIsViewYearDropdownOpen(false);
+                            }}
+                            className={`flex items-center gap-2 pl-3 pr-8 py-1.5 text-sm font-medium rounded-lg border focus:ring-2 focus:ring-orange-500 focus:outline-none transition-colors ${isDarkMode
+                              ? "border-zinc-800 text-zinc-300 hover:border-zinc-700 hover:bg-zinc-800/50"
+                              : "border-zinc-200 text-zinc-700 hover:border-zinc-300 hover:bg-zinc-50"
+                              }`}
+                          >
+                            <span>
+                              {viewPeriod === 'Mensal' && ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'][viewRange]}
+                              {viewPeriod === 'Trimestral' && ['1º Trimestre (Jan-Mar)', '2º Trimestre (Abr-Jun)', '3º Trimestre (Jul-Set)', '4º Trimestre (Out-Dez)'][viewRange]}
+                              {viewPeriod === 'Semestral' && ['1º Semestre (Jan-Jun)', '2º Semestre (Jul-Dez)'][viewRange]}
+                            </span>
+                          </button>
+                          <ChevronDown size={14} className={`absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none transition-transform ${isViewRangeDropdownOpen ? 'rotate-180' : ''}`} />
+
+                          {isViewRangeDropdownOpen && (
+                            <div className={`absolute z-[60] top-full mt-1 min-w-[150px] rounded-xl border shadow-2xl overflow-hidden max-h-[300px] overflow-y-auto custom-scrollbar ${isDarkMode ? 'border-zinc-700/50 bg-[#0a0a0a]' : 'border-zinc-200 bg-white'}`}>
+                              {viewPeriod === 'Mensal' && ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'].map((m, i) => (
+                                <button
+                                  key={`range-cf-${i}`}
+                                  type="button"
+                                  onClick={() => { setViewRange(i); setIsViewRangeDropdownOpen(false); }}
+                                  className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${viewRange === i
+                                    ? 'bg-gradient-to-r from-orange-600/30 to-transparent text-orange-500 font-medium'
+                                    : isDarkMode ? 'text-white hover:bg-white/5' : 'text-zinc-900 hover:bg-zinc-100'
+                                    }`}
+                                >
+                                  {m}
+                                </button>
+                              ))}
+                              {viewPeriod === 'Trimestral' && ['1º Trimestre (Jan-Mar)', '2º Trimestre (Abr-Jun)', '3º Trimestre (Jul-Set)', '4º Trimestre (Out-Dez)'].map((m, i) => (
+                                <button
+                                  key={`range-cft-${i}`}
+                                  type="button"
+                                  onClick={() => { setViewRange(i); setIsViewRangeDropdownOpen(false); }}
+                                  className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${viewRange === i
+                                    ? 'bg-gradient-to-r from-orange-600/30 to-transparent text-orange-500 font-medium'
+                                    : isDarkMode ? 'text-white hover:bg-white/5' : 'text-zinc-900 hover:bg-zinc-100'
+                                    }`}
+                                >
+                                  {m}
+                                </button>
+                              ))}
+                              {viewPeriod === 'Semestral' && ['1º Semestre (Jan-Jun)', '2º Semestre (Jul-Dez)'].map((m, i) => (
+                                <button
+                                  key={`range-cfs-${i}`}
+                                  type="button"
+                                  onClick={() => { setViewRange(i); setIsViewRangeDropdownOpen(false); }}
+                                  className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${viewRange === i
+                                    ? 'bg-gradient-to-r from-orange-600/30 to-transparent text-orange-500 font-medium'
+                                    : isDarkMode ? 'text-white hover:bg-white/5' : 'text-zinc-900 hover:bg-zinc-100'
+                                    }`}
+                                >
+                                  {m}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="segmented-control mt-0 w-full sm:w-auto overflow-x-auto justify-start sm:justify-end">
+                      {['Mensal', 'Trimestral', 'Semestral', 'Anual'].map(p => (
+                        <button
+                          key={p}
+                          onClick={() => {
+                            setViewPeriod(p);
+                            if (p === 'Mensal') setViewRange(new Date().getMonth());
+                            else if (p === 'Trimestral') setViewRange(Math.floor(new Date().getMonth() / 3));
+                            else if (p === 'Semestral') setViewRange(Math.floor(new Date().getMonth() / 6));
+                          }}
+                          className={`segmented-control-item hidden lg:block ${viewPeriod === p ? 'active' : ''}`}
+                        >
+                          {p}
+                        </button>
+                      ))}
+                      {/* Mobile fallback for segmented control */}
+                      <select
+                        value={viewPeriod}
+                        onChange={(e) => {
+                          const p = e.target.value;
+                          setViewPeriod(p);
+                          if (p === 'Mensal') setViewRange(new Date().getMonth());
+                          else if (p === 'Trimestral') setViewRange(Math.floor(new Date().getMonth() / 3));
+                          else if (p === 'Semestral') setViewRange(Math.floor(new Date().getMonth() / 6));
+                        }}
+                        className="lg:hidden appearance-none outline-none bg-transparent border-0 text-zinc-300 text-sm focus:ring-0 cursor-pointer w-full text-right"
+                      >
+                        {['Mensal', 'Trimestral', 'Semestral', 'Anual'].map(p => (
+                          <option key={p} value={p}>{p}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="flex-1 relative flex items-end pb-6">
                   {/* Y Axis */}
                   <div className="absolute left-0 top-0 bottom-6 flex flex-col justify-between text-[10px] text-zinc-600">
-                    <span>{Math.round(maxReceitaAxis/1000)}k</span><span>{Math.round(maxReceitaAxis*0.8/1000)}k</span><span>{Math.round(maxReceitaAxis*0.6/1000)}k</span><span>{Math.round(maxReceitaAxis*0.4/1000)}k</span><span>{Math.round(maxReceitaAxis*0.2/1000)}k</span><span>0k</span>
+                    <span>{Math.round(maxReceitaAxis / 1000)}k</span><span>{Math.round(maxReceitaAxis * 0.8 / 1000)}k</span><span>{Math.round(maxReceitaAxis * 0.6 / 1000)}k</span><span>{Math.round(maxReceitaAxis * 0.4 / 1000)}k</span><span>{Math.round(maxReceitaAxis * 0.2 / 1000)}k</span><span>0k</span>
                   </div>
                   {/* Grid Lines */}
                   <div className="absolute left-8 right-0 top-0 bottom-6 flex flex-col justify-between pointer-events-none">
@@ -6660,23 +6920,23 @@ A clínica apresenta um cenário de estabilidade no curto prazo, porém com opor
                   {receitaPerMonth.some(v => v > 0) ? (
                     <div className="absolute inset-0 left-8 bottom-6 w-[calc(100%-2rem)] h-[calc(100%-1.5rem)] pointer-events-none">
                       <svg viewBox="0 0 100 100" className="w-full h-full overflow-visible" preserveAspectRatio="none">
-                        <polyline 
-                          points={lucroPerMonth.map((val, idx) => `${(idx / 5) * 100},${100 - Math.max(0, val / (maxReceitaAxis || 1)) * 100}`).join(' ')} 
-                          fill="none" stroke="#3b82f6" strokeWidth="2" vectorEffect="non-scaling-stroke" strokeDasharray="4 2" 
+                        <polyline
+                          points={lucroPerMonth.map((val, idx) => `${(idx / (numDataPoints - 1 || 1)) * 100},${100 - Math.max(0, val / (maxReceitaAxis || 1)) * 100}`).join(' ')}
+                          fill="none" stroke="#3b82f6" strokeWidth="2" vectorEffect="non-scaling-stroke" strokeDasharray="4 2"
                         />
-                        <polyline 
-                          points={receitaPerMonth.map((val, idx) => `${(idx / 5) * 100},${100 - (val / (maxReceitaAxis || 1)) * 100}`).join(' ')} 
-                          fill="none" stroke="#10b981" strokeWidth="2" vectorEffect="non-scaling-stroke" 
+                        <polyline
+                          points={receitaPerMonth.map((val, idx) => `${(idx / (numDataPoints - 1 || 1)) * 100},${100 - (val / (maxReceitaAxis || 1)) * 100}`).join(' ')}
+                          fill="none" stroke="#10b981" strokeWidth="2" vectorEffect="non-scaling-stroke"
                           className="drop-shadow-[0_0_8px_rgba(16,185,129,0.5)]"
                         />
                       </svg>
-                      
+
                       {/* Dots */}
-                      {lucroPerMonth.map((val, idx) => (
-                         <div key={`dot-l-${idx}`} className="absolute w-1.5 h-1.5 rounded-full bg-[#3b82f6] outline outline-1 outline-[#0a0a0a] transform -translate-x-1/2 -translate-y-1/2" style={{ left: `${(idx / 5) * 100}%`, top: `${100 - Math.max(0, val / (maxReceitaAxis || 1)) * 100}%` }}></div>
+                      {numDataPoints <= 31 && lucroPerMonth.map((val, idx) => (
+                        <div key={`dot-l-${idx}`} className={`absolute w-1.5 h-1.5 rounded-full bg-[#3b82f6] outline outline-1 outline-[#0a0a0a] transform -translate-x-1/2 -translate-y-1/2 ${numDataPoints > 15 ? 'opacity-0 hover:opacity-100' : ''}`} style={{ left: `${(idx / (numDataPoints - 1 || 1)) * 100}%`, top: `${100 - Math.max(0, val / (maxReceitaAxis || 1)) * 100}%` }}></div>
                       ))}
-                      {receitaPerMonth.map((val, idx) => (
-                        <div key={`dot-r-${idx}`} className="absolute w-2 h-2 rounded-full bg-[#10b981] shadow-[0_0_8px_rgba(16,185,129,0.8)] border border-[#0a0a0a] transform -translate-x-1/2 -translate-y-1/2 z-10" style={{ left: `${(idx / 5) * 100}%`, top: `${100 - (val / (maxReceitaAxis || 1)) * 100}%` }}></div>
+                      {numDataPoints <= 31 && receitaPerMonth.map((val, idx) => (
+                        <div key={`dot-r-${idx}`} className={`absolute w-2 h-2 rounded-full bg-[#10b981] shadow-[0_0_8px_rgba(16,185,129,0.8)] border border-[#0a0a0a] transform -translate-x-1/2 -translate-y-1/2 z-10 ${numDataPoints > 15 ? 'opacity-0 hover:opacity-100' : ''}`} style={{ left: `${(idx / (numDataPoints - 1 || 1)) * 100}%`, top: `${100 - (val / (maxReceitaAxis || 1)) * 100}%` }}></div>
                       ))}
                     </div>
                   ) : (
@@ -6686,10 +6946,14 @@ A clínica apresenta um cenário de estabilidade no curto prazo, porém com opor
                   )}
                   {/* X Axis */}
                   <div className={`absolute bottom-0 left-8 right-0 flex justify-between text-[10px] text-zinc-600 border-t ${isDarkMode ? "border-zinc-800" : "border-zinc-200"} pt-2`}>
-                    {monthNames.map(m => <span key={m}>{m}</span>)}
+                    {axisLabels.map((lbl, idx) => (
+                      <span key={idx} className={`${numDataPoints > 15 && idx % 2 !== 0 ? 'hidden' : ''}`}>{lbl}</span>
+                    ))}
                   </div>
                 </div>
               </div>
+
+
 
               <div className="bg-[var(--bg-card)] border border-[var(--border-default)] rounded-2xl p-6 flex flex-col shadow-[var(--card-shadow)] lg:col-span-1 justify-between">
                 <div className="flex items-center gap-3 mb-6">
@@ -6756,16 +7020,18 @@ A clínica apresenta um cenário de estabilidade no curto prazo, porém com opor
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 shrink-0">
               <div className={`bg-[#0a0a0a] border ${isDarkMode ? "border-zinc-800/80" : "border-zinc-200/80"} rounded-2xl p-6 flex flex-col h-96`}>
-                <div className="flex items-center gap-3 mb-6">
-                  <Crown className="text-yellow-500" size={20} />
-                  <h3 className={`${isDarkMode ? "text-white" : "text-zinc-900"} font-bold`}>Ranking da Equipe</h3>
+                <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 mb-6">
+                  <div className="flex items-center gap-3">
+                    <Crown className="text-yellow-500" size={20} />
+                    <h3 className={`${isDarkMode ? "text-white" : "text-zinc-900"} font-bold text-lg`}>Ranking da Equipe</h3>
+                  </div>
                 </div>
-                <div className="flex-1 flex flex-col gap-2 justify-center mt-2 overflow-y-auto custom-scrollbar">
+                <div className="flex-1 flex flex-col gap-2 mt-2 overflow-y-auto custom-scrollbar">
                   {Object.keys(profCounts).length === 0 ? (
                     <div className="flex-1 flex items-center justify-center"><span className="text-sm text-zinc-500 italic">Sem dados</span></div>
                   ) : (
-                    Object.entries(profCounts).sort((a,b)=>b[1]-a[1]).map(([pid, count], i) => {
-                      const p = professionals.find(p=>p.id===pid);
+                    Object.entries(profCounts).sort((a, b) => b[1] - a[1]).map(([pid, count], i) => {
+                      const p = professionals.find(p => p.id === pid);
                       return (
                         <div key={pid} className="flex items-center justify-between py-2 border-b border-zinc-500/10 last:border-0">
                           <span className={`text-sm ${isDarkMode ? 'text-zinc-300' : 'text-zinc-700'} flex items-center gap-2`}>
@@ -6791,19 +7057,19 @@ A clínica apresenta um cenário de estabilidade no curto prazo, porém com opor
                   </div>
                   {/* Bars Container */}
                   <div className={`flex-1 border-l border-b ${isDarkMode ? "border-zinc-800" : "border-zinc-200"} flex flex-col justify-around py-2 relative`}>
-                    {[0,1,2,3,4].map(v => (
-                      <div key={v} className="absolute top-0 bottom-0 border-l border-dashed border-zinc-500/20" style={{ left: `${(v/4)*100}%` }} />
+                    {[0, 1, 2, 3, 4].map(v => (
+                      <div key={v} className="absolute top-0 bottom-0 border-l border-dashed border-zinc-500/20" style={{ left: `${(v / 4) * 100}%` }} />
                     ))}
                     {apptsByDay.map((count, dayIdx) => (
                       <div key={dayIdx} className="h-4 bg-orange-500/20 rounded-r-sm w-full relative z-10 flex items-center">
-                        <div className="h-full bg-orange-500 rounded-r-sm transition-all" style={{ width: `${Math.max(2, (count/maxApptDay)*100)}%` }} />
+                        <div className="h-full bg-orange-500 rounded-r-sm transition-all" style={{ width: `${Math.max(2, (count / maxApptDay) * 100)}%` }} />
                         {count > 0 && <span className="ml-2 text-[10px] text-orange-500 font-bold">{count}</span>}
                       </div>
                     ))}
                   </div>
                   {/* X Axis */}
                   <div className={`absolute bottom-0 left-8 right-0 flex justify-between text-[10px] text-zinc-600 pt-2`}>
-                    {[0, 1, 2, 3, 4].map(v => <span key={v}>{Math.max(v, Math.round(maxApptDay * (v/4)))}</span>)}
+                    {[0, 1, 2, 3, 4].map(v => <span key={v}>{Math.max(v, Math.round(maxApptDay * (v / 4)))}</span>)}
                   </div>
                 </div>
               </div>
@@ -6864,54 +7130,192 @@ A clínica apresenta um cenário de estabilidade no curto prazo, porém com opor
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 shrink-0">
-              <div className={`md:col-span-2 bg-[#0a0a0a] border ${isDarkMode ? "border-zinc-800/80" : "border-zinc-200/80"} rounded-2xl p-6 flex flex-col h-96`}>
-                <h3 className={`${isDarkMode ? "text-white" : "text-zinc-900"} font-bold mb-6`}>Evolução Novos vs Recorrentes</h3>
+            <div className="flex flex-col gap-6 shrink-0">
+              <div className={`w-full bg-[#0a0a0a] border ${isDarkMode ? "border-zinc-800/80" : "border-zinc-200/80"} rounded-2xl p-6 flex flex-col h-96`}>
+                <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 mb-6">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-4 flex-wrap">
+                    <h3 className={`${isDarkMode ? "text-white" : "text-zinc-900"} font-bold text-lg`}>Evolução Novos vs Recorrentes</h3>
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsViewYearDropdownOpen(!isViewYearDropdownOpen);
+                          setIsViewRangeDropdownOpen(false);
+                        }}
+                        className={`flex items-center gap-2 pl-3 pr-8 py-1.5 text-sm font-medium rounded-lg border focus:ring-2 focus:ring-orange-500 focus:outline-none transition-colors ${isDarkMode
+                          ? "border-zinc-800 text-zinc-300 hover:border-zinc-700 hover:bg-zinc-800/50"
+                          : "border-zinc-200 text-zinc-700 hover:border-zinc-300 hover:bg-zinc-50"
+                          }`}
+                      >
+                        <span>{viewYear}</span>
+                      </button>
+                      <ChevronDown size={14} className={`absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none transition-transform ${isViewYearDropdownOpen ? 'rotate-180' : ''}`} />
+
+                      {isViewYearDropdownOpen && (
+                        <div className={`absolute z-50 top-full mt-1 w-full min-w-[100px] rounded-xl border shadow-2xl overflow-hidden max-h-[250px] overflow-y-auto custom-scrollbar ${isDarkMode ? 'border-zinc-700/50 bg-[#0a0a0a]' : 'border-zinc-200 bg-white'}`}>
+                          {Array.from({ length: 21 }, (_, i) => (parseInt(currentYearStr) - 10 + i).toString()).map((yr) => (
+                            <button
+                              key={yr}
+                              type="button"
+                              onClick={() => { setViewYear(yr); setIsViewYearDropdownOpen(false); }}
+                              className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${viewYear === yr
+                                ? 'bg-gradient-to-r from-orange-600/30 to-transparent text-orange-500 font-medium'
+                                : isDarkMode ? 'text-white hover:bg-white/5' : 'text-zinc-900 hover:bg-zinc-100'
+                                }`}
+                            >
+                              {yr}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {viewPeriod !== 'Anual' && (
+                      <div className="relative">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsViewRangeDropdownOpen(!isViewRangeDropdownOpen);
+                            setIsViewYearDropdownOpen(false);
+                          }}
+                          className={`flex items-center gap-2 pl-3 pr-8 py-1.5 text-sm font-medium rounded-lg border focus:ring-2 focus:ring-orange-500 focus:outline-none transition-colors ${isDarkMode
+                            ? "border-zinc-800 text-zinc-300 hover:border-zinc-700 hover:bg-zinc-800/50"
+                            : "border-zinc-200 text-zinc-700 hover:border-zinc-300 hover:bg-zinc-50"
+                            }`}
+                        >
+                          <span>
+                            {viewPeriod === 'Mensal' && ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'][viewRange]}
+                            {viewPeriod === 'Trimestral' && ['1º Trimestre (Jan-Mar)', '2º Trimestre (Abr-Jun)', '3º Trimestre (Jul-Set)', '4º Trimestre (Out-Dez)'][viewRange]}
+                            {viewPeriod === 'Semestral' && ['1º Semestre (Jan-Jun)', '2º Semestre (Jul-Dez)'][viewRange]}
+                          </span>
+                        </button>
+                        <ChevronDown size={14} className={`absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none transition-transform ${isViewRangeDropdownOpen ? 'rotate-180' : ''}`} />
+
+                        {isViewRangeDropdownOpen && (
+                          <div className={`absolute z-[60] top-full mt-1 min-w-[150px] rounded-xl border shadow-2xl overflow-hidden max-h-[300px] overflow-y-auto custom-scrollbar ${isDarkMode ? 'border-zinc-700/50 bg-[#0a0a0a]' : 'border-zinc-200 bg-white'}`}>
+                            {viewPeriod === 'Mensal' && ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'].map((m, i) => (
+                              <button
+                                key={`range-cf-${i}`}
+                                type="button"
+                                onClick={() => { setViewRange(i); setIsViewRangeDropdownOpen(false); }}
+                                className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${viewRange === i
+                                  ? 'bg-gradient-to-r from-orange-600/30 to-transparent text-orange-500 font-medium'
+                                  : isDarkMode ? 'text-white hover:bg-white/5' : 'text-zinc-900 hover:bg-zinc-100'
+                                  }`}
+                              >
+                                {m}
+                              </button>
+                            ))}
+                            {viewPeriod === 'Trimestral' && ['1º Trimestre (Jan-Mar)', '2º Trimestre (Abr-Jun)', '3º Trimestre (Jul-Set)', '4º Trimestre (Out-Dez)'].map((m, i) => (
+                              <button
+                                key={`range-cft-${i}`}
+                                type="button"
+                                onClick={() => { setViewRange(i); setIsViewRangeDropdownOpen(false); }}
+                                className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${viewRange === i
+                                  ? 'bg-gradient-to-r from-orange-600/30 to-transparent text-orange-500 font-medium'
+                                  : isDarkMode ? 'text-white hover:bg-white/5' : 'text-zinc-900 hover:bg-zinc-100'
+                                  }`}
+                              >
+                                {m}
+                              </button>
+                            ))}
+                            {viewPeriod === 'Semestral' && ['1º Semestre (Jan-Jun)', '2º Semestre (Jul-Dez)'].map((m, i) => (
+                              <button
+                                key={`range-cfs-${i}`}
+                                type="button"
+                                onClick={() => { setViewRange(i); setIsViewRangeDropdownOpen(false); }}
+                                className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${viewRange === i
+                                  ? 'bg-gradient-to-r from-orange-600/30 to-transparent text-orange-500 font-medium'
+                                  : isDarkMode ? 'text-white hover:bg-white/5' : 'text-zinc-900 hover:bg-zinc-100'
+                                  }`}
+                              >
+                                {m}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="segmented-control">
+                    {['Mensal', 'Trimestral', 'Semestral', 'Anual'].map(p => (
+                      <button
+                        key={p}
+                        onClick={() => {
+                          setViewPeriod(p);
+                          if (p === 'Mensal') setViewRange(new Date().getMonth());
+                          else if (p === 'Trimestral') setViewRange(Math.floor(new Date().getMonth() / 3));
+                          else if (p === 'Semestral') setViewRange(Math.floor(new Date().getMonth() / 6));
+                        }}
+                        className={`segmented-control-item hidden lg:block ${viewPeriod === p ? 'active' : ''}`}
+                      >
+                        {p}
+                      </button>
+                    ))}
+                    {/* Mobile fallback for segmented control */}
+                    <select
+                      value={viewPeriod}
+                      onChange={(e) => {
+                        const p = e.target.value;
+                        setViewPeriod(p);
+                        if (p === 'Mensal') setViewRange(new Date().getMonth());
+                        else if (p === 'Trimestral') setViewRange(Math.floor(new Date().getMonth() / 3));
+                        else if (p === 'Semestral') setViewRange(Math.floor(new Date().getMonth() / 6));
+                      }}
+                      className="lg:hidden appearance-none outline-none bg-transparent border-0 text-zinc-300 text-sm focus:ring-0 cursor-pointer"
+                    >
+                      {['Mensal', 'Trimestral', 'Semestral', 'Anual'].map(p => (
+                        <option key={p} value={p}>{p}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
                 <div className="flex-1 relative flex items-end pb-6">
                   {/* Y Axis */}
                   <div className="absolute left-0 top-0 bottom-6 flex flex-col justify-between text-[10px] text-zinc-600">
-                    <span>{maxClientesAxis}</span><span>{Math.round(maxClientesAxis*0.75)}</span><span>{Math.round(maxClientesAxis*0.5)}</span><span>{Math.round(maxClientesAxis*0.25)}</span><span>0</span>
+                    <span>{maxClientesAxis}</span><span>{Math.round(maxClientesAxis * 0.75)}</span><span>{Math.round(maxClientesAxis * 0.5)}</span><span>{Math.round(maxClientesAxis * 0.25)}</span><span>0</span>
                   </div>
                   {/* Grid Lines */}
                   <div className="absolute left-8 right-0 top-0 bottom-6 flex flex-col justify-between pointer-events-none">
                     {[0, 1, 2, 3, 4].map(i => <div key={i} className={`border-t ${isDarkMode ? "border-zinc-800/50" : "border-zinc-200/50"} border-dashed w-full h-0`}></div>)}
                   </div>
-                  
-                  {novosPerMonth.some(v=>v>0) || recorrentesPerMonth.some(v=>v>0) ? (
+
+                  {novosPerMonth.some(v => v > 0) || recorrentesPerMonth.some(v => v > 0) ? (
                     <div className="absolute inset-0 left-8 bottom-6 w-[calc(100%-2rem)] h-[calc(100%-1.5rem)] pointer-events-none">
                       <svg viewBox="0 0 100 100" className="w-full h-full overflow-visible" preserveAspectRatio="none">
                         {/* Area Gradient Definitions */}
                         <defs>
                           <linearGradient id="gradient-novos" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.3"/>
-                            <stop offset="100%" stopColor="#3b82f6" stopOpacity="0"/>
+                            <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.3" />
+                            <stop offset="100%" stopColor="#3b82f6" stopOpacity="0" />
                           </linearGradient>
                           <linearGradient id="gradient-recorrentes" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stopColor="#f97316" stopOpacity="0.3"/>
-                            <stop offset="100%" stopColor="#f97316" stopOpacity="0"/>
+                            <stop offset="0%" stopColor="#f97316" stopOpacity="0.3" />
+                            <stop offset="100%" stopColor="#f97316" stopOpacity="0" />
                           </linearGradient>
                         </defs>
-                        
+
                         {/* Linha Recorrentes (Laranja) */}
-                        <polyline 
-                          points={recorrentesPerMonth.map((val, idx) => `${(idx / 5) * 100},${100 - (val / (maxClientesAxis || 1)) * 100}`).join(' ')} 
-                          fill="none" stroke="#ea580c" strokeWidth="2" vectorEffect="non-scaling-stroke" 
+                        <polyline
+                          points={recorrentesPerMonth.map((val, idx) => `${(idx / (numDataPoints - 1 || 1)) * 100},${100 - (val / (maxClientesAxis || 1)) * 100}`).join(' ')}
+                          fill="none" stroke="#ea580c" strokeWidth="2" vectorEffect="non-scaling-stroke"
                           className="drop-shadow-[0_0_8px_rgba(234,88,12,0.5)]"
                         />
                         {/* Linha Novos (Azul) */}
-                        <polyline 
-                          points={novosPerMonth.map((val, idx) => `${(idx / 5) * 100},${100 - (val / (maxClientesAxis || 1)) * 100}`).join(' ')} 
-                          fill="none" stroke="#3b82f6" strokeWidth="2" vectorEffect="non-scaling-stroke" 
+                        <polyline
+                          points={novosPerMonth.map((val, idx) => `${(idx / (numDataPoints - 1 || 1)) * 100},${100 - (val / (maxClientesAxis || 1)) * 100}`).join(' ')}
+                          fill="none" stroke="#3b82f6" strokeWidth="2" vectorEffect="non-scaling-stroke"
                           className="drop-shadow-[0_0_8px_rgba(59,130,246,0.5)]"
                         />
                       </svg>
 
                       {/* Dots (Absolute positioning to keep them perfectly round regardless of aspect ratio) */}
-                      {recorrentesPerMonth.map((val, idx) => (
-                        <div key={`dot-r-${idx}`} className="absolute w-2 h-2 rounded-full bg-[#ea580c] shadow-[0_0_8px_rgba(234,88,12,0.8)] outline outline-2 outline-[#0a0a0a] transform -translate-x-1/2 -translate-y-1/2 transition-all" style={{ left: `${(idx / 5) * 100}%`, top: `${100 - (val / (maxClientesAxis || 1)) * 100}%` }}></div>
+                      {numDataPoints <= 31 && recorrentesPerMonth.map((val, idx) => (
+                        <div key={`dot-r-${idx}`} className={`absolute w-2 h-2 rounded-full bg-[#ea580c] shadow-[0_0_8px_rgba(234,88,12,0.8)] outline outline-2 outline-[#0a0a0a] transform -translate-x-1/2 -translate-y-1/2 transition-all ${numDataPoints > 15 ? 'opacity-0 hover:opacity-100' : ''}`} style={{ left: `${(idx / (numDataPoints - 1 || 1)) * 100}%`, top: `${100 - (val / (maxClientesAxis || 1)) * 100}%` }}></div>
                       ))}
-                      {novosPerMonth.map((val, idx) => (
-                        <div key={`dot-n-${idx}`} className="absolute w-2.5 h-2.5 rounded-full bg-[#3b82f6] shadow-[0_0_10px_rgba(59,130,246,0.8)] border-2 border-[#0a0a0a] transform -translate-x-1/2 -translate-y-1/2 transition-all z-10" style={{ left: `${(idx / 5) * 100}%`, top: `${100 - (val / (maxClientesAxis || 1)) * 100}%` }}></div>
+                      {numDataPoints <= 31 && novosPerMonth.map((val, idx) => (
+                        <div key={`dot-n-${idx}`} className={`absolute w-2.5 h-2.5 rounded-full bg-[#3b82f6] shadow-[0_0_10px_rgba(59,130,246,0.8)] border-2 border-[#0a0a0a] transform -translate-x-1/2 -translate-y-1/2 transition-all z-10 ${numDataPoints > 15 ? 'opacity-0 hover:opacity-100' : ''}`} style={{ left: `${(idx / (numDataPoints - 1 || 1)) * 100}%`, top: `${100 - (val / (maxClientesAxis || 1)) * 100}%` }}></div>
                       ))}
                     </div>
                   ) : (
@@ -6922,20 +7326,164 @@ A clínica apresenta um cenário de estabilidade no curto prazo, porém com opor
 
                   {/* X Axis */}
                   <div className={`absolute bottom-0 left-8 right-0 flex justify-between text-[10px] text-zinc-600 border-t ${isDarkMode ? "border-zinc-800" : "border-zinc-200"} pt-2`}>
-                    {monthNames.map(m => <span key={m}>{m}</span>)}
+                    {axisLabels.map((lbl, idx) => (
+                      <span key={idx} className={`${numDataPoints > 15 && idx % 2 !== 0 ? 'hidden' : ''}`}>{lbl}</span>
+                    ))}
                   </div>
                 </div>
               </div>
 
-              <div className={`bg-[#0a0a0a] border ${isDarkMode ? "border-zinc-800/80" : "border-zinc-200/80"} rounded-2xl p-6 flex flex-col h-96`}>
-                <div className="flex items-center gap-3 mb-6">
-                  <Crown className="text-yellow-500" size={20} />
-                  <h3 className={`${isDarkMode ? "text-white" : "text-zinc-900"} font-bold`}>Clientes VIP</h3>
+              <div className={`w-full bg-[#0a0a0a] border ${isDarkMode ? "border-zinc-800/80" : "border-zinc-200/80"} rounded-2xl p-6 flex flex-col h-96`}>
+                <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 mb-6">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-4 flex-wrap">
+                    <div className="flex items-center gap-3">
+                      <Crown className="text-yellow-500" size={20} />
+                      <h3 className={`${isDarkMode ? "text-white" : "text-zinc-900"} font-bold text-lg`}>Clientes VIP</h3>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <div className="relative">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsVipViewYearDropdownOpen(!isVipViewYearDropdownOpen);
+                            setIsVipViewRangeDropdownOpen(false);
+                          }}
+                          className={`flex items-center gap-2 pl-3 pr-8 py-1.5 text-sm font-medium rounded-lg border focus:ring-2 focus:ring-orange-500 focus:outline-none transition-colors ${isDarkMode
+                            ? "border-zinc-800 text-zinc-300 hover:border-zinc-700 hover:bg-zinc-800/50"
+                            : "border-zinc-200 text-zinc-700 hover:border-zinc-300 hover:bg-zinc-50"
+                            }`}
+                        >
+                          <span>{vipViewYear}</span>
+                        </button>
+                        <ChevronDown size={14} className={`absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none transition-transform ${isVipViewYearDropdownOpen ? 'rotate-180' : ''}`} />
+
+                        {isVipViewYearDropdownOpen && (
+                          <div className={`absolute z-50 top-full mt-1 w-full min-w-[100px] rounded-xl border shadow-2xl overflow-hidden max-h-[250px] overflow-y-auto custom-scrollbar ${isDarkMode ? 'border-zinc-700/50 bg-[#0a0a0a]' : 'border-zinc-200 bg-white'}`}>
+                            {Array.from({ length: 21 }, (_, i) => (parseInt(currentYearStr) - 10 + i).toString()).map((yr) => (
+                              <button
+                                key={yr}
+                                type="button"
+                                onClick={() => { setVipViewYear(yr); setIsVipViewYearDropdownOpen(false); }}
+                                className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${vipViewYear === yr
+                                  ? 'bg-gradient-to-r from-orange-600/30 to-transparent text-orange-500 font-medium'
+                                  : isDarkMode ? 'text-white hover:bg-white/5' : 'text-zinc-900 hover:bg-zinc-100'
+                                  }`}
+                              >
+                                {yr}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {vipViewPeriod !== 'Anual' && (
+                        <div className="relative">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsVipViewRangeDropdownOpen(!isVipViewRangeDropdownOpen);
+                              setIsVipViewYearDropdownOpen(false);
+                            }}
+                            className={`flex items-center gap-2 pl-3 pr-8 py-1.5 text-sm font-medium rounded-lg border focus:ring-2 focus:ring-orange-500 focus:outline-none transition-colors ${isDarkMode
+                              ? "border-zinc-800 text-zinc-300 hover:border-zinc-700 hover:bg-zinc-800/50"
+                              : "border-zinc-200 text-zinc-700 hover:border-zinc-300 hover:bg-zinc-50"
+                              }`}
+                          >
+                            <span>
+                              {vipViewPeriod === 'Mensal' && ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'][vipViewRange]}
+                              {vipViewPeriod === 'Trimestral' && ['1º Trimestre (Jan-Mar)', '2º Trimestre (Abr-Jun)', '3º Trimestre (Jul-Set)', '4º Trimestre (Out-Dez)'][vipViewRange]}
+                              {vipViewPeriod === 'Semestral' && ['1º Semestre (Jan-Jun)', '2º Semestre (Jul-Dez)'][vipViewRange]}
+                            </span>
+                          </button>
+                          <ChevronDown size={14} className={`absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none transition-transform ${isVipViewRangeDropdownOpen ? 'rotate-180' : ''}`} />
+
+                          {isVipViewRangeDropdownOpen && (
+                            <div className={`absolute z-[60] top-full mt-1 min-w-[150px] rounded-xl border shadow-2xl overflow-hidden max-h-[300px] overflow-y-auto custom-scrollbar ${isDarkMode ? 'border-zinc-700/50 bg-[#0a0a0a]' : 'border-zinc-200 bg-white'}`}>
+                              {vipViewPeriod === 'Mensal' && ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'].map((m, i) => (
+                                <button
+                                  key={`range-cf-${i}`}
+                                  type="button"
+                                  onClick={() => { setVipViewRange(i); setIsVipViewRangeDropdownOpen(false); }}
+                                  className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${vipViewRange === i
+                                    ? 'bg-gradient-to-r from-orange-600/30 to-transparent text-orange-500 font-medium'
+                                    : isDarkMode ? 'text-white hover:bg-white/5' : 'text-zinc-900 hover:bg-zinc-100'
+                                    }`}
+                                >
+                                  {m}
+                                </button>
+                              ))}
+                              {vipViewPeriod === 'Trimestral' && ['1º Trimestre (Jan-Mar)', '2º Trimestre (Abr-Jun)', '3º Trimestre (Jul-Set)', '4º Trimestre (Out-Dez)'].map((m, i) => (
+                                <button
+                                  key={`range-cft-${i}`}
+                                  type="button"
+                                  onClick={() => { setVipViewRange(i); setIsVipViewRangeDropdownOpen(false); }}
+                                  className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${vipViewRange === i
+                                    ? 'bg-gradient-to-r from-orange-600/30 to-transparent text-orange-500 font-medium'
+                                    : isDarkMode ? 'text-white hover:bg-white/5' : 'text-zinc-900 hover:bg-zinc-100'
+                                    }`}
+                                >
+                                  {m}
+                                </button>
+                              ))}
+                              {vipViewPeriod === 'Semestral' && ['1º Semestre (Jan-Jun)', '2º Semestre (Jul-Dez)'].map((m, i) => (
+                                <button
+                                  key={`range-cfs-${i}`}
+                                  type="button"
+                                  onClick={() => { setVipViewRange(i); setIsVipViewRangeDropdownOpen(false); }}
+                                  className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${vipViewRange === i
+                                    ? 'bg-gradient-to-r from-orange-600/30 to-transparent text-orange-500 font-medium'
+                                    : isDarkMode ? 'text-white hover:bg-white/5' : 'text-zinc-900 hover:bg-zinc-100'
+                                    }`}
+                                >
+                                  {m}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="segmented-control mt-0 w-full sm:w-auto overflow-x-auto justify-start sm:justify-end">
+                    {['Mensal', 'Trimestral', 'Semestral', 'Anual'].map(p => (
+                      <button
+                        key={p}
+                        onClick={() => {
+                          setVipViewPeriod(p);
+                          if (p === 'Mensal') setVipViewRange(new Date().getMonth());
+                          else if (p === 'Trimestral') setVipViewRange(Math.floor(new Date().getMonth() / 3));
+                          else if (p === 'Semestral') setVipViewRange(Math.floor(new Date().getMonth() / 6));
+                        }}
+                        className={`segmented-control-item hidden lg:block ${vipViewPeriod === p ? 'active' : ''}`}
+                      >
+                        {p}
+                      </button>
+                    ))}
+                    {/* Mobile fallback for segmented control */}
+                    <select
+                      value={vipViewPeriod}
+                      onChange={(e) => {
+                        const p = e.target.value;
+                        setVipViewPeriod(p);
+                        if (p === 'Mensal') setVipViewRange(new Date().getMonth());
+                        else if (p === 'Trimestral') setVipViewRange(Math.floor(new Date().getMonth() / 3));
+                        else if (p === 'Semestral') setVipViewRange(Math.floor(new Date().getMonth() / 6));
+                      }}
+                      className="lg:hidden appearance-none outline-none bg-transparent border-0 text-zinc-300 text-sm focus:ring-0 cursor-pointer w-full text-right"
+                    >
+                      {['Mensal', 'Trimestral', 'Semestral', 'Anual'].map(p => (
+                        <option key={p} value={p}>{p}</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
+
                 {vipList.length === 0 ? (
                   <div className="flex-1 flex items-center justify-center"><span className="text-sm text-zinc-500 italic">Sem dados</span></div>
                 ) : (
-                  <div className="flex flex-col gap-3 overflow-y-auto custom-scrollbar">
+                  <div className="flex flex-1 flex-col gap-3 overflow-y-auto custom-scrollbar">
                     {vipList.map(([name, count], idx) => (
                       <div key={name} className="flex items-center justify-between py-2 border-b border-zinc-800/50 last:border-0">
                         <div className="flex items-center gap-2">
@@ -8192,16 +8740,16 @@ const SettingsView = ({
                       </div>
                     </div>
                     <span className={`text-[10px] font-bold px-2 py-1 rounded ${integrationConfig.connectedServices?.whatsapp
-                        ? 'bg-emerald-500/10 text-emerald-500'
-                        : 'bg-zinc-800 text-zinc-500'
+                      ? 'bg-emerald-500/10 text-emerald-500'
+                      : 'bg-zinc-800 text-zinc-500'
                       }`}>{integrationConfig.connectedServices?.whatsapp ? 'CONECTADO' : 'DESCONECTADO'}</span>
                   </div>
                   <p className="text-xs text-zinc-400 mb-4 line-clamp-2">Envio automático de lembretes, confirmações de agendamento e atendimento via IA.</p>
                   <button
                     onClick={() => toggleConnectedService('whatsapp')}
                     className={`w-full py-2 rounded-lg ${integrationConfig.connectedServices?.whatsapp
-                        ? `border ${isDarkMode ? 'border-zinc-700 hover:bg-zinc-800' : 'border-zinc-200 hover:bg-zinc-100'} ${isDarkMode ? 'text-zinc-300' : 'text-zinc-900'}`
-                        : 'bg-orange-500 hover:bg-orange-600 text-white'
+                      ? `border ${isDarkMode ? 'border-zinc-700 hover:bg-zinc-800' : 'border-zinc-200 hover:bg-zinc-100'} ${isDarkMode ? 'text-zinc-300' : 'text-zinc-900'}`
+                      : 'bg-orange-500 hover:bg-orange-600 text-white'
                       } text-xs font-medium transition-colors`}
                   >
                     {integrationConfig.connectedServices?.whatsapp ? 'Gerenciar' : 'Conectar'}
@@ -8221,16 +8769,16 @@ const SettingsView = ({
                       </div>
                     </div>
                     <span className={`text-[10px] font-bold px-2 py-1 rounded ${integrationConfig.connectedServices?.stripe
-                        ? 'bg-emerald-500/10 text-emerald-500'
-                        : 'bg-zinc-800 text-zinc-500'
+                      ? 'bg-emerald-500/10 text-emerald-500'
+                      : 'bg-zinc-800 text-zinc-500'
                       }`}>{integrationConfig.connectedServices?.stripe ? 'CONECTADO' : 'DESCONECTADO'}</span>
                   </div>
                   <p className="text-xs text-zinc-400 mb-4 line-clamp-2">Processe pagamentos online, gere links de cobrança e gerencie assinaturas.</p>
                   <button
                     onClick={() => toggleConnectedService('stripe')}
                     className={`w-full py-2 rounded-lg ${integrationConfig.connectedServices?.stripe
-                        ? `border ${isDarkMode ? 'border-zinc-700 hover:bg-zinc-800' : 'border-zinc-200 hover:bg-zinc-100'} ${isDarkMode ? 'text-zinc-300' : 'text-zinc-900'}`
-                        : 'bg-orange-500 hover:bg-orange-600 text-white'
+                      ? `border ${isDarkMode ? 'border-zinc-700 hover:bg-zinc-800' : 'border-zinc-200 hover:bg-zinc-100'} ${isDarkMode ? 'text-zinc-300' : 'text-zinc-900'}`
+                      : 'bg-orange-500 hover:bg-orange-600 text-white'
                       } text-xs font-medium transition-colors`}
                   >
                     {integrationConfig.connectedServices?.stripe ? 'Gerenciar' : 'Conectar'}
@@ -8250,16 +8798,16 @@ const SettingsView = ({
                       </div>
                     </div>
                     <span className={`text-[10px] font-bold px-2 py-1 rounded ${integrationConfig.connectedServices?.googleCalendar
-                        ? 'bg-emerald-500/10 text-emerald-500'
-                        : 'bg-zinc-800 text-zinc-500'
+                      ? 'bg-emerald-500/10 text-emerald-500'
+                      : 'bg-zinc-800 text-zinc-500'
                       }`}>{integrationConfig.connectedServices?.googleCalendar ? 'CONECTADO' : 'DESCONECTADO'}</span>
                   </div>
                   <p className="text-xs text-zinc-400 mb-4 line-clamp-2">Sincronize a agenda do sistema com o calendário pessoal dos profissionais.</p>
                   <button
                     onClick={() => toggleConnectedService('googleCalendar')}
                     className={`w-full py-2 rounded-lg ${integrationConfig.connectedServices?.googleCalendar
-                        ? `border ${isDarkMode ? 'border-zinc-700 hover:bg-zinc-800' : 'border-zinc-200 hover:bg-zinc-100'} ${isDarkMode ? 'text-zinc-300' : 'text-zinc-900'}`
-                        : 'bg-orange-500 hover:bg-orange-600 text-white'
+                      ? `border ${isDarkMode ? 'border-zinc-700 hover:bg-zinc-800' : 'border-zinc-200 hover:bg-zinc-100'} ${isDarkMode ? 'text-zinc-300' : 'text-zinc-900'}`
+                      : 'bg-orange-500 hover:bg-orange-600 text-white'
                       } text-xs font-medium transition-colors`}
                   >
                     {integrationConfig.connectedServices?.googleCalendar ? 'Gerenciar' : 'Conectar'}
@@ -8279,16 +8827,16 @@ const SettingsView = ({
                       </div>
                     </div>
                     <span className={`text-[10px] font-bold px-2 py-1 rounded ${integrationConfig.connectedServices?.rdStation
-                        ? 'bg-emerald-500/10 text-emerald-500'
-                        : 'bg-zinc-800 text-zinc-500'
+                      ? 'bg-emerald-500/10 text-emerald-500'
+                      : 'bg-zinc-800 text-zinc-500'
                       }`}>{integrationConfig.connectedServices?.rdStation ? 'CONECTADO' : 'DESCONECTADO'}</span>
                   </div>
                   <p className="text-xs text-zinc-400 mb-4 line-clamp-2">Sincronize leads do CRM e envie campanhas de e-mail marketing direcionadas.</p>
                   <button
                     onClick={() => toggleConnectedService('rdStation')}
                     className={`w-full py-2 rounded-lg ${integrationConfig.connectedServices?.rdStation
-                        ? `border ${isDarkMode ? 'border-zinc-700 hover:bg-zinc-800' : 'border-zinc-200 hover:bg-zinc-100'} ${isDarkMode ? 'text-zinc-300' : 'text-zinc-900'}`
-                        : 'bg-orange-500 hover:bg-orange-600 text-white'
+                      ? `border ${isDarkMode ? 'border-zinc-700 hover:bg-zinc-800' : 'border-zinc-200 hover:bg-zinc-100'} ${isDarkMode ? 'text-zinc-300' : 'text-zinc-900'}`
+                      : 'bg-orange-500 hover:bg-orange-600 text-white'
                       } text-xs font-medium transition-colors`}
                   >
                     {integrationConfig.connectedServices?.rdStation ? 'Gerenciar' : 'Conectar'}
@@ -9282,7 +9830,7 @@ export default function App() {
   };
 
   return (
-    <div className="flex min-h-screen font-sans overflow-hidden selection:bg-orange-500/30 transition-colors duration-300" style={{ backgroundColor: 'var(--bg-base)', color: 'var(--text-primary)' }}>
+    <div className="flex h-[100dvh] font-sans overflow-hidden selection:bg-orange-500/30 transition-colors duration-300" style={{ backgroundColor: 'var(--bg-base)', color: 'var(--text-primary)' }}>
       {/* Mobile Sidebar Overlay */}
       {isMobileMenuOpen && (
         <div
