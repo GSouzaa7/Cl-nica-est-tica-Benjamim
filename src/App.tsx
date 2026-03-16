@@ -116,7 +116,7 @@ const Toggle = ({ checked, onChange, disabled, isDarkMode = true }: { checked: b
 const MiniDatePicker = ({ value, onChange, isDarkMode = true, label }: { value: string, onChange: (val: string) => void, isDarkMode?: boolean, label?: string }) => {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
-  
+
   // Parse initial value or default to today
   const initialDate = value ? new Date(value + 'T12:00:00') : new Date();
   const [viewDate, setViewDate] = useState(initialDate);
@@ -181,15 +181,15 @@ const MiniDatePicker = ({ value, onChange, isDarkMode = true, label }: { value: 
         <div className={`absolute top-full mt-2 left-0 w-72 z-[100] rounded-2xl border shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200 ${isDarkMode ? "bg-[#121214] border-zinc-800" : "bg-white border-zinc-200"}`}>
           {/* Header */}
           <div className={`p-4 flex items-center justify-between border-b ${isDarkMode ? "border-zinc-800/80" : "border-zinc-200"}`}>
-            <button 
+            <button
               type="button"
-              onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() - 1, 1))} 
+              onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() - 1, 1))}
               className={`p-1 rounded opacity-70 hover:opacity-100 transition-colors ${isDarkMode ? "hover:bg-zinc-800" : "hover:bg-zinc-100"}`}
             >
               <ChevronLeft size={18} />
             </button>
-            
-            <button 
+
+            <button
               type="button"
               onClick={() => setShowYearSelector(!showYearSelector)}
               className={`font-semibold text-sm px-2 py-1 rounded transition-colors ${isDarkMode ? "hover:bg-zinc-800" : "hover:bg-zinc-100"} flex items-center gap-1`}
@@ -198,9 +198,9 @@ const MiniDatePicker = ({ value, onChange, isDarkMode = true, label }: { value: 
               <ChevronDown size={14} className={`transition-transform ${showYearSelector ? 'rotate-180 text-orange-500' : ''}`} />
             </button>
 
-            <button 
+            <button
               type="button"
-              onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 1))} 
+              onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 1))}
               className={`p-1 rounded opacity-70 hover:opacity-100 transition-colors ${isDarkMode ? "hover:bg-zinc-800" : "hover:bg-zinc-100"}`}
             >
               <ChevronRight size={18} />
@@ -218,8 +218,8 @@ const MiniDatePicker = ({ value, onChange, isDarkMode = true, label }: { value: 
                       setViewDate(new Date(year, viewDate.getMonth(), 1));
                       setShowYearSelector(false);
                     }}
-                    className={`py-2 rounded-lg text-sm transition-all ${viewDate.getFullYear() === year 
-                      ? "bg-orange-500 text-white font-bold" 
+                    className={`py-2 rounded-lg text-sm transition-all ${viewDate.getFullYear() === year
+                      ? "bg-orange-500 text-white font-bold"
                       : (isDarkMode ? "text-zinc-400 hover:bg-zinc-800" : "text-zinc-600 hover:bg-zinc-100")}`}
                   >
                     {year}
@@ -267,16 +267,16 @@ const MiniDatePicker = ({ value, onChange, isDarkMode = true, label }: { value: 
               </>
             )}
           </div>
-          
+
           <div className={`p-2 border-t ${isDarkMode ? "border-zinc-800/80" : "border-zinc-200"} flex justify-between`}>
-            <button 
+            <button
               type="button"
               onClick={() => { onChange(''); setIsOpen(false); }}
               className="text-[10px] font-bold text-zinc-500 hover:text-red-500 uppercase tracking-widest px-2 py-1"
             >
               Limpar
             </button>
-            <button 
+            <button
               type="button"
               onClick={() => {
                 const today = new Date();
@@ -397,7 +397,7 @@ const LoginScreen = ({ onLogin, isDarkMode = true }: { onLogin: (email: string) 
     try {
       // 1. Verifica se o email existe no banco
       const existe = await verificarEmailExiste(email);
-      
+
       if (!existe) {
         addToast("E-mail não encontrado no sistema.", "error");
         setIsForgotPage(false); // Retorna ao login
@@ -477,7 +477,7 @@ const LoginScreen = ({ onLogin, isDarkMode = true }: { onLogin: (email: string) 
                   {isForgotPage ? 'Recuperar' : 'Estética'}<span className="font-semibold !text-orange-500">{isForgotPage ? 'Senha' : 'Pro'}</span>
                 </h1>
                 {isForgotPage && (
-                   <p className="text-neutral-400 font-sans text-sm mt-2">Insira seu e-mail para receber as instruções.</p>
+                  <p className="text-neutral-400 font-sans text-sm mt-2">Insira seu e-mail para receber as instruções.</p>
                 )}
               </div>
 
@@ -524,9 +524,9 @@ const LoginScreen = ({ onLogin, isDarkMode = true }: { onLogin: (email: string) 
                         {resetSuccess && (
                           <span className="text-[10px] text-emerald-500 font-medium mb-1">E-mail enviado!</span>
                         )}
-                        <button 
-                          type="button" 
-                          onClick={() => setIsForgotPage(true)} 
+                        <button
+                          type="button"
+                          onClick={() => setIsForgotPage(true)}
                           disabled={loading}
                           className="text-xs font-medium !text-orange-500 hover:!text-orange-400 transition-colors disabled:opacity-50"
                         >
@@ -673,17 +673,17 @@ const DashboardView = ({
             const now = new Date();
             const currMonth = now.getMonth();
             const currYear = now.getFullYear();
-            
+
             const totalFaturamento = (expenses || [])
               .filter(e => e.type === 'Receita' && e.status === 'Pago' && new Date(e.date).getMonth() === currMonth && new Date(e.date).getFullYear() === currYear)
               .reduce((sum, e) => sum + Number(e.value || e.valor || 0), 0);
-              
+
             const totalDespesas = (expenses || [])
               .filter(e => e.type === 'Despesa' && new Date(e.date).getMonth() === currMonth && new Date(e.date).getFullYear() === currYear)
               .reduce((sum, e) => sum + Number(e.value || e.valor || 0), 0);
-              
+
             const currentAppointments = (appointments || []).length; // Since appointments are local state and usually "current"
-            
+
             return (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
                 {/* Faturamento */}
@@ -830,7 +830,7 @@ const DashboardView = ({
                         const svc = (services || []).find((s: any) => s.id === app.service || s.name === app.service);
                         return sum + Number(svc?.price || svc?.valor || svc?.value || 0);
                       }, 0);
-                      
+
                       const pendingExpensesRevenue = (expenses || [])
                         .filter(e => {
                           if (e.type !== 'Receita' || e.status !== 'Pendente') return false;
@@ -839,7 +839,7 @@ const DashboardView = ({
                           return expDate.getMonth() === d.getMonth() && expDate.getFullYear() === d.getFullYear();
                         })
                         .reduce((sum, e) => sum + (Number(e.value || e.valor || 0)), 0);
-                        
+
                       faturamentoEmAberto = appointmentsRevenue + pendingExpensesRevenue;
                     }
 
@@ -865,10 +865,10 @@ const DashboardView = ({
                           style={{ height: `${data.val2}%` }}
                         />
                       </div>
-                      
+
                       {/* Tooltip Hover */}
                       <div className="absolute -top-12 opacity-0 group-hover:opacity-100 transition-opacity bg-black text-white text-[10px] py-1 px-2 rounded pointer-events-none whitespace-nowrap z-50">
-                        Total: R$ {data.raw1.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}<br/>
+                        Total: R$ {data.raw1.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}<br />
                         Aberto: R$ {data.raw2.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                       </div>
 
@@ -1009,6 +1009,7 @@ const SERVICE_INVENTORY_MAP: Record<string, string> = {
 };
 
 const AgendaView = ({ professionals, services = [], appointments = [], setAppointments, onCompleteService, isDarkMode = true, patients = [] }: any) => {
+  const { addToast } = useToast();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedTime, setSelectedTime] = useState('08:00');
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -1028,6 +1029,86 @@ const AgendaView = ({ professionals, services = [], appointments = [], setAppoin
   // appointments state moved to App.tsx
   const [selectedAppDetails, setSelectedAppDetails] = useState<any | null>(null);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
+
+  // Audio Recording States & Refs
+  const [isRecording, setIsRecording] = useState(false);
+  const [transcription, setTranscription] = useState('');
+  const recognitionRef = useRef<any>(null);
+  const isRecordingIntent = useRef(false);
+  const transcriptionRef = useRef(transcription);
+  const baseTranscriptionRef = useRef('');
+
+  useEffect(() => {
+    transcriptionRef.current = transcription;
+  }, [transcription]);
+
+  const handleRecordAudio = () => {
+    if (isRecording) {
+      isRecordingIntent.current = false;
+      setIsRecording(false);
+      if (recognitionRef.current) recognitionRef.current.stop();
+      return;
+    }
+
+    const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
+    if (!SpeechRecognition) return alert("Navegador não suporta transcrição nativa.");
+
+    baseTranscriptionRef.current = transcriptionRef.current;
+
+    const recognition = new SpeechRecognition();
+    recognitionRef.current = recognition;
+
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = 'pt-BR';
+
+    recognition.onresult = (event: any) => {
+      let completeSessionText = "";
+      let interimText = "";
+      for (let i = 0; i < event.results.length; i++) {
+        if (event.results[i].isFinal) {
+          completeSessionText += event.results[i][0].transcript + " ";
+        } else {
+          interimText += event.results[i][0].transcript;
+        }
+      }
+
+      const base = baseTranscriptionRef.current ? baseTranscriptionRef.current.trim() + " " : "";
+      const fullText = (base + completeSessionText + interimText).trim();
+
+      setTranscription(fullText);
+      transcriptionRef.current = fullText;
+    };
+
+    recognition.onerror = (event: any) => {
+      const isEdge = /Edg/.test(navigator.userAgent);
+      if (event.error === 'not-allowed') {
+        alert("🚨 BLOQUEIO DE MICROFONE! Verifique as permissões.");
+      } else if (event.error === 'network') {
+        alert("🚨 Erro de Rede: A transcrição nativa precisa de internet.");
+      }
+      setIsRecording(false);
+      isRecordingIntent.current = false;
+    };
+
+    recognition.onend = () => {
+      if (isRecordingIntent.current) {
+        try {
+          setTimeout(() => {
+            if (isRecordingIntent.current) recognition.start();
+          }, 200);
+        } catch (e) {
+          setIsRecording(false);
+        }
+      } else {
+        setIsRecording(false);
+      }
+    };
+
+    isRecordingIntent.current = true;
+    setIsRecording(true);
+    recognition.start();
+  };
 
   // Estados e Logica do Mini Calendário Nativo (Blindado)
   const [viewDate, setViewDate] = useState(new Date());
@@ -1299,25 +1380,25 @@ const AgendaView = ({ professionals, services = [], appointments = [], setAppoin
                       {(patients || [])
                         .filter((p: any) => p.name?.toLowerCase().includes(patientSearchQuery.toLowerCase()))
                         .length === 0 ? (
-                          <div className="px-4 py-3 text-sm text-zinc-500">Nenhum paciente encontrado</div>
-                        ) : (
-                          (patients || [])
-                            .filter((p: any) => p.name?.toLowerCase().includes(patientSearchQuery.toLowerCase()))
-                            .map((p: any) => (
-                              <button
-                                key={p.id}
-                                type="button"
-                                onClick={() => {
-                                  setPatientName(p.name);
-                                  setPatientSearchQuery(p.name);
-                                  setIsPatientDropdownOpen(false);
-                                }}
-                                className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${isDarkMode ? 'text-white hover:bg-white/5' : 'text-zinc-900 hover:bg-zinc-100'}`}
-                              >
-                                {p.name}
-                              </button>
-                            ))
-                        )}
+                        <div className="px-4 py-3 text-sm text-zinc-500">Nenhum paciente encontrado</div>
+                      ) : (
+                        (patients || [])
+                          .filter((p: any) => p.name?.toLowerCase().includes(patientSearchQuery.toLowerCase()))
+                          .map((p: any) => (
+                            <button
+                              key={p.id}
+                              type="button"
+                              onClick={() => {
+                                setPatientName(p.name);
+                                setPatientSearchQuery(p.name);
+                                setIsPatientDropdownOpen(false);
+                              }}
+                              className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${isDarkMode ? 'text-white hover:bg-white/5' : 'text-zinc-900 hover:bg-zinc-100'}`}
+                            >
+                              {p.name}
+                            </button>
+                          ))
+                      )}
                     </div>
                   </>
                 )}
@@ -1549,10 +1630,12 @@ const AgendaView = ({ professionals, services = [], appointments = [], setAppoin
                     selectedService ? services.find((s: any) => s.id === selectedService)?.name : null,
                     ...additionalServices.map(sid => sid ? services.find((s: any) => s.id === sid)?.name : null)
                   ].filter(Boolean);
+                  const allServiceIds = [selectedService, ...additionalServices].filter(Boolean);
                   const newApp = {
                     id: Date.now(),
                     patient: patientName,
                     service: allServiceNames.join(', ') || 'Sem serviço',
+                    serviceIds: allServiceIds,
                     time: selectedTime,
                     professionalId: selectedProfessional,
                   };
@@ -1580,9 +1663,15 @@ const AgendaView = ({ professionals, services = [], appointments = [], setAppoin
       {/* Details / Life Cycle Modal */}
       {isDetailsModalOpen && selectedAppDetails && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className={`${isDarkMode ? "bg-[#0a0a0a] border-orange-900/30 shadow-[0_0_50px_rgba(249,115,22,0.1)]" : "bg-white border-[var(--border-default)] shadow-2xl"} border rounded-3xl w-full max-w-sm p-8 relative`}>
+          <div className={`${isDarkMode ? "bg-[#0a0a0a] border-orange-900/30 shadow-[0_0_50px_rgba(249,115,22,0.1)]" : "bg-white border-[var(--border-default)] shadow-2xl"} border rounded-3xl w-full max-w-sm max-h-[90vh] overflow-y-auto custom-scrollbar p-8 relative flex flex-col`}>
             <button
-              onClick={() => { setIsDetailsModalOpen(false); setSelectedAppDetails(null); }}
+              onClick={() => {
+                setIsDetailsModalOpen(false);
+                setSelectedAppDetails(null);
+                setTranscription('');
+                setIsRecording(false);
+                if (recognitionRef.current) recognitionRef.current.stop();
+              }}
               className={`absolute top-6 right-6 text-zinc-500 hover:${isDarkMode ? "text-white" : "text-zinc-900"} transition-colors`}
             >
               <X size={20} />
@@ -1603,6 +1692,29 @@ const AgendaView = ({ professionals, services = [], appointments = [], setAppoin
               </div>
             </div>
 
+            {/* Áudio / Evolução */}
+            <div className={`mb-6 p-4 rounded-xl border ${isDarkMode ? "border-zinc-800 bg-[#050505]" : "border-zinc-200 bg-zinc-50"}`}>
+              <div className="flex items-center justify-between mb-3">
+                <span className={`text-xs font-bold uppercase tracking-wider ${isDarkMode ? "text-zinc-400" : "text-zinc-500"}`}>Anotações do Atendimento</span>
+                <button
+                  onClick={handleRecordAudio}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${isRecording
+                    ? 'bg-red-600 text-white border border-red-500 animate-pulse'
+                    : 'bg-[#1c0d04] text-orange-500 border border-[#431c09] hover:bg-orange-500/20'
+                    }`}
+                >
+                  {isRecording ? <Square size={14} /> : <Mic size={14} />}
+                  {isRecording ? 'Parar' : 'Gravar Áudio'}
+                </button>
+              </div>
+              <textarea
+                value={transcription}
+                onChange={(e) => setTranscription(e.target.value)}
+                placeholder="Descreva o atendimento, material utilizado ou anamnese..."
+                className={`w-full bg-transparent border-none ${isDarkMode ? "text-zinc-300" : "text-zinc-900"} focus:outline-none resize-none h-24 text-sm leading-relaxed custom-scrollbar`}
+              />
+            </div>
+
             <div className="flex flex-col gap-3">
               <button
                 onClick={() => {
@@ -1619,15 +1731,164 @@ const AgendaView = ({ professionals, services = [], appointments = [], setAppoin
               </button>
 
               <button
-                onClick={() => {
-                  const serviceName = selectedAppDetails.service;
-                  const insumos = SERVICE_INVENTORY_MAP[serviceName] || SERVICE_INVENTORY_MAP['default'];
-                  alert(`✅ ATENDIMENTO FINALIZADO\n\nPaciente: ${selectedAppDetails.patient}\nBaixa no Estoque: ${insumos}`);
-                  setAppointments(prev => prev.filter(a => a.id !== selectedAppDetails.id));
+                onClick={async () => {
+                  const msg = 'ATENDIMENTO FINALIZADO';
+
+                  const targetPatientName = selectedAppDetails.patient;
+                  if (targetPatientName) {
+                    const newRecord = {
+                      id: Date.now().toString(),
+                      date: new Date().toLocaleDateString('pt-BR'),
+                      type: 'Anotação Relevante',
+                      content: encryptField(transcription.trim())
+                    };
+
+                    const historyArray = transcription.trim() ? [newRecord] : [];
+                    const matchedPatient = patients?.find((p: any) => p.name === targetPatientName);
+
+                    if (matchedPatient && matchedPatient.id) {
+                      // Patient exists, append transcription if any
+                      if (transcription.trim()) {
+                        const updatedHistory = matchedPatient.history ? [newRecord, ...matchedPatient.history] : [newRecord];
+                        try {
+                          const docRef = doc(db, 'clientes', matchedPatient.id);
+                          await setDoc(docRef, { ...matchedPatient, history: updatedHistory }, { merge: true });
+                          logAuditEvent({
+                            userId: auth.currentUser?.uid || 'unknown',
+                            userEmail: auth.currentUser?.email || 'unknown',
+                            userName: auth.currentUser?.displayName || 'Usuário',
+                            action: 'SALVOU_REGISTRO_MEDICO',
+                            module: 'Agenda',
+                            details: `Gravou áudio/anotação para paciente ${matchedPatient.name}.`
+                          });
+                        } catch (error) {
+                          console.error('Erro ao salvar anotação do atendimento no paciente:', error);
+                        }
+                      }
+                    } else {
+                      // Patient doesn't exist, auto-create
+                      const newPatientId = Date.now().toString();
+                      const newPatient = {
+                        id: newPatientId,
+                        name: targetPatientName,
+                        phone: '',
+                        email: '',
+                        notes: encryptField(''),
+                        cpf: '',
+                        tipo: 'Particular',
+                        tags: '',
+                        ativo: true,
+                        birthDate: '',
+                        idade: '',
+                        sexo: '',
+                        estadoCivil: '',
+                        profissao: '',
+                        endereco: '',
+                        rg: '',
+                        cnpj: '',
+                        cor: '',
+                        origem: '',
+                        convenio: '',
+                        history: historyArray
+                      };
+
+                      try {
+                        const docRef = doc(db, 'clientes', newPatientId);
+                        await setDoc(docRef, newPatient);
+                        logAuditEvent({
+                          userId: auth.currentUser?.uid || 'unknown',
+                          userEmail: auth.currentUser?.email || 'unknown',
+                          userName: auth.currentUser?.displayName || 'Usuário',
+                          action: 'CRIOU_PACIENTE_AUTO',
+                          module: 'Agenda',
+                          details: `Paciente ${targetPatientName} criado automaticamente ao finalizar atendimento.`
+                        });
+                      } catch (error) {
+                        console.error('Erro ao auto-cadastrar paciente:', error);
+                      }
+                    }
+                  }
+
+                  // FINANCEIRO (Receitas) & ESTOQUE (Baixa) INTEGRATION
+                  if (selectedAppDetails.serviceIds && selectedAppDetails.serviceIds.length > 0) {
+                    let totalValue = 0;
+                    const inventoryUpdates: Record<string, number> = {};
+
+                    for (const sid of selectedAppDetails.serviceIds) {
+                      const s = services?.find((serv: any) => serv.id === sid);
+                      if (s) {
+                        totalValue += Number(s.price || s.valor || s.value || 0);
+                        if (s.items && Array.isArray(s.items)) {
+                          for (const item of s.items) {
+                            inventoryUpdates[item.itemId] = (inventoryUpdates[item.itemId] || 0) + (item.quantity || 1);
+                          }
+                        }
+                      }
+                    }
+
+                    // 1. Finance Record
+                    if (totalValue > 0) {
+                      const financeId = Date.now().toString() + Math.floor(Math.random() * 1000).toString();
+                      const newExpense = {
+                        id: financeId,
+                        description: `Atendimento: ${selectedAppDetails.service} - ${selectedAppDetails.patient}`,
+                        category: 'Serviços Prestados',
+                        quantity: 1,
+                        value: totalValue,
+                        dueDate: new Date().toISOString().split('T')[0],
+                        status: 'Pago',
+                        recurrence: 'Não',
+                        type: 'Receita',
+                        date: new Date().toISOString()
+                      };
+                      try {
+                        await setDoc(doc(db, 'financeiro', financeId), newExpense);
+                        logAuditEvent({
+                          userId: auth.currentUser?.uid || 'unknown',
+                          userEmail: auth.currentUser?.email || 'unknown',
+                          userName: auth.currentUser?.displayName || 'Usuário',
+                          action: 'CRIOU_RECEITA_AUTO',
+                          module: 'Agenda',
+                          details: `Receita gerada automaticamente via conclusão de atendimento (${selectedAppDetails.patient}). Valor: R$ ${totalValue}`
+                        });
+                      } catch (e) {
+                        console.error("Erro ao gerar receita automática:", e);
+                      }
+                    }
+
+                    // 2. Inventory Deduction
+                    for (const [itemId, qtyToDeduct] of Object.entries(inventoryUpdates)) {
+                      try {
+                        const itemRef = doc(db, 'estoque', itemId);
+                        const itemSnap = await getDoc(itemRef);
+                        if (itemSnap.exists()) {
+                          const currentStock = Number(itemSnap.data().stock || 0);
+                          const newStock = Math.max(0, currentStock - qtyToDeduct);
+                          await setDoc(itemRef, { stock: newStock }, { merge: true });
+                          logAuditEvent({
+                            userId: auth.currentUser?.uid || 'unknown',
+                            userEmail: auth.currentUser?.email || 'unknown',
+                            userName: auth.currentUser?.displayName || 'Usuário',
+                            action: 'BAIXA_ESTOQUE_AUTO',
+                            module: 'Agenda',
+                            details: `Baixa automática de ${qtyToDeduct} unidade(s) do item ${itemSnap.data().name} via conclusão de agenda.`
+                          });
+                        }
+                      } catch (e) {
+                        console.error('Erro na baixa de estoque automática:', e);
+                      }
+                    }
+                  }
+
+                  addToast(msg, 'success');
+                  setAppointments((prev: any[]) => prev.filter(a => a.id !== selectedAppDetails.id));
                   setIsDetailsModalOpen(false);
                   setSelectedAppDetails(null);
+                  setTranscription('');
+                  setIsRecording(false);
+                  if (recognitionRef.current) recognitionRef.current.stop();
                 }}
-                className="w-full py-3 rounded-xl bg-green-500/10 text-green-500 hover:bg-green-500/20 font-medium transition-colors"
+                className="w-full py-3 rounded-xl bg-green-500/10 text-green-500 hover:bg-green-500/20 font-medium transition-colors mt-2"
               >
                 Concluído (Baixa no Estoque)
               </button>
@@ -1639,7 +1900,10 @@ const AgendaView = ({ professionals, services = [], appointments = [], setAppoin
                     setAppointments(prev => prev.filter(a => a.id !== selectedAppDetails.id));
                     setIsDetailsModalOpen(false);
                     setSelectedAppDetails(null);
-                    alert(`Agendamento cancelado com sucesso.`);
+                    setTranscription('');
+                    setIsRecording(false);
+                    if (recognitionRef.current) recognitionRef.current.stop();
+                    addToast('Agendamento cancelado com sucesso.', 'success');
                   }
                 }}
                 className="w-full py-3 rounded-xl bg-red-500/10 text-red-500 hover:bg-red-500/20 font-medium transition-colors"
@@ -1758,13 +2022,13 @@ const CrmView = ({ patients, setPatients, columns, setColumns, onGenerateReceitu
   const handleCreateCard = async () => {
     if (newCardName.trim() && activeColumnId) {
       const newPatientId = Date.now().toString();
-      const newPatient = { 
-        id: newPatientId, 
-        name: newCardName, 
-        phone: '', 
-        email: '', 
-        cpf: '', 
-        notes: '', 
+      const newPatient = {
+        id: newPatientId,
+        name: newCardName,
+        phone: '',
+        email: '',
+        cpf: '',
+        notes: '',
         tipo: 'Particular',
         tags: '',
         ativo: true,
@@ -1779,7 +2043,7 @@ const CrmView = ({ patients, setPatients, columns, setColumns, onGenerateReceitu
         cor: '',
         origem: '',
         convenio: '',
-        history: [] 
+        history: []
       };
 
       try {
@@ -2700,11 +2964,11 @@ const ClientesView = ({ patients, setPatients, columns, onGenerateReceituario, i
         // Importação em lotes de 500 (limite Firestore)
         const batchSize = 500;
         const totalItems = mappedData.length;
-        
+
         for (let i = 0; i < totalItems; i += batchSize) {
           const batch = writeBatch(db);
           const chunk = mappedData.slice(i, i + batchSize);
-          
+
           chunk.forEach(patient => {
             const docRef = doc(db, 'clientes', patient.id);
             batch.set(docRef, patient);
@@ -3007,7 +3271,7 @@ const ClientesView = ({ patients, setPatients, columns, onGenerateReceituario, i
                 }`}
             />
           </div>
-          
+
           <input
             type="file"
             ref={fileInputRef}
@@ -5067,7 +5331,7 @@ const FinanceiroView = ({ expenses, setExpenses, isDarkMode = true }: any) => {
   const [dueDate, setDueDate] = useState('');
   const [status, setStatus] = useState('Pendente');
   const [recurrence, setRecurrence] = useState('Não');
-  
+
   const currentYearStr = new Date().getFullYear().toString();
   const [viewPeriod, setViewPeriod] = useState('Mensal');
   const [viewYear, setViewYear] = useState(currentYearStr);
@@ -5162,7 +5426,7 @@ const FinanceiroView = ({ expenses, setExpenses, isDarkMode = true }: any) => {
   let periodStartMonth = 0;
   let periodEndMonth = 11;
   let isDailyView = false;
-  
+
   // Logic to determine range of months or days
   if (viewPeriod === 'Mensal') {
     periodStartMonth = viewRange;
@@ -5198,7 +5462,7 @@ const FinanceiroView = ({ expenses, setExpenses, isDarkMode = true }: any) => {
     const diasNoMes = new Date(numViewYear, periodStartMonth + 1, 0).getDate();
     const isCurrentMonth = numViewYear === anoAtualHoje && periodStartMonth === mesAtualHoje;
     const isPastMonth = numViewYear < anoAtualHoje || (numViewYear === anoAtualHoje && periodStartMonth < mesAtualHoje);
-    
+
     const transacoesPorDia: Record<number, { receita: number, despesa: number }> = {};
     for (let i = 1; i <= diasNoMes; i++) transacoesPorDia[i] = { receita: 0, despesa: 0 };
 
@@ -5209,13 +5473,13 @@ const FinanceiroView = ({ expenses, setExpenses, isDarkMode = true }: any) => {
           const day = parseInt(dayStr);
           const isReceita = exp.type === 'Receita';
           const isDespesa = exp.type === 'Despesa' || !isReceita;
-          
+
           if (isReceita) {
-             totalReceitaView += exp.value;
-             transacoesPorDia[day].receita += exp.value;
+            totalReceitaView += exp.value;
+            transacoesPorDia[day].receita += exp.value;
           } else {
-             totalDespesaView += exp.value;
-             transacoesPorDia[day].despesa += exp.value;
+            totalDespesaView += exp.value;
+            transacoesPorDia[day].despesa += exp.value;
           }
 
           if (exp.status === 'Pendente' && isDespesa) {
@@ -5231,23 +5495,23 @@ const FinanceiroView = ({ expenses, setExpenses, isDarkMode = true }: any) => {
     projecaoFimView = totalReceitaView + (isPastMonth ? 0 : (taxaDiariaReal * (diasNoMes - currDay)));
 
     let acumuladoReceita = 0;
-    
+
     for (let i = 1; i <= diasNoMes; i++) {
-        acumuladoReceita += transacoesPorDia[i].receita;
-        if (isPastMonth) {
-           chartData.push({ axis: String(i).padStart(2, '0'), Realizado: acumuladoReceita, Projetado: acumuladoReceita });
-        } else if (isCurrentMonth) {
-           if (i <= currDay) {
-              chartData.push({ axis: String(i).padStart(2, '0'), Realizado: acumuladoReceita, Projetado: acumuladoReceita });
-           } else {
-              const prevProj = chartData[i-2].Projetado;
-              chartData.push({ axis: String(i).padStart(2, '0'), Projetado: prevProj + taxaDiariaReal });
-           }
+      acumuladoReceita += transacoesPorDia[i].receita;
+      if (isPastMonth) {
+        chartData.push({ axis: String(i).padStart(2, '0'), Realizado: acumuladoReceita, Projetado: acumuladoReceita });
+      } else if (isCurrentMonth) {
+        if (i <= currDay) {
+          chartData.push({ axis: String(i).padStart(2, '0'), Realizado: acumuladoReceita, Projetado: acumuladoReceita });
         } else {
-           // Future month completely
-           const projectedValue = (i * avgReceitaDiaria);
-           chartData.push({ axis: String(i).padStart(2, '0'), Projetado: projectedValue });
+          const prevProj = chartData[i - 2].Projetado;
+          chartData.push({ axis: String(i).padStart(2, '0'), Projetado: prevProj + taxaDiariaReal });
         }
+      } else {
+        // Future month completely
+        const projectedValue = (i * avgReceitaDiaria);
+        chartData.push({ axis: String(i).padStart(2, '0'), Projetado: projectedValue });
+      }
     }
 
   } else {
@@ -5263,13 +5527,13 @@ const FinanceiroView = ({ expenses, setExpenses, isDarkMode = true }: any) => {
         if (month >= periodStartMonth && month <= periodEndMonth) {
           const isReceita = exp.type === 'Receita';
           const isDespesa = exp.type === 'Despesa' || !isReceita;
-          
+
           if (isReceita) {
-             totalReceitaView += exp.value;
-             transacoesPorMes[month].receita += exp.value;
+            totalReceitaView += exp.value;
+            transacoesPorMes[month].receita += exp.value;
           } else {
-             totalDespesaView += exp.value;
-             transacoesPorMes[month].despesa += exp.value;
+            totalDespesaView += exp.value;
+            transacoesPorMes[month].despesa += exp.value;
           }
 
           if (exp.status === 'Pendente' && isDespesa) {
@@ -5286,24 +5550,24 @@ const FinanceiroView = ({ expenses, setExpenses, isDarkMode = true }: any) => {
     for (let m = periodStartMonth; m <= periodEndMonth; m++) {
       const isPastMonth = numViewYear < anoAtualHoje || (numViewYear === anoAtualHoje && m < mesAtualHoje);
       const isCurrentMonth = numViewYear === anoAtualHoje && m === mesAtualHoje;
-      
+
       acumuladoReceita += transacoesPorMes[m].receita;
 
       if (isPastMonth) {
-         chartData.push({ axis: namesMeses[m], Realizado: acumuladoReceita, Projetado: acumuladoReceita });
-         projGeralAnterior = acumuladoReceita;
+        chartData.push({ axis: namesMeses[m], Realizado: acumuladoReceita, Projetado: acumuladoReceita });
+        projGeralAnterior = acumuladoReceita;
       } else if (isCurrentMonth) {
-         // Current month blends realized till today + projected till end of month
-         const diasNoMes = new Date(numViewYear, m + 1, 0).getDate();
-         const taxaDiariaReal = diaAtualHoje > 0 ? (transacoesPorMes[m].receita / diaAtualHoje) : avgReceitaDiaria;
-         const projMesCorrente = acumuladoReceita + (taxaDiariaReal * (diasNoMes - diaAtualHoje));
-         
-         chartData.push({ axis: namesMeses[m], Realizado: acumuladoReceita, Projetado: projMesCorrente });
-         projGeralAnterior = projMesCorrente;
+        // Current month blends realized till today + projected till end of month
+        const diasNoMes = new Date(numViewYear, m + 1, 0).getDate();
+        const taxaDiariaReal = diaAtualHoje > 0 ? (transacoesPorMes[m].receita / diaAtualHoje) : avgReceitaDiaria;
+        const projMesCorrente = acumuladoReceita + (taxaDiariaReal * (diasNoMes - diaAtualHoje));
+
+        chartData.push({ axis: namesMeses[m], Realizado: acumuladoReceita, Projetado: projMesCorrente });
+        projGeralAnterior = projMesCorrente;
       } else {
-         // Future month
-         projGeralAnterior += avgReceitaMensal;
-         chartData.push({ axis: namesMeses[m], Projetado: projGeralAnterior });
+        // Future month
+        projGeralAnterior += avgReceitaMensal;
+        chartData.push({ axis: namesMeses[m], Projetado: projGeralAnterior });
       }
     }
     projecaoFimView = projGeralAnterior;
@@ -5454,112 +5718,110 @@ const FinanceiroView = ({ expenses, setExpenses, isDarkMode = true }: any) => {
             <div className="bg-[var(--bg-card)] border border-[var(--border-default)] rounded-2xl p-6 shrink-0 shadow-[var(--card-shadow)]">
               <div className="flex items-center justify-between mb-8">
                 <div className="flex items-center gap-4">
-                   <h3 className={`${isDarkMode ? "text-white" : "text-zinc-900"} font-bold text-lg`}>Acumulado: Histórico e Projeção</h3>
-                   {/* YEAR SELECTOR */}
-                   <div className="relative">
+                  <h3 className={`${isDarkMode ? "text-white" : "text-zinc-900"} font-bold text-lg`}>Acumulado: Histórico e Projeção</h3>
+                  {/* YEAR SELECTOR */}
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsViewYearDropdownOpen(!isViewYearDropdownOpen);
+                        setIsViewRangeDropdownOpen(false);
+                      }}
+                      className={`flex items-center gap-2 pl-3 pr-8 py-1.5 text-sm font-medium rounded-lg border focus:ring-2 focus:ring-orange-500 focus:outline-none transition-colors ${isDarkMode
+                          ? "border-zinc-800 text-zinc-300 hover:border-zinc-700 hover:bg-zinc-800/50"
+                          : "border-zinc-200 text-zinc-700 hover:border-zinc-300 hover:bg-zinc-50"
+                        }`}
+                    >
+                      <span>{viewYear}</span>
+                    </button>
+                    <ChevronDown size={14} className={`absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none transition-transform ${isViewYearDropdownOpen ? 'rotate-180' : ''}`} />
+
+                    {isViewYearDropdownOpen && (
+                      <div className={`absolute z-50 top-full mt-1 w-full min-w-[100px] rounded-xl border shadow-2xl overflow-hidden max-h-[250px] overflow-y-auto custom-scrollbar ${isDarkMode ? 'border-zinc-700/50 bg-[#0a0a0a]' : 'border-zinc-200 bg-white'}`}>
+                        {Array.from({ length: 21 }, (_, i) => (parseInt(currentYearStr) - 10 + i).toString()).map((yr) => (
+                          <button
+                            key={yr}
+                            type="button"
+                            onClick={() => { setViewYear(yr); setIsViewYearDropdownOpen(false); }}
+                            className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${viewYear === yr
+                              ? 'bg-gradient-to-r from-orange-600/30 to-transparent text-orange-500 font-medium'
+                              : isDarkMode ? 'text-white hover:bg-white/5' : 'text-zinc-900 hover:bg-zinc-100'
+                              }`}
+                          >
+                            {yr}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* RANGE SELECTOR */}
+                  {viewPeriod !== 'Anual' && (
+                    <div className="relative">
                       <button
                         type="button"
                         onClick={() => {
-                          setIsViewYearDropdownOpen(!isViewYearDropdownOpen);
-                          setIsViewRangeDropdownOpen(false);
+                          setIsViewRangeDropdownOpen(!isViewRangeDropdownOpen);
+                          setIsViewYearDropdownOpen(false);
                         }}
-                        className={`flex items-center gap-2 pl-3 pr-8 py-1.5 text-sm font-medium rounded-lg border focus:ring-2 focus:ring-orange-500 focus:outline-none transition-colors ${
-                          isDarkMode 
-                            ? "border-zinc-800 text-zinc-300 hover:border-zinc-700 hover:bg-zinc-800/50" 
+                        className={`flex items-center gap-2 pl-3 pr-8 py-1.5 text-sm font-medium rounded-lg border focus:ring-2 focus:ring-orange-500 focus:outline-none transition-colors ${isDarkMode
+                            ? "border-zinc-800 text-zinc-300 hover:border-zinc-700 hover:bg-zinc-800/50"
                             : "border-zinc-200 text-zinc-700 hover:border-zinc-300 hover:bg-zinc-50"
-                        }`}
+                          }`}
                       >
-                        <span>{viewYear}</span>
+                        <span>
+                          {viewPeriod === 'Mensal' && ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'][viewRange]}
+                          {viewPeriod === 'Trimestral' && ['1º Trimestre (Jan-Mar)', '2º Trimestre (Abr-Jun)', '3º Trimestre (Jul-Set)', '4º Trimestre (Out-Dez)'][viewRange]}
+                          {viewPeriod === 'Semestral' && ['1º Semestre (Jan-Jun)', '2º Semestre (Jul-Dez)'][viewRange]}
+                        </span>
                       </button>
-                      <ChevronDown size={14} className={`absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none transition-transform ${isViewYearDropdownOpen ? 'rotate-180' : ''}`} />
-                      
-                      {isViewYearDropdownOpen && (
-                        <div className={`absolute z-50 top-full mt-1 w-full min-w-[100px] rounded-xl border shadow-2xl overflow-hidden max-h-[250px] overflow-y-auto custom-scrollbar ${isDarkMode ? 'border-zinc-700/50 bg-[#0a0a0a]' : 'border-zinc-200 bg-white'}`}>
-                          {Array.from({ length: 21 }, (_, i) => (parseInt(currentYearStr) - 10 + i).toString()).map((yr) => (
+                      <ChevronDown size={14} className={`absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none transition-transform ${isViewRangeDropdownOpen ? 'rotate-180' : ''}`} />
+
+                      {isViewRangeDropdownOpen && (
+                        <div className={`absolute z-50 top-full mt-1 min-w-[150px] rounded-xl border shadow-2xl overflow-hidden max-h-[300px] overflow-y-auto custom-scrollbar ${isDarkMode ? 'border-zinc-700/50 bg-[#0a0a0a]' : 'border-zinc-200 bg-white'}`}>
+                          {viewPeriod === 'Mensal' && ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'].map((m, i) => (
                             <button
-                              key={yr}
+                              key={i}
                               type="button"
-                              onClick={() => { setViewYear(yr); setIsViewYearDropdownOpen(false); }}
-                              className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${viewYear === yr
+                              onClick={() => { setViewRange(i); setIsViewRangeDropdownOpen(false); }}
+                              className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${viewRange === i
                                 ? 'bg-gradient-to-r from-orange-600/30 to-transparent text-orange-500 font-medium'
                                 : isDarkMode ? 'text-white hover:bg-white/5' : 'text-zinc-900 hover:bg-zinc-100'
-                              }`}
+                                }`}
                             >
-                              {yr}
+                              {m}
+                            </button>
+                          ))}
+                          {viewPeriod === 'Trimestral' && ['1º Trimestre (Jan-Mar)', '2º Trimestre (Abr-Jun)', '3º Trimestre (Jul-Set)', '4º Trimestre (Out-Dez)'].map((m, i) => (
+                            <button
+                              key={i}
+                              type="button"
+                              onClick={() => { setViewRange(i); setIsViewRangeDropdownOpen(false); }}
+                              className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${viewRange === i
+                                ? 'bg-gradient-to-r from-orange-600/30 to-transparent text-orange-500 font-medium'
+                                : isDarkMode ? 'text-white hover:bg-white/5' : 'text-zinc-900 hover:bg-zinc-100'
+                                }`}
+                            >
+                              {m}
+                            </button>
+                          ))}
+                          {viewPeriod === 'Semestral' && ['1º Semestre (Jan-Jun)', '2º Semestre (Jul-Dez)'].map((m, i) => (
+                            <button
+                              key={i}
+                              type="button"
+                              onClick={() => { setViewRange(i); setIsViewRangeDropdownOpen(false); }}
+                              className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${viewRange === i
+                                ? 'bg-gradient-to-r from-orange-600/30 to-transparent text-orange-500 font-medium'
+                                : isDarkMode ? 'text-white hover:bg-white/5' : 'text-zinc-900 hover:bg-zinc-100'
+                                }`}
+                            >
+                              {m}
                             </button>
                           ))}
                         </div>
                       )}
-                   </div>
-                   
-                   {/* RANGE SELECTOR */}
-                   {viewPeriod !== 'Anual' && (
-                     <div className="relative">
-                        <button
-                           type="button"
-                           onClick={() => {
-                             setIsViewRangeDropdownOpen(!isViewRangeDropdownOpen);
-                             setIsViewYearDropdownOpen(false);
-                           }}
-                           className={`flex items-center gap-2 pl-3 pr-8 py-1.5 text-sm font-medium rounded-lg border focus:ring-2 focus:ring-orange-500 focus:outline-none transition-colors ${
-                             isDarkMode 
-                               ? "border-zinc-800 text-zinc-300 hover:border-zinc-700 hover:bg-zinc-800/50" 
-                               : "border-zinc-200 text-zinc-700 hover:border-zinc-300 hover:bg-zinc-50"
-                           }`}
-                        >
-                           <span>
-                             {viewPeriod === 'Mensal' && ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'][viewRange]}
-                             {viewPeriod === 'Trimestral' && ['1º Trimestre (Jan-Mar)', '2º Trimestre (Abr-Jun)', '3º Trimestre (Jul-Set)', '4º Trimestre (Out-Dez)'][viewRange]}
-                             {viewPeriod === 'Semestral' && ['1º Semestre (Jan-Jun)', '2º Semestre (Jul-Dez)'][viewRange]}
-                           </span>
-                        </button>
-                        <ChevronDown size={14} className={`absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none transition-transform ${isViewRangeDropdownOpen ? 'rotate-180' : ''}`} />
-
-                        {isViewRangeDropdownOpen && (
-                          <div className={`absolute z-50 top-full mt-1 min-w-[150px] rounded-xl border shadow-2xl overflow-hidden max-h-[300px] overflow-y-auto custom-scrollbar ${isDarkMode ? 'border-zinc-700/50 bg-[#0a0a0a]' : 'border-zinc-200 bg-white'}`}>
-                            {viewPeriod === 'Mensal' && ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'].map((m, i) => (
-                              <button
-                                key={i}
-                                type="button"
-                                onClick={() => { setViewRange(i); setIsViewRangeDropdownOpen(false); }}
-                                className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${viewRange === i
-                                  ? 'bg-gradient-to-r from-orange-600/30 to-transparent text-orange-500 font-medium'
-                                  : isDarkMode ? 'text-white hover:bg-white/5' : 'text-zinc-900 hover:bg-zinc-100'
-                                }`}
-                              >
-                                {m}
-                              </button>
-                            ))}
-                            {viewPeriod === 'Trimestral' && ['1º Trimestre (Jan-Mar)', '2º Trimestre (Abr-Jun)', '3º Trimestre (Jul-Set)', '4º Trimestre (Out-Dez)'].map((m, i) => (
-                              <button
-                                key={i}
-                                type="button"
-                                onClick={() => { setViewRange(i); setIsViewRangeDropdownOpen(false); }}
-                                className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${viewRange === i
-                                  ? 'bg-gradient-to-r from-orange-600/30 to-transparent text-orange-500 font-medium'
-                                  : isDarkMode ? 'text-white hover:bg-white/5' : 'text-zinc-900 hover:bg-zinc-100'
-                                }`}
-                              >
-                                {m}
-                              </button>
-                            ))}
-                            {viewPeriod === 'Semestral' && ['1º Semestre (Jan-Jun)', '2º Semestre (Jul-Dez)'].map((m, i) => (
-                              <button
-                                key={i}
-                                type="button"
-                                onClick={() => { setViewRange(i); setIsViewRangeDropdownOpen(false); }}
-                                className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${viewRange === i
-                                  ? 'bg-gradient-to-r from-orange-600/30 to-transparent text-orange-500 font-medium'
-                                  : isDarkMode ? 'text-white hover:bg-white/5' : 'text-zinc-900 hover:bg-zinc-100'
-                                }`}
-                              >
-                                {m}
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                     </div>
-                   )}
+                    </div>
+                  )}
                 </div>
 
                 <div className="segmented-control">
@@ -5567,7 +5829,7 @@ const FinanceiroView = ({ expenses, setExpenses, isDarkMode = true }: any) => {
                     <button
                       key={p}
                       onClick={() => {
-                        setViewPeriod(p); 
+                        setViewPeriod(p);
                         // Reset range to sensible defaults when switching periods
                         if (p === 'Mensal') setViewRange(new Date().getMonth());
                         else if (p === 'Trimestral') setViewRange(Math.floor(new Date().getMonth() / 3));
@@ -5585,50 +5847,50 @@ const FinanceiroView = ({ expenses, setExpenses, isDarkMode = true }: any) => {
                   <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                     <defs>
                       <linearGradient id="colorRealizado" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
-                        <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
+                        <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
                       </linearGradient>
                       <linearGradient id="colorProjetado" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.2}/>
-                        <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0}/>
+                        <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.2} />
+                        <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
                       </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" stroke={isDarkMode ? '#27272a' : '#e4e4e7'} vertical={false} />
-                    <XAxis 
-                      dataKey="axis" 
-                      axisLine={false} 
-                      tickLine={false} 
-                      tick={{ fill: '#71717a', fontSize: 10 }} 
-                    />
-                    <YAxis 
-                      axisLine={false} 
-                      tickLine={false} 
+                    <XAxis
+                      dataKey="axis"
+                      axisLine={false}
+                      tickLine={false}
                       tick={{ fill: '#71717a', fontSize: 10 }}
-                      tickFormatter={(value) => `R$${value >= 1000 ? (value/1000).toFixed(1) + 'k' : value}`}
                     />
-                    <Tooltip 
+                    <YAxis
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fill: '#71717a', fontSize: 10 }}
+                      tickFormatter={(value) => `R$${value >= 1000 ? (value / 1000).toFixed(1) + 'k' : value}`}
+                    />
+                    <Tooltip
                       contentStyle={{ backgroundColor: isDarkMode ? '#18181b' : '#ffffff', borderColor: isDarkMode ? '#27272a' : '#e4e4e7', borderRadius: '8px' }}
                       itemStyle={{ fontSize: '12px' }}
                       labelStyle={{ color: '#71717a', fontSize: '10px', marginBottom: '4px' }}
                       formatter={(value: number) => formatCurrency(value)}
                       labelFormatter={(label) => isDailyView ? `Dia ${label}` : label}
                     />
-                    <Area 
-                      type="monotone" 
-                      dataKey="Projetado" 
-                      stroke="#8b5cf6" 
+                    <Area
+                      type="monotone"
+                      dataKey="Projetado"
+                      stroke="#8b5cf6"
                       strokeDasharray="5 5"
-                      fillOpacity={1} 
-                      fill="url(#colorProjetado)" 
+                      fillOpacity={1}
+                      fill="url(#colorProjetado)"
                       name="Projeção"
                     />
-                    <Area 
-                      type="monotone" 
-                      dataKey="Realizado" 
-                      stroke="#10b981" 
+                    <Area
+                      type="monotone"
+                      dataKey="Realizado"
+                      stroke="#10b981"
                       strokeWidth={2}
-                      fillOpacity={1} 
-                      fill="url(#colorRealizado)" 
+                      fillOpacity={1}
+                      fill="url(#colorRealizado)"
                       name="Faturado Real"
                     />
                     {isDailyView && numViewYear === anoAtualHoje && periodStartMonth === mesAtualHoje && (
@@ -6123,11 +6385,121 @@ const FinanceiroView = ({ expenses, setExpenses, isDarkMode = true }: any) => {
 };
 
 
-const RelatoriosView = ({ isDarkMode = true }: { isDarkMode?: boolean }) => {
+const RelatoriosView = ({ isDarkMode = true, expenses = [], appointments = [], patients = [], services = [], professionals = [] }: { isDarkMode?: boolean; expenses?: any[]; appointments?: any[]; patients?: any[]; services?: any[]; professionals?: any[] }) => {
   const [activeTab, setActiveTab] = useState('Financeiro Detalhado');
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [reportContent, setReportContent] = useState('');
+
+  const now = new Date();
+  const thisMonth = now.getMonth();
+  const thisYear = now.getFullYear();
+
+  // ─── FINANCEIRO KPIs ───────────────────────────────────────────────
+  const receitas = expenses.filter(e => e.type === 'Receita');
+  const despesas = expenses.filter(e => e.type !== 'Receita');
+  const totalReceitas = receitas.reduce((acc, e) => acc + Number(e.value || 0), 0);
+  const totalDespesas = despesas.reduce((acc, e) => acc + Number(e.value || 0), 0);
+  const lucroLiquido = totalReceitas - totalDespesas;
+  const margemLucro = totalReceitas > 0 ? ((lucroLiquido / totalReceitas) * 100).toFixed(1) : '0.0';
+  const ticketMedio = receitas.length > 0 ? (totalReceitas / receitas.length).toFixed(2) : '0.00';
+
+  // Histórico Mensal (Últimos 6 meses)
+  const past6Months = Array.from({length: 6}, (_, i) => {
+    const d = new Date();
+    d.setMonth(d.getMonth() - (5 - i));
+    return d;
+  });
+  const monthNames = past6Months.map(d => `${d.toLocaleString('pt-BR', { month: 'short' })}/${d.getFullYear().toString().slice(2)}`);
+
+  const receitaPerMonth = [0,0,0,0,0,0];
+  const lucroPerMonth = [0,0,0,0,0,0];
+  expenses.forEach(e => {
+    try {
+      const d = e.id ? new Date(Number(e.id)) : new Date();
+      if(isNaN(d.getTime())) return;
+      const mIdx = past6Months.findIndex(m => m.getMonth() === d.getMonth() && m.getFullYear() === d.getFullYear());
+      if (mIdx !== -1) {
+        const val = Number(e.value || 0);
+        if (e.type === 'Receita') receitaPerMonth[mIdx] += val;
+        else lucroPerMonth[mIdx] -= val;
+      }
+    } catch {}
+  });
+  receitaPerMonth.forEach((r, i) => lucroPerMonth[i] += r);
+  const maxReceitaAxis = Math.max(...receitaPerMonth, 50000);
+
+  // Top Procedimentos
+  const serviceCounts: Record<string, number> = {};
+  appointments.forEach(a => {
+    const name = a.service || 'Sem serviço';
+    serviceCounts[name] = (serviceCounts[name] || 0) + 1;
+  });
+  const topProcedures = Object.entries(serviceCounts).sort((a, b) => b[1] - a[1]).slice(0, 5);
+
+  // ─── DESEMPENHO OPERACIONAL KPIs ───────────────────────────────────
+  const totalProcedimentos = appointments.length;
+  const profCounts: Record<string, number> = {};
+  appointments.forEach(a => { if (a.professionalId) profCounts[a.professionalId] = (profCounts[a.professionalId] || 0) + 1; });
+  const topProfEntry = Object.entries(profCounts).sort((a, b) => b[1] - a[1])[0];
+  const topProf = topProfEntry ? professionals.find(p => p.id === topProfEntry[0]) : null;
+  const topProfName = topProf ? topProf.name : (topProfEntry ? 'Desconhecido' : '-');
+
+  const apptsByDay: number[] = Array(7).fill(0); // Dom, Seg.. Sab
+  appointments.forEach(a => {
+    if (a.time) {
+      try {
+        const d = new Date(a.time);
+        if (!isNaN(d.getTime())) apptsByDay[d.getDay()]++;
+      } catch {}
+    }
+  });
+  const maxApptDay = Math.max(...apptsByDay, 4);
+
+  // ─── ANÁLISE DE CLIENTES KPIs ──────────────────────────────────────
+  const totalClientes = patients.length;
+  const sixMonthsAgo = new Date();
+  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+  const novosClientes = patients.filter((p: any) => {
+    if (!p.id) return false;
+    const ts = Number(p.id);
+    return ts > sixMonthsAgo.getTime();
+  }).length;
+  const patientAppCount: Record<string, number> = {};
+  appointments.forEach(a => { if (a.patient) patientAppCount[a.patient] = (patientAppCount[a.patient] || 0) + 1; });
+  const recorrentes = Object.values(patientAppCount).filter(c => c > 1).length;
+  const totalComAgenda = Object.keys(patientAppCount).length;
+  const taxaRetencao = totalComAgenda > 0 ? ((recorrentes / totalComAgenda) * 100).toFixed(1) : '0.0';
+  const ltv = totalClientes > 0 ? (totalReceitas / totalClientes).toFixed(2) : '0.00';
+  const vipList = Object.entries(patientAppCount).sort((a, b) => b[1] - a[1]).slice(0, 5);
+
+  const novosPerMonth = [0,0,0,0,0,0];
+  const recorrentesPerMonth = [0,0,0,0,0,0];
+  patients.forEach(p => {
+    try {
+      // p.id might be a string timestamp like '1710620000000' or similar
+      const d = (p.id && !isNaN(Number(p.id))) ? new Date(Number(p.id)) : new Date();
+      if(isNaN(d.getTime())) return;
+      const mIdx = past6Months.findIndex(m => m.getMonth() === d.getMonth() && m.getFullYear() === d.getFullYear());
+      if (mIdx !== -1) novosPerMonth[mIdx]++;
+    } catch {}
+  });
+  appointments.forEach(a => {
+    try {
+      let dStr = a.time;
+      // Some old data might not have time but created date
+      if (!dStr && a.id && !isNaN(Number(a.id))) dStr = Number(a.id);
+      if(!dStr) return;
+      const d = new Date(dStr);
+      if(isNaN(d.getTime())) return;
+      const mIdx = past6Months.findIndex(m => m.getMonth() === d.getMonth() && m.getFullYear() === d.getFullYear());
+      // count as recorrente point vaguely associated with appointment date
+      if (mIdx !== -1) recorrentesPerMonth[mIdx]++;
+    } catch {}
+  });
+  const maxClientesAxis = Math.max(...novosPerMonth, ...recorrentesPerMonth, 8);
+
+  const fmt = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
 
   const handleGenerateReport = () => {
     setIsAiModalOpen(true);
@@ -6234,12 +6606,12 @@ A clínica apresenta um cenário de estabilidade no curto prazo, porém com opor
                   <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-500">
                     <DollarSign size={16} />
                   </div>
-                  <span className="text-[10px] font-bold bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 px-2 py-1 rounded-md flex items-center gap-1">
-                    <TrendingUp size={12} /> 0.0%
+                  <span className={`text-[10px] font-bold px-2 py-1 rounded-md flex items-center gap-1 ${lucroLiquido >= 0 ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' : 'bg-red-500/10 text-red-500 border border-red-500/20'}`}>
+                    {lucroLiquido >= 0 ? <TrendingUp size={12} /> : <TrendingDown size={12} />} {margemLucro}%
                   </span>
                 </div>
                 <div>
-                  <h3 className={`text-3xl font-bold ${isDarkMode ? "text-white" : "text-zinc-900"} mb-1`}>R$ 0,00</h3>
+                  <h3 className={`text-3xl font-bold ${isDarkMode ? "text-white" : "text-zinc-900"} mb-1`}>{fmt(totalReceitas)}</h3>
                   <p className="text-[10px] font-bold text-zinc-500 tracking-wider uppercase">Faturamento Total</p>
                 </div>
               </div>
@@ -6249,13 +6621,13 @@ A clínica apresenta um cenário de estabilidade no curto prazo, porém com opor
                   <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-500">
                     <TrendingUp size={16} />
                   </div>
-                  <span className="text-[10px] font-bold bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 px-2 py-1 rounded-md flex items-center gap-1">
-                    <TrendingUp size={12} /> 0.0%
+                  <span className={`text-[10px] font-bold px-2 py-1 rounded-md flex items-center gap-1 ${lucroLiquido >= 0 ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' : 'bg-red-500/10 text-red-500 border border-red-500/20'}`}>
+                    {lucroLiquido >= 0 ? <TrendingUp size={12} /> : <TrendingDown size={12} />} {margemLucro}%
                   </span>
                 </div>
                 <div>
-                  <h3 className={`text-3xl font-bold ${isDarkMode ? "text-white" : "text-zinc-900"} mb-1`}>R$ 0,00</h3>
-                  <p className="text-[10px] font-bold text-zinc-500 tracking-wider uppercase">Lucro Líquido <span className="font-normal normal-case">margem: 0.0%</span></p>
+                  <h3 className={`text-3xl font-bold ${isDarkMode ? "text-white" : "text-zinc-900"} mb-1`}>{fmt(lucroLiquido)}</h3>
+                  <p className="text-[10px] font-bold text-zinc-500 tracking-wider uppercase">Lucro Líquido <span className="font-normal normal-case">margem: {margemLucro}%</span></p>
                 </div>
               </div>
 
@@ -6266,8 +6638,8 @@ A clínica apresenta um cenário de estabilidade no curto prazo, porém com opor
                   </div>
                 </div>
                 <div>
-                  <h3 className={`text-3xl font-bold ${isDarkMode ? "text-white" : "text-zinc-900"} mb-1`}>R$ 0,00</h3>
-                  <p className="text-[10px] font-bold text-zinc-500 tracking-wider uppercase">Ticket Médio <span className="font-normal normal-case">0 atendimentos</span></p>
+                  <h3 className={`text-3xl font-bold ${isDarkMode ? "text-white" : "text-zinc-900"} mb-1`}>{fmt(Number(ticketMedio))}</h3>
+                  <p className="text-[10px] font-bold text-zinc-500 tracking-wider uppercase">Ticket Médio <span className="font-normal normal-case">{receitas.length} atendimentos</span></p>
                 </div>
               </div>
             </div>
@@ -6278,30 +6650,63 @@ A clínica apresenta um cenário de estabilidade no curto prazo, porém com opor
                 <div className="flex-1 relative flex items-end pb-6">
                   {/* Y Axis */}
                   <div className="absolute left-0 top-0 bottom-6 flex flex-col justify-between text-[10px] text-zinc-600">
-                    <span>50k</span><span>40k</span><span>30k</span><span>20k</span><span>10k</span><span>0k</span>
+                    <span>{Math.round(maxReceitaAxis/1000)}k</span><span>{Math.round(maxReceitaAxis*0.8/1000)}k</span><span>{Math.round(maxReceitaAxis*0.6/1000)}k</span><span>{Math.round(maxReceitaAxis*0.4/1000)}k</span><span>{Math.round(maxReceitaAxis*0.2/1000)}k</span><span>0k</span>
                   </div>
                   {/* Grid Lines */}
                   <div className="absolute left-8 right-0 top-0 bottom-6 flex flex-col justify-between pointer-events-none">
                     {[0, 1, 2, 3, 4, 5].map(i => <div key={i} className={`border-t ${isDarkMode ? "border-zinc-800/50" : "border-zinc-200/50"} border-dashed w-full h-0`}></div>)}
                   </div>
-                  {/* Empty State */}
-                  <div className="absolute inset-0 left-8 bottom-6 flex items-center justify-center pointer-events-none">
-                    <span className="text-sm text-zinc-500 italic">Sem dados suficientes</span>
-                  </div>
+                  {/* Data Line SVG */}
+                  {receitaPerMonth.some(v => v > 0) ? (
+                    <div className="absolute inset-0 left-8 bottom-6 w-[calc(100%-2rem)] h-[calc(100%-1.5rem)] pointer-events-none">
+                      <svg viewBox="0 0 100 100" className="w-full h-full overflow-visible" preserveAspectRatio="none">
+                        <polyline 
+                          points={lucroPerMonth.map((val, idx) => `${(idx / 5) * 100},${100 - Math.max(0, val / (maxReceitaAxis || 1)) * 100}`).join(' ')} 
+                          fill="none" stroke="#3b82f6" strokeWidth="2" vectorEffect="non-scaling-stroke" strokeDasharray="4 2" 
+                        />
+                        <polyline 
+                          points={receitaPerMonth.map((val, idx) => `${(idx / 5) * 100},${100 - (val / (maxReceitaAxis || 1)) * 100}`).join(' ')} 
+                          fill="none" stroke="#10b981" strokeWidth="2" vectorEffect="non-scaling-stroke" 
+                          className="drop-shadow-[0_0_8px_rgba(16,185,129,0.5)]"
+                        />
+                      </svg>
+                      
+                      {/* Dots */}
+                      {lucroPerMonth.map((val, idx) => (
+                         <div key={`dot-l-${idx}`} className="absolute w-1.5 h-1.5 rounded-full bg-[#3b82f6] outline outline-1 outline-[#0a0a0a] transform -translate-x-1/2 -translate-y-1/2" style={{ left: `${(idx / 5) * 100}%`, top: `${100 - Math.max(0, val / (maxReceitaAxis || 1)) * 100}%` }}></div>
+                      ))}
+                      {receitaPerMonth.map((val, idx) => (
+                        <div key={`dot-r-${idx}`} className="absolute w-2 h-2 rounded-full bg-[#10b981] shadow-[0_0_8px_rgba(16,185,129,0.8)] border border-[#0a0a0a] transform -translate-x-1/2 -translate-y-1/2 z-10" style={{ left: `${(idx / 5) * 100}%`, top: `${100 - (val / (maxReceitaAxis || 1)) * 100}%` }}></div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="absolute inset-0 left-8 bottom-6 flex items-center justify-center pointer-events-none">
+                      <span className="text-sm text-zinc-500 italic">Sem dados suficientes</span>
+                    </div>
+                  )}
                   {/* X Axis */}
                   <div className={`absolute bottom-0 left-8 right-0 flex justify-between text-[10px] text-zinc-600 border-t ${isDarkMode ? "border-zinc-800" : "border-zinc-200"} pt-2`}>
-                    <span>set/25</span><span>out/25</span><span>nov/25</span><span>dez/25</span><span>jan/26</span><span>fev/26</span>
+                    {monthNames.map(m => <span key={m}>{m}</span>)}
                   </div>
                 </div>
               </div>
 
-              <div className="bg-[var(--bg-card)] border border-[var(--border-default)] rounded-2xl p-6 flex flex-col justify-between shadow-[var(--card-shadow)]">
+              <div className="bg-[var(--bg-card)] border border-[var(--border-default)] rounded-2xl p-6 flex flex-col shadow-[var(--card-shadow)] lg:col-span-1 justify-between">
                 <div className="flex items-center gap-3 mb-6">
                   <Crown className="text-yellow-500" size={20} />
                   <h3 className={`${isDarkMode ? "text-white" : "text-zinc-900"} font-bold`}>Top Procedimentos</h3>
                 </div>
-                <div className="flex-1 flex items-center justify-center">
-                  <span className="text-sm text-zinc-500 italic">Sem dados</span>
+                <div className="flex-1 flex flex-col gap-2 justify-center mt-2">
+                  {topProcedures.length === 0 ? (
+                    <div className="flex-1 flex items-center justify-center"><span className="text-sm text-zinc-500 italic">Sem dados</span></div>
+                  ) : (
+                    topProcedures.map(([name, count]) => (
+                      <div key={name} className="flex items-center justify-between pb-2 border-b border-zinc-500/10 last:border-0 text-sm">
+                        <span className={isDarkMode ? "text-zinc-300 truncate" : "text-zinc-700 truncate"}>{name}</span>
+                        <span className="font-bold text-orange-500">{count}</span>
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
             </div>
@@ -6319,8 +6724,8 @@ A clínica apresenta um cenário de estabilidade no curto prazo, porém com opor
                   </div>
                 </div>
                 <div>
-                  <h3 className={`text-3xl font-bold ${isDarkMode ? "text-white" : "text-zinc-900"} mb-1`}>0h</h3>
-                  <p className="text-[10px] font-bold text-zinc-500 tracking-wider uppercase">Horas Atendidas <span className="font-normal normal-case block mt-1">Últimos 6 meses</span></p>
+                  <h3 className={`text-3xl font-bold ${isDarkMode ? "text-white" : "text-zinc-900"} mb-1`}>{totalProcedimentos}</h3>
+                  <p className="text-[10px] font-bold text-zinc-500 tracking-wider uppercase">Total Atendimentos <span className="font-normal normal-case block mt-1">Acumulado</span></p>
                 </div>
               </div>
 
@@ -6331,8 +6736,8 @@ A clínica apresenta um cenário de estabilidade no curto prazo, porém com opor
                   </div>
                 </div>
                 <div>
-                  <h3 className={`text-3xl font-bold ${isDarkMode ? "text-white" : "text-zinc-900"} mb-1`}>-</h3>
-                  <p className="text-[10px] font-bold text-zinc-500 tracking-wider uppercase">Top Performance</p>
+                  <h3 className={`text-2xl font-bold ${isDarkMode ? "text-white" : "text-zinc-900"} mb-1 truncate`}>{topProfName}</h3>
+                  <p className="text-[10px] font-bold text-zinc-500 tracking-wider uppercase">Top Profissional</p>
                 </div>
               </div>
 
@@ -6343,7 +6748,7 @@ A clínica apresenta um cenário de estabilidade no curto prazo, porém com opor
                   </div>
                 </div>
                 <div>
-                  <h3 className={`text-3xl font-bold ${isDarkMode ? "text-white" : "text-zinc-900"} mb-1`}>0</h3>
+                  <h3 className={`text-3xl font-bold ${isDarkMode ? "text-white" : "text-zinc-900"} mb-1`}>{totalProcedimentos}</h3>
                   <p className="text-[10px] font-bold text-zinc-500 tracking-wider uppercase">Total Procedimentos</p>
                 </div>
               </div>
@@ -6355,8 +6760,22 @@ A clínica apresenta um cenário de estabilidade no curto prazo, porém com opor
                   <Crown className="text-yellow-500" size={20} />
                   <h3 className={`${isDarkMode ? "text-white" : "text-zinc-900"} font-bold`}>Ranking da Equipe</h3>
                 </div>
-                <div className="flex-1 flex items-center justify-center">
-                  <span className="text-sm text-zinc-500 italic">Sem dados</span>
+                <div className="flex-1 flex flex-col gap-2 justify-center mt-2 overflow-y-auto custom-scrollbar">
+                  {Object.keys(profCounts).length === 0 ? (
+                    <div className="flex-1 flex items-center justify-center"><span className="text-sm text-zinc-500 italic">Sem dados</span></div>
+                  ) : (
+                    Object.entries(profCounts).sort((a,b)=>b[1]-a[1]).map(([pid, count], i) => {
+                      const p = professionals.find(p=>p.id===pid);
+                      return (
+                        <div key={pid} className="flex items-center justify-between py-2 border-b border-zinc-500/10 last:border-0">
+                          <span className={`text-sm ${isDarkMode ? 'text-zinc-300' : 'text-zinc-700'} flex items-center gap-2`}>
+                            {i === 0 && <Crown size={14} className="text-yellow-500" />} {p?.name || 'Vazio'}
+                          </span>
+                          <span className="font-bold text-orange-500">{count} atend.</span>
+                        </div>
+                      )
+                    })
+                  )}
                 </div>
               </div>
 
@@ -6365,18 +6784,26 @@ A clínica apresenta um cenário de estabilidade no curto prazo, porém com opor
                   <BarChart3 className="text-blue-500" size={20} />
                   <h3 className={`${isDarkMode ? "text-white" : "text-zinc-900"} font-bold`}>Taxa de Ocupação Semanal</h3>
                 </div>
-                <div className="flex-1 relative flex items-end pb-6 pl-8">
+                <div className="flex-1 relative flex pb-6 pl-8">
                   {/* Y Axis */}
-                  <div className="absolute left-0 top-0 bottom-6 flex flex-col justify-between text-[10px] text-zinc-600">
+                  <div className="absolute left-0 top-0 bottom-6 w-8 flex flex-col justify-around text-[10px] text-zinc-600">
                     <span>Dom</span><span>Seg</span><span>Ter</span><span>Qua</span><span>Qui</span><span>Sex</span><span>Sáb</span>
                   </div>
-                  {/* Grid Lines */}
-                  <div className="absolute left-8 right-0 top-0 bottom-6 flex flex-col justify-between pointer-events-none">
-                    {[0, 1, 2, 3, 4, 5, 6].map(i => <div key={i} className={`border-t ${isDarkMode ? "border-zinc-800/50" : "border-zinc-200/50"} border-dashed w-full h-0`}></div>)}
+                  {/* Bars Container */}
+                  <div className={`flex-1 border-l border-b ${isDarkMode ? "border-zinc-800" : "border-zinc-200"} flex flex-col justify-around py-2 relative`}>
+                    {[0,1,2,3,4].map(v => (
+                      <div key={v} className="absolute top-0 bottom-0 border-l border-dashed border-zinc-500/20" style={{ left: `${(v/4)*100}%` }} />
+                    ))}
+                    {apptsByDay.map((count, dayIdx) => (
+                      <div key={dayIdx} className="h-4 bg-orange-500/20 rounded-r-sm w-full relative z-10 flex items-center">
+                        <div className="h-full bg-orange-500 rounded-r-sm transition-all" style={{ width: `${Math.max(2, (count/maxApptDay)*100)}%` }} />
+                        {count > 0 && <span className="ml-2 text-[10px] text-orange-500 font-bold">{count}</span>}
+                      </div>
+                    ))}
                   </div>
                   {/* X Axis */}
-                  <div className={`absolute bottom-0 left-8 right-0 flex justify-between text-[10px] text-zinc-600 border-t ${isDarkMode ? "border-zinc-800" : "border-zinc-200"} pt-2`}>
-                    <span>0</span><span>1</span><span>2</span><span>3</span><span>4</span>
+                  <div className={`absolute bottom-0 left-8 right-0 flex justify-between text-[10px] text-zinc-600 pt-2`}>
+                    {[0, 1, 2, 3, 4].map(v => <span key={v}>{Math.max(v, Math.round(maxApptDay * (v/4)))}</span>)}
                   </div>
                 </div>
               </div>
@@ -6395,7 +6822,7 @@ A clínica apresenta um cenário de estabilidade no curto prazo, porém com opor
                   </div>
                 </div>
                 <div>
-                  <h3 className={`text-3xl font-bold ${isDarkMode ? "text-white" : "text-zinc-900"} mb-1`}>0</h3>
+                  <h3 className={`text-3xl font-bold ${isDarkMode ? "text-white" : "text-zinc-900"} mb-1`}>{novosClientes}</h3>
                   <p className="text-[10px] font-bold text-zinc-500 tracking-wider uppercase">Novos Clientes <span className="font-normal normal-case block mt-1">Últimos 6 meses</span></p>
                 </div>
               </div>
@@ -6407,7 +6834,7 @@ A clínica apresenta um cenário de estabilidade no curto prazo, porém com opor
                   </div>
                 </div>
                 <div>
-                  <h3 className={`text-3xl font-bold ${isDarkMode ? "text-white" : "text-zinc-900"} mb-1`}>0.0%</h3>
+                  <h3 className={`text-3xl font-bold ${isDarkMode ? "text-white" : "text-zinc-900"} mb-1`}>{taxaRetencao}%</h3>
                   <p className="text-[10px] font-bold text-zinc-500 tracking-wider uppercase">Taxa de Retenção</p>
                 </div>
               </div>
@@ -6419,7 +6846,7 @@ A clínica apresenta um cenário de estabilidade no curto prazo, porém com opor
                   </div>
                 </div>
                 <div>
-                  <h3 className={`text-3xl font-bold ${isDarkMode ? "text-white" : "text-zinc-900"} mb-1`}>R$ 0,00</h3>
+                  <h3 className={`text-3xl font-bold ${isDarkMode ? "text-white" : "text-zinc-900"} mb-1`}>{fmt(Number(ltv))}</h3>
                   <p className="text-[10px] font-bold text-zinc-500 tracking-wider uppercase">LTV <span className="font-normal normal-case block mt-1">Lifetime Value</span></p>
                 </div>
               </div>
@@ -6431,8 +6858,8 @@ A clínica apresenta um cenário de estabilidade no curto prazo, porém com opor
                   </div>
                 </div>
                 <div>
-                  <h3 className={`text-3xl font-bold ${isDarkMode ? "text-white" : "text-zinc-900"} mb-1`}>R$ 0,00</h3>
-                  <p className="text-[10px] font-bold text-zinc-500 tracking-wider uppercase">CAC <span className="font-normal normal-case block mt-1">Custo Aquisição</span></p>
+                  <h3 className={`text-3xl font-bold ${isDarkMode ? "text-white" : "text-zinc-900"} mb-1`}>{totalClientes}</h3>
+                  <p className="text-[10px] font-bold text-zinc-500 tracking-wider uppercase">Total Clientes</p>
                 </div>
               </div>
             </div>
@@ -6443,21 +6870,59 @@ A clínica apresenta um cenário de estabilidade no curto prazo, porém com opor
                 <div className="flex-1 relative flex items-end pb-6">
                   {/* Y Axis */}
                   <div className="absolute left-0 top-0 bottom-6 flex flex-col justify-between text-[10px] text-zinc-600">
-                    <span>8</span><span>6</span><span>4</span><span>2</span><span>0</span>
+                    <span>{maxClientesAxis}</span><span>{Math.round(maxClientesAxis*0.75)}</span><span>{Math.round(maxClientesAxis*0.5)}</span><span>{Math.round(maxClientesAxis*0.25)}</span><span>0</span>
                   </div>
                   {/* Grid Lines */}
                   <div className="absolute left-8 right-0 top-0 bottom-6 flex flex-col justify-between pointer-events-none">
                     {[0, 1, 2, 3, 4].map(i => <div key={i} className={`border-t ${isDarkMode ? "border-zinc-800/50" : "border-zinc-200/50"} border-dashed w-full h-0`}></div>)}
                   </div>
+                  
+                  {novosPerMonth.some(v=>v>0) || recorrentesPerMonth.some(v=>v>0) ? (
+                    <div className="absolute inset-0 left-8 bottom-6 w-[calc(100%-2rem)] h-[calc(100%-1.5rem)] pointer-events-none">
+                      <svg viewBox="0 0 100 100" className="w-full h-full overflow-visible" preserveAspectRatio="none">
+                        {/* Area Gradient Definitions */}
+                        <defs>
+                          <linearGradient id="gradient-novos" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.3"/>
+                            <stop offset="100%" stopColor="#3b82f6" stopOpacity="0"/>
+                          </linearGradient>
+                          <linearGradient id="gradient-recorrentes" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#f97316" stopOpacity="0.3"/>
+                            <stop offset="100%" stopColor="#f97316" stopOpacity="0"/>
+                          </linearGradient>
+                        </defs>
+                        
+                        {/* Linha Recorrentes (Laranja) */}
+                        <polyline 
+                          points={recorrentesPerMonth.map((val, idx) => `${(idx / 5) * 100},${100 - (val / (maxClientesAxis || 1)) * 100}`).join(' ')} 
+                          fill="none" stroke="#ea580c" strokeWidth="2" vectorEffect="non-scaling-stroke" 
+                          className="drop-shadow-[0_0_8px_rgba(234,88,12,0.5)]"
+                        />
+                        {/* Linha Novos (Azul) */}
+                        <polyline 
+                          points={novosPerMonth.map((val, idx) => `${(idx / 5) * 100},${100 - (val / (maxClientesAxis || 1)) * 100}`).join(' ')} 
+                          fill="none" stroke="#3b82f6" strokeWidth="2" vectorEffect="non-scaling-stroke" 
+                          className="drop-shadow-[0_0_8px_rgba(59,130,246,0.5)]"
+                        />
+                      </svg>
 
-                  {/* Empty State */}
-                  <div className="absolute inset-0 left-8 bottom-6 flex items-center justify-center pointer-events-none">
-                    <span className="text-sm text-zinc-500 italic">Sem dados suficientes</span>
-                  </div>
+                      {/* Dots (Absolute positioning to keep them perfectly round regardless of aspect ratio) */}
+                      {recorrentesPerMonth.map((val, idx) => (
+                        <div key={`dot-r-${idx}`} className="absolute w-2 h-2 rounded-full bg-[#ea580c] shadow-[0_0_8px_rgba(234,88,12,0.8)] outline outline-2 outline-[#0a0a0a] transform -translate-x-1/2 -translate-y-1/2 transition-all" style={{ left: `${(idx / 5) * 100}%`, top: `${100 - (val / (maxClientesAxis || 1)) * 100}%` }}></div>
+                      ))}
+                      {novosPerMonth.map((val, idx) => (
+                        <div key={`dot-n-${idx}`} className="absolute w-2.5 h-2.5 rounded-full bg-[#3b82f6] shadow-[0_0_10px_rgba(59,130,246,0.8)] border-2 border-[#0a0a0a] transform -translate-x-1/2 -translate-y-1/2 transition-all z-10" style={{ left: `${(idx / 5) * 100}%`, top: `${100 - (val / (maxClientesAxis || 1)) * 100}%` }}></div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="absolute inset-0 left-8 bottom-6 flex items-center justify-center pointer-events-none">
+                      <span className="text-sm text-zinc-500 italic">Sem dados suficientes</span>
+                    </div>
+                  )}
 
                   {/* X Axis */}
                   <div className={`absolute bottom-0 left-8 right-0 flex justify-between text-[10px] text-zinc-600 border-t ${isDarkMode ? "border-zinc-800" : "border-zinc-200"} pt-2`}>
-                    <span>set/25</span><span>out/25</span><span>nov/25</span><span>dez/25</span><span>jan/26</span><span>fev/26</span>
+                    {monthNames.map(m => <span key={m}>{m}</span>)}
                   </div>
                 </div>
               </div>
@@ -6467,9 +6932,22 @@ A clínica apresenta um cenário de estabilidade no curto prazo, porém com opor
                   <Crown className="text-yellow-500" size={20} />
                   <h3 className={`${isDarkMode ? "text-white" : "text-zinc-900"} font-bold`}>Clientes VIP</h3>
                 </div>
-                <div className="flex-1 flex items-center justify-center">
-                  <span className="text-sm text-zinc-500 italic">Sem dados</span>
-                </div>
+                {vipList.length === 0 ? (
+                  <div className="flex-1 flex items-center justify-center"><span className="text-sm text-zinc-500 italic">Sem dados</span></div>
+                ) : (
+                  <div className="flex flex-col gap-3 overflow-y-auto custom-scrollbar">
+                    {vipList.map(([name, count], idx) => (
+                      <div key={name} className="flex items-center justify-between py-2 border-b border-zinc-800/50 last:border-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-bold text-zinc-600 w-4">{idx + 1}.</span>
+                          {idx === 0 && <Crown size={12} className="text-yellow-500" />}
+                          <span className="text-xs text-zinc-300 truncate max-w-[120px]">{name}</span>
+                        </div>
+                        <span className="text-xs font-bold text-orange-400">{count}x</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           </>
@@ -7713,20 +8191,18 @@ const SettingsView = ({
                         <p className="text-[10px] text-zinc-500">Meta API Oficial</p>
                       </div>
                     </div>
-                    <span className={`text-[10px] font-bold px-2 py-1 rounded ${
-                      integrationConfig.connectedServices?.whatsapp
+                    <span className={`text-[10px] font-bold px-2 py-1 rounded ${integrationConfig.connectedServices?.whatsapp
                         ? 'bg-emerald-500/10 text-emerald-500'
                         : 'bg-zinc-800 text-zinc-500'
-                    }`}>{integrationConfig.connectedServices?.whatsapp ? 'CONECTADO' : 'DESCONECTADO'}</span>
+                      }`}>{integrationConfig.connectedServices?.whatsapp ? 'CONECTADO' : 'DESCONECTADO'}</span>
                   </div>
                   <p className="text-xs text-zinc-400 mb-4 line-clamp-2">Envio automático de lembretes, confirmações de agendamento e atendimento via IA.</p>
                   <button
                     onClick={() => toggleConnectedService('whatsapp')}
-                    className={`w-full py-2 rounded-lg ${
-                      integrationConfig.connectedServices?.whatsapp
+                    className={`w-full py-2 rounded-lg ${integrationConfig.connectedServices?.whatsapp
                         ? `border ${isDarkMode ? 'border-zinc-700 hover:bg-zinc-800' : 'border-zinc-200 hover:bg-zinc-100'} ${isDarkMode ? 'text-zinc-300' : 'text-zinc-900'}`
                         : 'bg-orange-500 hover:bg-orange-600 text-white'
-                    } text-xs font-medium transition-colors`}
+                      } text-xs font-medium transition-colors`}
                   >
                     {integrationConfig.connectedServices?.whatsapp ? 'Gerenciar' : 'Conectar'}
                   </button>
@@ -7744,20 +8220,18 @@ const SettingsView = ({
                         <p className="text-[10px] text-zinc-500">Gateway de Pagamento</p>
                       </div>
                     </div>
-                    <span className={`text-[10px] font-bold px-2 py-1 rounded ${
-                      integrationConfig.connectedServices?.stripe
+                    <span className={`text-[10px] font-bold px-2 py-1 rounded ${integrationConfig.connectedServices?.stripe
                         ? 'bg-emerald-500/10 text-emerald-500'
                         : 'bg-zinc-800 text-zinc-500'
-                    }`}>{integrationConfig.connectedServices?.stripe ? 'CONECTADO' : 'DESCONECTADO'}</span>
+                      }`}>{integrationConfig.connectedServices?.stripe ? 'CONECTADO' : 'DESCONECTADO'}</span>
                   </div>
                   <p className="text-xs text-zinc-400 mb-4 line-clamp-2">Processe pagamentos online, gere links de cobrança e gerencie assinaturas.</p>
                   <button
                     onClick={() => toggleConnectedService('stripe')}
-                    className={`w-full py-2 rounded-lg ${
-                      integrationConfig.connectedServices?.stripe
+                    className={`w-full py-2 rounded-lg ${integrationConfig.connectedServices?.stripe
                         ? `border ${isDarkMode ? 'border-zinc-700 hover:bg-zinc-800' : 'border-zinc-200 hover:bg-zinc-100'} ${isDarkMode ? 'text-zinc-300' : 'text-zinc-900'}`
                         : 'bg-orange-500 hover:bg-orange-600 text-white'
-                    } text-xs font-medium transition-colors`}
+                      } text-xs font-medium transition-colors`}
                   >
                     {integrationConfig.connectedServices?.stripe ? 'Gerenciar' : 'Conectar'}
                   </button>
@@ -7775,20 +8249,18 @@ const SettingsView = ({
                         <p className="text-[10px] text-zinc-500">Sincronização de Agenda</p>
                       </div>
                     </div>
-                    <span className={`text-[10px] font-bold px-2 py-1 rounded ${
-                      integrationConfig.connectedServices?.googleCalendar
+                    <span className={`text-[10px] font-bold px-2 py-1 rounded ${integrationConfig.connectedServices?.googleCalendar
                         ? 'bg-emerald-500/10 text-emerald-500'
                         : 'bg-zinc-800 text-zinc-500'
-                    }`}>{integrationConfig.connectedServices?.googleCalendar ? 'CONECTADO' : 'DESCONECTADO'}</span>
+                      }`}>{integrationConfig.connectedServices?.googleCalendar ? 'CONECTADO' : 'DESCONECTADO'}</span>
                   </div>
                   <p className="text-xs text-zinc-400 mb-4 line-clamp-2">Sincronize a agenda do sistema com o calendário pessoal dos profissionais.</p>
                   <button
                     onClick={() => toggleConnectedService('googleCalendar')}
-                    className={`w-full py-2 rounded-lg ${
-                      integrationConfig.connectedServices?.googleCalendar
+                    className={`w-full py-2 rounded-lg ${integrationConfig.connectedServices?.googleCalendar
                         ? `border ${isDarkMode ? 'border-zinc-700 hover:bg-zinc-800' : 'border-zinc-200 hover:bg-zinc-100'} ${isDarkMode ? 'text-zinc-300' : 'text-zinc-900'}`
                         : 'bg-orange-500 hover:bg-orange-600 text-white'
-                    } text-xs font-medium transition-colors`}
+                      } text-xs font-medium transition-colors`}
                   >
                     {integrationConfig.connectedServices?.googleCalendar ? 'Gerenciar' : 'Conectar'}
                   </button>
@@ -7806,20 +8278,18 @@ const SettingsView = ({
                         <p className="text-[10px] text-zinc-500">Automação de Marketing</p>
                       </div>
                     </div>
-                    <span className={`text-[10px] font-bold px-2 py-1 rounded ${
-                      integrationConfig.connectedServices?.rdStation
+                    <span className={`text-[10px] font-bold px-2 py-1 rounded ${integrationConfig.connectedServices?.rdStation
                         ? 'bg-emerald-500/10 text-emerald-500'
                         : 'bg-zinc-800 text-zinc-500'
-                    }`}>{integrationConfig.connectedServices?.rdStation ? 'CONECTADO' : 'DESCONECTADO'}</span>
+                      }`}>{integrationConfig.connectedServices?.rdStation ? 'CONECTADO' : 'DESCONECTADO'}</span>
                   </div>
                   <p className="text-xs text-zinc-400 mb-4 line-clamp-2">Sincronize leads do CRM e envie campanhas de e-mail marketing direcionadas.</p>
                   <button
                     onClick={() => toggleConnectedService('rdStation')}
-                    className={`w-full py-2 rounded-lg ${
-                      integrationConfig.connectedServices?.rdStation
+                    className={`w-full py-2 rounded-lg ${integrationConfig.connectedServices?.rdStation
                         ? `border ${isDarkMode ? 'border-zinc-700 hover:bg-zinc-800' : 'border-zinc-200 hover:bg-zinc-100'} ${isDarkMode ? 'text-zinc-300' : 'text-zinc-900'}`
                         : 'bg-orange-500 hover:bg-orange-600 text-white'
-                    } text-xs font-medium transition-colors`}
+                      } text-xs font-medium transition-colors`}
                   >
                     {integrationConfig.connectedServices?.rdStation ? 'Gerenciar' : 'Conectar'}
                   </button>
@@ -8309,10 +8779,10 @@ const SettingsView = ({
                 <Shield className="text-zinc-400" size={20} />
                 <h3 className={`font-medium ${isDarkMode ? "text-white" : "text-zinc-900"}`}>Inatividade e Logout Automático</h3>
               </div>
-              
+
               <div className="flex flex-col gap-4">
                 <p className="text-sm text-zinc-400">Proteja a clínica de acessos indevidos definindo um tempo máximo de inatividade. O sistema deslogará todos os usuários (incluindo admins) automaticamente ao bater esse limite.</p>
-                
+
                 <div className="w-64 mt-2">
                   <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Tempo Limite Global</label>
                   <div className="relative">
@@ -8326,7 +8796,7 @@ const SettingsView = ({
                       ];
                       const selectedOpt = timeoutOptions.find(opt => opt.value === timeoutConfig.inactivityTimeout);
                       const displayLabel = selectedOpt ? selectedOpt.label : 'Selecione';
-                      
+
                       return (
                         <>
                           <button
@@ -8496,7 +8966,7 @@ export default function App() {
         if (snap.exists()) {
           const data = snap.data();
           if (data.inactivityTimeout !== undefined) {
-             setTimeoutConfig({ inactivityTimeout: data.inactivityTimeout });
+            setTimeoutConfig({ inactivityTimeout: data.inactivityTimeout });
           }
         }
       });
@@ -8538,7 +9008,7 @@ export default function App() {
           });
           setPatients(data);
         }, () => { setPatients([]); });
-      } catch {}
+      } catch { }
     }
   }, [isAuthenticated]);
   const [professionals, setProfessionals] = useState<any[]>([]);
@@ -8551,7 +9021,7 @@ export default function App() {
           const data = snapshot.docs.map(d => d.data());
           setProfessionals(data);
         }, () => { setProfessionals([]); });
-      } catch {}
+      } catch { }
     }
   }, [isAuthenticated]);
   const [columns, setColumns] = useState<{ id: string, title: string, cardIds: string[] }[]>([]);
@@ -8589,10 +9059,10 @@ export default function App() {
             data.sort((a, b) => (a.order || 0) - (b.order || 0));
 
             setColumns(data);
-          }, () => {});
+          }, () => { });
 
           return () => unsubscribe();
-        } catch {}
+        } catch { }
       };
       initCrmDb();
     }
@@ -8608,7 +9078,7 @@ export default function App() {
           const data = snapshot.docs.map(d => d.data());
           setServices(data);
         }, () => { setServices([]); });
-      } catch {}
+      } catch { }
     }
   }, [isAuthenticated]);
   const [expenses, setExpenses] = useState<any[]>([]);
@@ -8622,7 +9092,7 @@ export default function App() {
           const data = snapshot.docs.map(d => d.data());
           setExpenses(data);
         }, () => { setExpenses([]); });
-      } catch {}
+      } catch { }
     }
   }, [isAuthenticated]);
 
@@ -8636,7 +9106,7 @@ export default function App() {
           const data = snapshot.docs.map(d => d.data());
           setInventory(data);
         }, () => { setInventory([]); });
-      } catch {}
+      } catch { }
     }
   }, [isAuthenticated]);
 
@@ -8663,7 +9133,7 @@ export default function App() {
           if (docSnap.exists() && docSnap.data().profissional) {
             setProfissionalPermissions(docSnap.data().profissional as ModulePermissions);
           }
-        } catch {}
+        } catch { }
       }
     };
     fetchPermissions();
@@ -8698,7 +9168,7 @@ export default function App() {
     try {
       await signOut(auth);
       setActiveMenu('Dashboard');
-    } catch {}
+    } catch { }
   };
 
   if (isAuthLoading) {
@@ -8815,7 +9285,7 @@ export default function App() {
     <div className="flex min-h-screen font-sans overflow-hidden selection:bg-orange-500/30 transition-colors duration-300" style={{ backgroundColor: 'var(--bg-base)', color: 'var(--text-primary)' }}>
       {/* Mobile Sidebar Overlay */}
       {isMobileMenuOpen && (
-        <div 
+        <div
           className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden"
           onClick={() => setIsMobileMenuOpen(false)}
         />
@@ -8878,7 +9348,7 @@ export default function App() {
         {/* Mobile Global Header */}
         <div className="lg:hidden shrink-0 h-16 px-4 flex items-center justify-between border-b z-30" style={{ borderBottomColor: 'var(--border-default)', backgroundColor: 'var(--bg-base)' }}>
           <div className="flex items-center gap-3">
-            <button 
+            <button
               onClick={() => setIsMobileMenuOpen(true)}
               className="p-2 -ml-2 rounded-lg text-[var(--text-secondary)] hover:bg-[var(--sidebar-hover-bg)]"
             >
@@ -8937,7 +9407,7 @@ export default function App() {
         ) : activeMenu === 'Financeiro' ? (
           <FinanceiroView expenses={expenses} setExpenses={setExpenses} isDarkMode={isDarkMode} />
         ) : activeMenu === 'Relatórios' ? (
-          <RelatoriosView isDarkMode={isDarkMode} />
+          <RelatoriosView isDarkMode={isDarkMode} expenses={expenses} appointments={appointments} patients={patients} services={services} professionals={professionals} />
         ) : (
           <div className="flex-1 flex flex-col relative overflow-hidden items-center justify-center">
             <h2 className={`text-2xl font-bold ${isDarkMode ? 'text-zinc-500' : 'text-zinc-400'} z-10`}>{activeMenu}</h2>
