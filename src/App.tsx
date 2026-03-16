@@ -2438,6 +2438,9 @@ const ClientesView = ({ patients, setPatients, columns, onGenerateReceituario, i
   const [editOrigem, setEditOrigem] = useState('');
   const [editConvenio, setEditConvenio] = useState('');
   const [isSaved, setIsSaved] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+  const [importProgress, setImportProgress] = useState(0);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<string | null>(null);
@@ -2500,6 +2503,142 @@ const ClientesView = ({ patients, setPatients, columns, onGenerateReceituario, i
       .replace(/\.(\d{3})(\d)/, '.$1/$2')
       .replace(/(\d{4})(\d)/, '$1-$2')
       .replace(/(-\d{2})\d+?$/, '$1');
+  };
+
+  const mapHeaderToField = (header: string): string | null => {
+    const h = header.toLowerCase().trim();
+    if (h.includes('nome') || h.includes('name') || h === 'paciente' || h === 'cliente') return 'name';
+    if (h.includes('telefone') || h.includes('tel') || h.includes('celular') || h.includes('phone')) return 'phone';
+    if (h.includes('email') || h.includes('e-mail')) return 'email';
+    if (h.includes('cpf')) return 'cpf';
+    if (h.includes('cnpj')) return 'cnpj';
+    if (h.includes('rg')) return 'rg';
+    if (h.includes('nascimento') || h.includes('birth')) return 'birthDate';
+    if (h === 'idade' || h === 'age') return 'idade';
+    if (h === 'tipo' || h === 'type') return 'tipo';
+    if (h === 'tags' || h === 'etiquetas') return 'tags';
+    if (h === 'ativo' || h === 'status' || h === 'active') return 'ativo';
+    if (h.includes('sexo') || h.includes('gender')) return 'sexo';
+    if (h.includes('civil')) return 'estadoCivil';
+    if (h.includes('profissão') || h.includes('profissao') || h.includes('job') || h.includes('occupation')) return 'profissao';
+    if (h.includes('endereço') || h.includes('endereco') || h.includes('address')) return 'endereco';
+    if (h === 'cor' || h === 'etnia' || h === 'race') return 'cor';
+    if (h === 'origem' || h === 'source') return 'origem';
+    if (h === 'convênio' || h === 'convenio' || h.includes('insurance')) return 'convenio';
+    if (h.includes('obs') || h.includes('nota') || h.includes('notes')) return 'notes';
+    return null;
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsImporting(true);
+    setImportProgress(0);
+
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+      try {
+        const bstr = evt.target?.result;
+        const wb = XLSX.read(bstr, { type: 'binary' });
+        const wsname = wb.SheetNames[0];
+        const ws = wb.Sheets[wsname];
+        const data = XLSX.utils.sheet_to_json(ws, { header: 1 }) as any[][];
+
+        if (data.length < 2) {
+          alert("O arquivo parece estar vazio.");
+          setIsImporting(false);
+          return;
+        }
+
+        const headers = data[0];
+        const rows = data.slice(1);
+        const mappedData: any[] = [];
+
+        rows.forEach(row => {
+          const patient: any = {
+            id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+            history: [],
+            ativo: true
+          };
+
+          headers.forEach((header, index) => {
+            if (!header) return;
+            const field = mapHeaderToField(header.toString());
+            if (field) {
+              let val = row[index];
+              if (val !== undefined && val !== null) {
+                // Normalização
+                if (field === 'cpf' || field === 'cnpj') {
+                  patient[field] = val.toString().replace(/\D/g, '');
+                } else if (field === 'birthDate' && val instanceof Date) {
+                  patient[field] = val.toISOString().split('T')[0];
+                } else if (field === 'notes') {
+                  patient[field] = encryptField(val.toString());
+                } else if (field === 'ativo') {
+                  const s = val.toString().toLowerCase();
+                  patient[field] = s === 'true' || s === 'sim' || s === '1' || s === 'ativo';
+                } else {
+                  patient[field] = val.toString();
+                }
+
+                // Cálculo automático de idade se nasciemento for fornecido mas idade não
+                if (field === 'birthDate' && !patient.idade) {
+                  patient.idade = calculateAge(patient[field]);
+                }
+              }
+            }
+          });
+
+          if (patient.name) {
+            mappedData.push(patient);
+          }
+        });
+
+        if (mappedData.length === 0) {
+          alert("Nenhum dado válido encontrado para importação (o campo 'Nome' é obrigatório).");
+          setIsImporting(false);
+          return;
+        }
+
+        // Importação em lotes de 500 (limite Firestore)
+        const batchSize = 500;
+        const totalItems = mappedData.length;
+        
+        for (let i = 0; i < totalItems; i += batchSize) {
+          const batch = writeBatch(db);
+          const chunk = mappedData.slice(i, i + batchSize);
+          
+          chunk.forEach(patient => {
+            const docRef = doc(db, 'clientes', patient.id);
+            batch.set(docRef, patient);
+          });
+
+          await batch.commit();
+          const progress = Math.min(100, Math.round(((i + chunk.length) / totalItems) * 100));
+          setImportProgress(progress);
+        }
+
+        logAuditEvent({
+          userId: auth.currentUser?.uid || 'unknown',
+          userEmail: auth.currentUser?.email || 'unknown',
+          userName: auth.currentUser?.displayName || 'Usuário',
+          action: 'IMPORTOU_CLIENTES',
+          module: 'Clientes',
+          details: `Importou ${mappedData.length} pacientes via arquivo.`
+        });
+
+        alert(`Sucesso! ${mappedData.length} pacientes importados.`);
+      } catch (error) {
+        console.error("Erro na importação:", error);
+        alert("Erro ao processar o arquivo. Verifique o formato.");
+      } finally {
+        setIsImporting(false);
+        setImportProgress(0);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+      }
+    };
+    reader.readAsBinaryString(file);
   };
 
   React.useEffect(() => {
@@ -2771,6 +2910,33 @@ const ClientesView = ({ patients, setPatients, columns, onGenerateReceituario, i
                 }`}
             />
           </div>
+          
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileUpload}
+            accept=".xlsx, .xls, .csv"
+            className="hidden"
+          />
+
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isImporting}
+            className={`bg-[#121214] border border-zinc-800 text-zinc-300 font-semibold px-6 py-2.5 rounded-full flex items-center gap-2 transition-all hover:bg-zinc-800/80 disabled:opacity-50`}
+          >
+            {isImporting ? (
+              <>
+                <Loader2 size={18} className="animate-spin text-orange-500" />
+                <span>Importando {importProgress}%</span>
+              </>
+            ) : (
+              <>
+                <Upload size={18} className="text-orange-500" />
+                <span>Importar</span>
+              </>
+            )}
+          </button>
+
           <button
             onClick={() => { setIsNewPatientModalOpen(true); setActivePatientId(null); }}
             className="bg-gradient-to-r from-orange-400 to-orange-500 hover:from-orange-500 hover:to-orange-600 text-black font-semibold px-6 py-2.5 rounded-full flex items-center gap-2 transition-all shadow-[0_0_15px_rgba(249,115,22,0.3)]"
