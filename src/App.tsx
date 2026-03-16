@@ -81,6 +81,18 @@ import { useDynamicPWA } from './hooks/useDynamicPWA';
 // @ts-ignore
 import videoBg from '../Flow_delpmaspu_.mp4';
 
+const calculateAge = (birthDate: string): string => {
+  if (!birthDate) return '';
+  const [year, month, day] = birthDate.split('-').map(Number);
+  const today = new Date();
+  let age = today.getFullYear() - year;
+  const m = today.getMonth() + 1 - month;
+  if (m < 0 || (m === 0 && today.getDate() < day)) {
+    age--;
+  }
+  return age >= 0 ? age.toString() : '';
+};
+
 const Toggle = ({ checked, onChange, disabled, isDarkMode = true }: { checked: boolean, onChange: (checked: boolean) => void, disabled: boolean, isDarkMode?: boolean }) => {
   return (
     <button
@@ -98,6 +110,190 @@ const Toggle = ({ checked, onChange, disabled, isDarkMode = true }: { checked: b
           }`}
       />
     </button>
+  );
+};
+
+const MiniDatePicker = ({ value, onChange, isDarkMode = true, label }: { value: string, onChange: (val: string) => void, isDarkMode?: boolean, label?: string }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  
+  // Parse initial value or default to today
+  const initialDate = value ? new Date(value + 'T12:00:00') : new Date();
+  const [viewDate, setViewDate] = useState(initialDate);
+  const [showYearSelector, setShowYearSelector] = useState(false);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+        setShowYearSelector(false);
+      }
+    };
+    if (isOpen) document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isOpen]);
+
+  const getDaysInMonth = (year: number, month: number) => new Date(year, month + 1, 0).getDate();
+  const getFirstDayOfMonth = (year: number, month: number) => new Date(year, month, 1).getDay();
+
+  const daysInMonth = getDaysInMonth(viewDate.getFullYear(), viewDate.getMonth());
+  const firstDay = getFirstDayOfMonth(viewDate.getFullYear(), viewDate.getMonth());
+
+  const monthNames = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+  const weekDaysShort = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
+
+  const handleDateSelect = (day: number) => {
+    const selected = new Date(viewDate.getFullYear(), viewDate.getMonth(), day);
+    const yyyy = selected.getFullYear();
+    const mm = String(selected.getMonth() + 1).padStart(2, '0');
+    const dd = String(selected.getDate()).padStart(2, '0');
+    onChange(`${yyyy}-${mm}-${dd}`);
+    setIsOpen(false);
+  };
+
+  const years = useMemo(() => {
+    const currentYear = new Date().getFullYear();
+    const startYear = currentYear - 100;
+    return Array.from({ length: 111 }, (_, i) => startYear + i).reverse();
+  }, []);
+
+  const formattedValue = useMemo(() => {
+    if (!value) return '';
+    const [y, m, d] = value.split('-');
+    return `${d}/${m}/${y}`;
+  }, [value]);
+
+  return (
+    <div className="relative w-full" ref={containerRef}>
+      {label && <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-1.5 uppercase">{label}</label>}
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className={`w-full bg-[#0a0a0a] border ${isOpen ? 'border-orange-500 shadow-[0_0_15px_rgba(249,115,22,0.1)]' : 'border-zinc-800'} rounded-xl px-4 py-2.5 flex items-center justify-between transition-all group`}
+      >
+        <span className={`text-sm ${value ? (isDarkMode ? 'text-white' : 'text-zinc-900') : 'text-zinc-500'}`}>
+          {formattedValue || 'dd/mm/aaaa'}
+        </span>
+        <Calendar size={16} className={`${isOpen ? 'text-orange-500' : 'text-zinc-500 group-hover:text-zinc-400'} transition-colors`} />
+      </button>
+
+      {isOpen && (
+        <div className={`absolute top-full mt-2 left-0 w-72 z-[100] rounded-2xl border shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200 ${isDarkMode ? "bg-[#121214] border-zinc-800" : "bg-white border-zinc-200"}`}>
+          {/* Header */}
+          <div className={`p-4 flex items-center justify-between border-b ${isDarkMode ? "border-zinc-800/80" : "border-zinc-200"}`}>
+            <button 
+              type="button"
+              onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() - 1, 1))} 
+              className={`p-1 rounded opacity-70 hover:opacity-100 transition-colors ${isDarkMode ? "hover:bg-zinc-800" : "hover:bg-zinc-100"}`}
+            >
+              <ChevronLeft size={18} />
+            </button>
+            
+            <button 
+              type="button"
+              onClick={() => setShowYearSelector(!showYearSelector)}
+              className={`font-semibold text-sm px-2 py-1 rounded transition-colors ${isDarkMode ? "hover:bg-zinc-800" : "hover:bg-zinc-100"} flex items-center gap-1`}
+            >
+              {monthNames[viewDate.getMonth()]} {viewDate.getFullYear()}
+              <ChevronDown size={14} className={`transition-transform ${showYearSelector ? 'rotate-180 text-orange-500' : ''}`} />
+            </button>
+
+            <button 
+              type="button"
+              onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 1))} 
+              className={`p-1 rounded opacity-70 hover:opacity-100 transition-colors ${isDarkMode ? "hover:bg-zinc-800" : "hover:bg-zinc-100"}`}
+            >
+              <ChevronRight size={18} />
+            </button>
+          </div>
+
+          <div className="p-4 relative min-h-[240px]">
+            {showYearSelector ? (
+              <div className="absolute inset-0 bg-[#121214] z-10 overflow-y-auto custom-scrollbar p-2 grid grid-cols-3 gap-1">
+                {years.map(year => (
+                  <button
+                    key={year}
+                    type="button"
+                    onClick={() => {
+                      setViewDate(new Date(year, viewDate.getMonth(), 1));
+                      setShowYearSelector(false);
+                    }}
+                    className={`py-2 rounded-lg text-sm transition-all ${viewDate.getFullYear() === year 
+                      ? "bg-orange-500 text-white font-bold" 
+                      : (isDarkMode ? "text-zinc-400 hover:bg-zinc-800" : "text-zinc-600 hover:bg-zinc-100")}`}
+                  >
+                    {year}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-7 gap-1 mb-2 text-center">
+                  {weekDaysShort.map((day, i) => (
+                    <div key={i} className={`text-[10px] font-bold tracking-wider ${isDarkMode ? "text-zinc-500" : "text-zinc-400"}`}>{day}</div>
+                  ))}
+                </div>
+
+                <div className="grid grid-cols-7 gap-1">
+                  {Array.from({ length: firstDay }).map((_, i) => (
+                    <div key={`empty-${i}`} className="w-8 h-8" />
+                  ))}
+
+                  {Array.from({ length: daysInMonth }).map((_, i) => {
+                    const day = i + 1;
+                    const dateObj = new Date(viewDate.getFullYear(), viewDate.getMonth(), day);
+                    const isSelected = value === `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
+                    const isToday = day === new Date().getDate() && viewDate.getMonth() === new Date().getMonth() && viewDate.getFullYear() === new Date().getFullYear();
+
+                    return (
+                      <button
+                        key={day}
+                        type="button"
+                        onClick={() => handleDateSelect(day)}
+                        className={`w-8 h-8 rounded-full flex items-center justify-center text-sm transition-all
+                          ${isSelected
+                            ? "bg-orange-500 text-white font-bold shadow-[0_0_10px_rgba(249,115,22,0.4)]"
+                            : isToday
+                              ? (isDarkMode ? "bg-zinc-800 text-orange-400 font-semibold" : "bg-orange-50 text-orange-600 font-semibold")
+                              : (isDarkMode ? "text-zinc-300 hover:bg-zinc-800" : "text-zinc-700 hover:bg-zinc-100")
+                          }
+                        `}
+                      >
+                        {day}
+                      </button>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+          </div>
+          
+          <div className={`p-2 border-t ${isDarkMode ? "border-zinc-800/80" : "border-zinc-200"} flex justify-between`}>
+            <button 
+              type="button"
+              onClick={() => { onChange(''); setIsOpen(false); }}
+              className="text-[10px] font-bold text-zinc-500 hover:text-red-500 uppercase tracking-widest px-2 py-1"
+            >
+              Limpar
+            </button>
+            <button 
+              type="button"
+              onClick={() => {
+                const today = new Date();
+                const yyyy = today.getFullYear();
+                const mm = String(today.getMonth() + 1).padStart(2, '0');
+                const dd = String(today.getDate()).padStart(2, '0');
+                onChange(`${yyyy}-${mm}-${dd}`);
+                setIsOpen(false);
+              }}
+              className="text-[10px] font-bold text-orange-500 hover:text-orange-400 uppercase tracking-widest px-2 py-1"
+            >
+              Hoje
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
   );
 };
 
@@ -1390,6 +1586,21 @@ const CrmView = ({ patients, setPatients, columns, setColumns, onGenerateReceitu
   const [editPhone, setEditPhone] = useState('');
   const [editEmail, setEditEmail] = useState('');
   const [editNotes, setEditNotes] = useState('');
+  const [editCPF, setEditCPF] = useState('');
+  const [editTipo, setEditTipo] = useState('Particular');
+  const [editTags, setEditTags] = useState('');
+  const [editAtivo, setEditAtivo] = useState(true);
+  const [editBirthDate, setEditBirthDate] = useState('');
+  const [editIdade, setEditIdade] = useState('');
+  const [editSexo, setEditSexo] = useState('');
+  const [editEstadoCivil, setEditEstadoCivil] = useState('');
+  const [editProfissao, setEditProfissao] = useState('');
+  const [editEndereco, setEditEndereco] = useState('');
+  const [editRG, setEditRG] = useState('');
+  const [editCNPJ, setEditCNPJ] = useState('');
+  const [editCor, setEditCor] = useState('');
+  const [editOrigem, setEditOrigem] = useState('');
+  const [editConvenio, setEditConvenio] = useState('');
 
   React.useEffect(() => {
     if (activeCard) {
@@ -1397,8 +1608,42 @@ const CrmView = ({ patients, setPatients, columns, setColumns, onGenerateReceitu
       setEditPhone(activeCard.phone || '');
       setEditEmail(activeCard.email || '');
       setEditNotes(activeCard.notes || '');
+      setEditCPF(activeCard.cpf || '');
+      setEditTipo(activeCard.tipo || 'Particular');
+      setEditTags(activeCard.tags || '');
+      setEditAtivo(activeCard.ativo !== undefined ? activeCard.ativo : true);
+      setEditBirthDate(activeCard.birthDate || '');
+      setEditIdade(activeCard.idade || '');
+      setEditSexo(activeCard.sexo || '');
+      setEditEstadoCivil(activeCard.estadoCivil || '');
+      setEditProfissao(activeCard.profissao || '');
+      setEditEndereco(activeCard.endereco || '');
+      setEditRG(activeCard.rg || '');
+      setEditCNPJ(activeCard.cnpj || '');
+      setEditCor(activeCard.cor || '');
+      setEditOrigem(activeCard.origem || '');
+      setEditConvenio(activeCard.convenio || '');
     }
   }, [activeCard?.id]);
+
+  const formatCPF = (value: string) => {
+    return value
+      .replace(/\D/g, '')
+      .replace(/(\d{3})(\d)/, '$1.$2')
+      .replace(/(\d{3})(\d)/, '$1.$2')
+      .replace(/(\d{3})(\d{1,2})/, '$1-$2')
+      .replace(/(-\d{2})\d+?$/, '$1');
+  };
+
+  const formatCNPJ = (value: string) => {
+    return value
+      .replace(/\D/g, '')
+      .replace(/^(\d{2})(\d)/, '$1.$2')
+      .replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3')
+      .replace(/\.(\d{3})(\d)/, '.$1/$2')
+      .replace(/(\d{4})(\d)/, '$1-$2')
+      .replace(/(-\d{2})\d+?$/, '$1');
+  };
 
   const handleCreateColumn = async () => {
     if (newColumnName.trim()) {
@@ -1417,7 +1662,29 @@ const CrmView = ({ patients, setPatients, columns, setColumns, onGenerateReceitu
   const handleCreateCard = async () => {
     if (newCardName.trim() && activeColumnId) {
       const newPatientId = Date.now().toString();
-      const newPatient = { id: newPatientId, name: newCardName, phone: '', email: '', cpf: '', notes: '', history: [] };
+      const newPatient = { 
+        id: newPatientId, 
+        name: newCardName, 
+        phone: '', 
+        email: '', 
+        cpf: '', 
+        notes: '', 
+        tipo: 'Particular',
+        tags: '',
+        ativo: true,
+        birthDate: '',
+        idade: '',
+        sexo: '',
+        estadoCivil: '',
+        profissao: '',
+        endereco: '',
+        rg: '',
+        cnpj: '',
+        cor: '',
+        origem: '',
+        convenio: '',
+        history: [] 
+      };
 
       try {
         await setDoc(doc(db, 'clientes', newPatientId), newPatient);
@@ -1510,7 +1777,6 @@ const CrmView = ({ patients, setPatients, columns, setColumns, onGenerateReceitu
     setIsRecording(true);
     recognition.start();
   };
-
   const handleSaveRecord = async () => {
     if (!transcription.trim() || !activeCard) return;
 
@@ -1526,7 +1792,22 @@ const CrmView = ({ patients, setPatients, columns, setColumns, onGenerateReceitu
       name: editName,
       phone: editPhone,
       email: editEmail,
-      notes: editNotes,
+      notes: encryptField(editNotes),
+      cpf: editCPF.replace(/\D/g, ''),
+      tipo: editTipo,
+      tags: editTags,
+      ativo: editAtivo,
+      birthDate: editBirthDate,
+      idade: editIdade,
+      sexo: editSexo,
+      estadoCivil: editEstadoCivil,
+      profissao: editProfissao,
+      endereco: editEndereco,
+      rg: editRG,
+      cnpj: editCNPJ.replace(/\D/g, ''),
+      cor: editCor,
+      origem: editOrigem,
+      convenio: editConvenio,
       history: [newRecord, ...(activeCard.history || [])]
     };
 
@@ -1545,7 +1826,22 @@ const CrmView = ({ patients, setPatients, columns, setColumns, onGenerateReceitu
       name: editName,
       phone: editPhone,
       email: editEmail,
-      notes: editNotes,
+      notes: encryptField(editNotes),
+      cpf: editCPF.replace(/\D/g, ''),
+      tipo: editTipo,
+      tags: editTags,
+      ativo: editAtivo,
+      birthDate: editBirthDate,
+      idade: editIdade,
+      sexo: editSexo,
+      estadoCivil: editEstadoCivil,
+      profissao: editProfissao,
+      endereco: editEndereco,
+      rg: editRG,
+      cnpj: editCNPJ.replace(/\D/g, ''),
+      cor: editCor,
+      origem: editOrigem,
+      convenio: editConvenio,
     };
     try {
       await setDoc(doc(db, 'clientes', activeCard.id), updatedCard);
@@ -1768,49 +2064,234 @@ const CrmView = ({ patients, setPatients, columns, setColumns, onGenerateReceitu
                 </div>
               </div>
 
-              <div className="flex flex-col gap-5">
-                <div>
-                  <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Nome</label>
-                  <input
-                    type="text"
-                    value={editName}
-                    onChange={(e) => setEditName(e.target.value)}
-                    className={`w-full bg-[#0a0a0a] border border-zinc-800 rounded-xl px-4 py-2.5 ${isDarkMode ? "text-white" : "text-zinc-900"} focus:outline-none focus:border-orange-500 transition-colors text-sm`}
-                  />
+              <div className="space-y-6">
+                {/* Status e Tags */}
+                <div className="flex items-center justify-between bg-[#0a0a0a] border border-zinc-800/50 rounded-2xl p-4">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-2 h-2 rounded-full ${editAtivo ? 'bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]' : 'bg-zinc-600'}`} />
+                    <span className="text-xs font-bold text-zinc-400 uppercase tracking-widest">{editAtivo ? 'Ativo' : 'Inativo'}</span>
+                  </div>
+                  <Toggle checked={editAtivo} onChange={setEditAtivo} disabled={false} isDarkMode={isDarkMode} />
                 </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Telefone</label>
-                  <input
-                    type="text"
-                    value={editPhone}
-                    onChange={(e) => setEditPhone(e.target.value)}
-                    placeholder="(00) 00000-0000"
-                    className={`w-full bg-[#0a0a0a] border border-zinc-800 rounded-xl px-4 py-2.5 ${isDarkMode ? "text-white" : "text-zinc-900"} focus:outline-none focus:border-orange-500 transition-colors text-sm`}
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">E-mail</label>
-                  <input
-                    type="email"
-                    value={editEmail}
-                    onChange={(e) => setEditEmail(e.target.value)}
-                    placeholder="paciente@email.com"
-                    className={`w-full bg-[#0a0a0a] border border-zinc-800 rounded-xl px-4 py-2.5 ${isDarkMode ? "text-white" : "text-zinc-900"} focus:outline-none focus:border-orange-500 transition-colors text-sm`}
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Observações Gerais</label>
-                  <textarea
-                    value={editNotes}
-                    onChange={(e) => setEditNotes(e.target.value)}
-                    placeholder="Alergias, queixas principais..."
-                    className={`w-full bg-[#0a0a0a] border border-zinc-800 rounded-xl px-4 py-3 ${isDarkMode ? "text-white" : "text-zinc-900"} focus:outline-none focus:border-orange-500 transition-colors text-sm resize-none h-24`}
-                  />
+
+                <div className="grid grid-cols-1 gap-5">
+                  {/* Identificação Principal */}
+                  <div className="space-y-4">
+                    <h4 className="text-[10px] font-bold text-orange-500/70 tracking-[0.2em] uppercase">Identificação</h4>
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-1.5 uppercase">Nome</label>
+                        <input
+                          type="text"
+                          value={editName}
+                          onChange={(e) => setEditName(e.target.value)}
+                          className={`w-full bg-[#0a0a0a] border border-zinc-800 rounded-xl px-4 py-2.5 ${isDarkMode ? "text-white" : "text-zinc-900"} focus:outline-none focus:border-orange-500 transition-colors text-sm`}
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-1.5 uppercase">CPF</label>
+                          <input
+                            type="text"
+                            value={editCPF}
+                            onChange={(e) => setEditCPF(formatCPF(e.target.value))}
+                            placeholder="000.000.000-00"
+                            className={`w-full bg-[#0a0a0a] border border-zinc-800 rounded-xl px-4 py-2.5 ${isDarkMode ? "text-white" : "text-zinc-900"} focus:outline-none focus:border-orange-500 transition-colors text-sm`}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-1.5 uppercase">RG</label>
+                          <input
+                            type="text"
+                            value={editRG}
+                            onChange={(e) => setEditRG(e.target.value)}
+                            className={`w-full bg-[#0a0a0a] border border-zinc-800 rounded-xl px-4 py-2.5 ${isDarkMode ? "text-white" : "text-zinc-900"} focus:outline-none focus:border-orange-500 transition-colors text-sm`}
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-1.5 uppercase">CNPJ</label>
+                        <input
+                          type="text"
+                          value={editCNPJ}
+                          onChange={(e) => setEditCNPJ(formatCNPJ(e.target.value))}
+                          placeholder="00.000.000/0000-00"
+                          className={`w-full bg-[#0a0a0a] border border-zinc-800 rounded-xl px-4 py-2.5 ${isDarkMode ? "text-white" : "text-zinc-900"} focus:outline-none focus:border-orange-500 transition-colors text-sm`}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Perfil e Classificação */}
+                  <div className="space-y-4">
+                    <h4 className="text-[10px] font-bold text-orange-500/70 tracking-[0.2em] uppercase">Perfil & Classificação</h4>
+                    <div className="space-y-3">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-1.5 uppercase">Tipo</label>
+                          <select
+                            value={editTipo}
+                            onChange={(e) => setEditTipo(e.target.value)}
+                            className={`w-full bg-[#0a0a0a] border border-zinc-800 rounded-xl px-3 py-2.5 ${isDarkMode ? "text-white" : "text-zinc-900"} focus:outline-none focus:border-orange-500 transition-colors text-sm`}
+                          >
+                            <option value="Particular">Particular</option>
+                            <option value="Convênio">Convênio</option>
+                            <option value="Cortesia">Cortesia</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-1.5 uppercase">Convênio</label>
+                          <input
+                            type="text"
+                            value={editConvenio}
+                            onChange={(e) => setEditConvenio(e.target.value)}
+                            className={`w-full bg-[#0a0a0a] border border-zinc-800 rounded-xl px-4 py-2.5 ${isDarkMode ? "text-white" : "text-zinc-900"} focus:outline-none focus:border-orange-500 transition-colors text-sm`}
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-1.5 uppercase">Tags (separadas por vírgula)</label>
+                        <input
+                          type="text"
+                          value={editTags}
+                          onChange={(e) => setEditTags(e.target.value)}
+                          placeholder="VIP, Botox, Lipo..."
+                          className={`w-full bg-[#0a0a0a] border border-zinc-800 rounded-xl px-4 py-2.5 ${isDarkMode ? "text-white" : "text-zinc-900"} focus:outline-none focus:border-orange-500 transition-colors text-sm`}
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-1.5 uppercase">Origem</label>
+                          <input
+                            type="text"
+                            value={editOrigem}
+                            onChange={(e) => setEditOrigem(e.target.value)}
+                            placeholder="Instagram, Indicação..."
+                            className={`w-full bg-[#0a0a0a] border border-zinc-800 rounded-xl px-4 py-2.5 ${isDarkMode ? "text-white" : "text-zinc-900"} focus:outline-none focus:border-orange-500 transition-colors text-sm`}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-1.5 uppercase">Cor/Etnia</label>
+                          <input
+                            type="text"
+                            value={editCor}
+                            onChange={(e) => setEditCor(e.target.value)}
+                            className={`w-full bg-[#0a0a0a] border border-zinc-800 rounded-xl px-4 py-2.5 ${isDarkMode ? "text-white" : "text-zinc-900"} focus:outline-none focus:border-orange-500 transition-colors text-sm`}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Contato e Endereço */}
+                  <div className="space-y-4">
+                    <h4 className="text-[10px] font-bold text-orange-500/70 tracking-[0.2em] uppercase">Contato & Localização</h4>
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-1.5 uppercase">Telefone</label>
+                        <input
+                          type="text"
+                          value={editPhone}
+                          onChange={(e) => setEditPhone(e.target.value)}
+                          placeholder="(00) 00000-0000"
+                          className={`w-full bg-[#0a0a0a] border border-zinc-800 rounded-xl px-4 py-2.5 ${isDarkMode ? "text-white" : "text-zinc-900"} focus:outline-none focus:border-orange-500 transition-colors text-sm`}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-1.5 uppercase">E-mail</label>
+                        <input
+                          type="email"
+                          value={editEmail}
+                          onChange={(e) => setEditEmail(e.target.value)}
+                          placeholder="paciente@email.com"
+                          className={`w-full bg-[#0a0a0a] border border-zinc-800 rounded-xl px-4 py-2.5 ${isDarkMode ? "text-white" : "text-zinc-900"} focus:outline-none focus:border-orange-500 transition-colors text-sm`}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-1.5 uppercase">Endereço Completo</label>
+                        <textarea
+                          value={editEndereco}
+                          onChange={(e) => setEditEndereco(e.target.value)}
+                          className={`w-full bg-[#0a0a0a] border border-zinc-800 rounded-xl px-4 py-2.5 ${isDarkMode ? "text-white" : "text-zinc-900"} focus:outline-none focus:border-orange-500 transition-colors text-sm resize-none h-20`}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Dados Pessoais */}
+                  <div className="space-y-4">
+                    <h4 className="text-[10px] font-bold text-orange-500/70 tracking-[0.2em] uppercase">Dados Pessoais</h4>
+                    <div className="space-y-3">
+                      <div className="grid grid-cols-2 gap-3">
+                        <MiniDatePicker
+                          label="Nascimento"
+                          value={editBirthDate}
+                          onChange={(val) => {
+                            setEditBirthDate(val);
+                            setEditIdade(calculateAge(val));
+                          }}
+                          isDarkMode={isDarkMode}
+                        />
+                        <div>
+                          <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-1.5 uppercase">Idade</label>
+                          <input
+                            type="number"
+                            value={editIdade}
+                            onChange={(e) => setEditIdade(e.target.value)}
+                            className={`w-full bg-[#0a0a0a] border border-zinc-800 rounded-xl px-4 py-2.5 ${isDarkMode ? "text-white" : "text-zinc-900"} focus:outline-none focus:border-orange-500 transition-colors text-sm`}
+                          />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-1.5 uppercase">Sexo</label>
+                          <select
+                            value={editSexo}
+                            onChange={(e) => setEditSexo(e.target.value)}
+                            className={`w-full bg-[#0a0a0a] border border-zinc-800 rounded-xl px-3 py-2.5 ${isDarkMode ? "text-white" : "text-zinc-900"} focus:outline-none focus:border-orange-500 transition-colors text-sm`}
+                          >
+                            <option value="">Selecione...</option>
+                            <option value="Feminino">Feminino</option>
+                            <option value="Masculino">Masculino</option>
+                            <option value="Outro">Outro</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-1.5 uppercase">Estado Civil</label>
+                          <input
+                            type="text"
+                            value={editEstadoCivil}
+                            onChange={(e) => setEditEstadoCivil(e.target.value)}
+                            className={`w-full bg-[#0a0a0a] border border-zinc-800 rounded-xl px-4 py-2.5 ${isDarkMode ? "text-white" : "text-zinc-900"} focus:outline-none focus:border-orange-500 transition-colors text-sm`}
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-1.5 uppercase">Profissão</label>
+                        <input
+                          type="text"
+                          value={editProfissao}
+                          onChange={(e) => setEditProfissao(e.target.value)}
+                          className={`w-full bg-[#0a0a0a] border border-zinc-800 rounded-xl px-4 py-2.5 ${isDarkMode ? "text-white" : "text-zinc-900"} focus:outline-none focus:border-orange-500 transition-colors text-sm`}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Observações Gerais</label>
+                    <textarea
+                      value={editNotes}
+                      onChange={(e) => setEditNotes(e.target.value)}
+                      placeholder="Alergias, queixas principais..."
+                      className={`w-full bg-[#0a0a0a] border border-zinc-800 rounded-xl px-4 py-3 ${isDarkMode ? "text-white" : "text-zinc-900"} focus:outline-none focus:border-orange-500 transition-colors text-sm resize-none h-24`}
+                    />
+                  </div>
                 </div>
 
                 <button
                   onClick={handleSavePatient}
-                  className={`w-full bg-[#0a0a0a] hover:bg-zinc-900 border border-zinc-800 ${isDarkMode ? "text-white" : "text-zinc-900"} font-semibold py-3 rounded-xl transition-colors mt-4 text-sm`}
+                  className={`w-full bg-gradient-to-r from-orange-400 to-orange-600 text-black font-bold py-4 rounded-2xl transition-all hover:scale-[1.02] shadow-[0_0_20px_rgba(249,115,22,0.2)] mt-6 text-sm uppercase tracking-widest`}
                 >
                   Salvar Cadastro
                 </button>
@@ -1942,6 +2423,20 @@ const ClientesView = ({ patients, setPatients, columns, onGenerateReceituario, i
   const [editEmail, setEditEmail] = useState('');
   const [editNotes, setEditNotes] = useState('');
   const [clientCPF, setClientCPF] = useState('');
+  const [editTipo, setEditTipo] = useState('Particular');
+  const [editTags, setEditTags] = useState('');
+  const [editAtivo, setEditAtivo] = useState(true);
+  const [editBirthDate, setEditBirthDate] = useState('');
+  const [editIdade, setEditIdade] = useState('');
+  const [editSexo, setEditSexo] = useState('');
+  const [editEstadoCivil, setEditEstadoCivil] = useState('');
+  const [editProfissao, setEditProfissao] = useState('');
+  const [editEndereco, setEditEndereco] = useState('');
+  const [editRG, setEditRG] = useState('');
+  const [editCNPJ, setEditCNPJ] = useState('');
+  const [editCor, setEditCor] = useState('');
+  const [editOrigem, setEditOrigem] = useState('');
+  const [editConvenio, setEditConvenio] = useState('');
   const [isSaved, setIsSaved] = useState(false);
 
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -1997,6 +2492,16 @@ const ClientesView = ({ patients, setPatients, columns, onGenerateReceituario, i
       .replace(/(-\d{2})\d+?$/, '$1'); // Limita a 11 dígitos
   };
 
+  const formatCNPJ = (value: string) => {
+    return value
+      .replace(/\D/g, '')
+      .replace(/^(\d{2})(\d)/, '$1.$2')
+      .replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3')
+      .replace(/\.(\d{3})(\d)/, '.$1/$2')
+      .replace(/(\d{4})(\d)/, '$1-$2')
+      .replace(/(-\d{2})\d+?$/, '$1');
+  };
+
   React.useEffect(() => {
     if (currentPatient) {
       setEditName(currentPatient.name || '');
@@ -2004,6 +2509,20 @@ const ClientesView = ({ patients, setPatients, columns, onGenerateReceituario, i
       setEditEmail(currentPatient.email || '');
       setEditNotes(currentPatient.notes || '');
       setClientCPF(currentPatient.cpf ? formatCPF(currentPatient.cpf) : '');
+      setEditTipo(currentPatient.tipo || 'Particular');
+      setEditTags(currentPatient.tags || '');
+      setEditAtivo(currentPatient.ativo !== undefined ? currentPatient.ativo : true);
+      setEditBirthDate(currentPatient.birthDate || '');
+      setEditIdade(currentPatient.idade || '');
+      setEditSexo(currentPatient.sexo || '');
+      setEditEstadoCivil(currentPatient.estadoCivil || '');
+      setEditProfissao(currentPatient.profissao || '');
+      setEditEndereco(currentPatient.endereco || '');
+      setEditRG(currentPatient.rg || '');
+      setEditCNPJ(currentPatient.cnpj || '');
+      setEditCor(currentPatient.cor || '');
+      setEditOrigem(currentPatient.origem || '');
+      setEditConvenio(currentPatient.convenio || '');
     }
   }, [currentPatient?.id]);
 
@@ -2101,6 +2620,20 @@ const ClientesView = ({ patients, setPatients, columns, onGenerateReceituario, i
         email: editEmail,
         notes: encryptField(editNotes),
         cpf: clientCPF.replace(/\D/g, ''),
+        tipo: editTipo,
+        tags: editTags,
+        ativo: editAtivo,
+        birthDate: editBirthDate,
+        idade: editIdade,
+        sexo: editSexo,
+        estadoCivil: editEstadoCivil,
+        profissao: editProfissao,
+        endereco: editEndereco,
+        rg: editRG,
+        cnpj: editCNPJ.replace(/\D/g, ''),
+        cor: editCor,
+        origem: editOrigem,
+        convenio: editConvenio,
         history: [newRecord]
       };
       setIsNewPatientModalOpen(false);
@@ -2112,6 +2645,20 @@ const ClientesView = ({ patients, setPatients, columns, onGenerateReceituario, i
         phone: editPhone,
         email: editEmail,
         notes: encryptField(editNotes),
+        tipo: editTipo,
+        tags: editTags,
+        ativo: editAtivo,
+        birthDate: editBirthDate,
+        idade: editIdade,
+        sexo: editSexo,
+        estadoCivil: editEstadoCivil,
+        profissao: editProfissao,
+        endereco: editEndereco,
+        rg: editRG,
+        cnpj: editCNPJ.replace(/\D/g, ''),
+        cor: editCor,
+        origem: editOrigem,
+        convenio: editConvenio,
         history: [newRecord, ...(currentPatient.history || [])]
       };
     }
@@ -2298,7 +2845,7 @@ const ClientesView = ({ patients, setPatients, columns, onGenerateReceituario, i
             </button>
 
             {/* Left Sidebar - Patient Data */}
-            <div className={`w-80 bg-[#050505] border-r ${isDarkMode ? "border-zinc-800/80" : "border-zinc-200/80"} p-8 flex flex-col overflow-y-auto custom-scrollbar`}>
+            <div className={`w-96 bg-[#050505] border-r ${isDarkMode ? "border-zinc-800/80" : "border-zinc-200/80"} p-8 flex flex-col overflow-y-auto custom-scrollbar`}>
               <h3 className={`text-lg font-bold ${isDarkMode ? "text-white" : "text-zinc-900"} mb-8`}>Dados Cadastrais</h3>
 
               <div className="flex justify-center mb-8">
@@ -2307,53 +2854,232 @@ const ClientesView = ({ patients, setPatients, columns, onGenerateReceituario, i
                 </div>
               </div>
 
-              <div className="flex flex-col gap-5">
-                <div>
-                  <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Nome</label>
-                  <input
-                    type="text"
-                    value={editName}
-                    onChange={e => setEditName(e.target.value)}
-                    className={`w-full bg-[#0a0a0a] border border-zinc-800 rounded-xl px-4 py-2.5 ${isDarkMode ? "text-white" : "text-zinc-900"} focus:outline-none focus:border-orange-500 transition-colors text-sm`}
-                  />
+              <div className="space-y-6">
+                {/* Status */}
+                <div className="flex items-center justify-between bg-[#0a0a0a] border border-zinc-800/50 rounded-2xl p-4">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-2 h-2 rounded-full ${editAtivo ? 'bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]' : 'bg-zinc-600'}`} />
+                    <span className="text-xs font-bold text-zinc-400 uppercase tracking-widest">{editAtivo ? 'Ativo' : 'Inativo'}</span>
+                  </div>
+                  <Toggle checked={editAtivo} onChange={setEditAtivo} disabled={false} isDarkMode={isDarkMode} />
                 </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-zinc-500 mb-1 uppercase tracking-widest">CPF (Obrigatório)</label>
-                  <input
-                    placeholder="000.000.000-00"
-                    value={clientCPF}
-                    onChange={(e) => setClientCPF(formatCPF(e.target.value))}
-                    className="w-full bg-[#050505] border border-zinc-800 rounded-xl px-4 py-3 text-sm text-white focus:border-orange-500 outline-none transition-all"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Telefone</label>
-                  <input
-                    type="text"
-                    value={editPhone}
-                    onChange={e => setEditPhone(e.target.value)}
-                    placeholder="(00) 00000-0000"
-                    className={`w-full bg-[#0a0a0a] border border-zinc-800 rounded-xl px-4 py-2.5 ${isDarkMode ? "text-white" : "text-zinc-900"} focus:outline-none focus:border-orange-500 transition-colors text-sm`}
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">E-mail</label>
-                  <input
-                    type="email"
-                    value={editEmail}
-                    onChange={e => setEditEmail(e.target.value)}
-                    placeholder="paciente@email.com"
-                    className={`w-full bg-[#0a0a0a] border border-zinc-800 rounded-xl px-4 py-2.5 ${isDarkMode ? "text-white" : "text-zinc-900"} focus:outline-none focus:border-orange-500 transition-colors text-sm`}
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Observações Gerais</label>
-                  <textarea
-                    value={editNotes}
-                    onChange={e => setEditNotes(e.target.value)}
-                    placeholder="Alergias, queixas principais..."
-                    className={`w-full bg-[#0a0a0a] border border-zinc-800 rounded-xl px-4 py-3 ${isDarkMode ? "text-white" : "text-zinc-900"} focus:outline-none focus:border-orange-500 transition-colors text-sm resize-none h-24`}
-                  />
+
+                <div className="space-y-5">
+                  {/* Identificação */}
+                  <div className="space-y-4">
+                    <h4 className="text-[10px] font-bold text-orange-500/70 tracking-[0.2em] uppercase">Identificação</h4>
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-1.5 uppercase">Nome</label>
+                        <input
+                          type="text"
+                          value={editName}
+                          onChange={e => setEditName(e.target.value)}
+                          className={`w-full bg-[#0a0a0a] border border-zinc-800 rounded-xl px-4 py-2.5 ${isDarkMode ? "text-white" : "text-zinc-900"} focus:outline-none focus:border-orange-500 transition-colors text-sm`}
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-[10px] font-bold text-zinc-500 mb-1.5 uppercase tracking-widest">CPF</label>
+                          <input
+                            placeholder="000.000.000-00"
+                            value={clientCPF}
+                            onChange={(e) => setClientCPF(formatCPF(e.target.value))}
+                            className="w-full bg-[#0a0a0a] border border-zinc-800 rounded-xl px-4 py-2.5 text-sm text-white focus:border-orange-500 outline-none transition-all"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-bold text-zinc-500 mb-1.5 uppercase tracking-widest">RG</label>
+                          <input
+                            type="text"
+                            value={editRG}
+                            onChange={(e) => setEditRG(e.target.value)}
+                            className="w-full bg-[#0a0a0a] border border-zinc-800 rounded-xl px-4 py-2.5 text-sm text-white focus:border-orange-500 outline-none transition-all"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold text-zinc-500 mb-1.5 uppercase tracking-widest">CNPJ</label>
+                        <input
+                          placeholder="00.000.000/0000-00"
+                          value={editCNPJ}
+                          onChange={(e) => setEditCNPJ(e.target.value)}
+                          className="w-full bg-[#0a0a0a] border border-zinc-800 rounded-xl px-4 py-2.5 text-sm text-white focus:border-orange-500 outline-none transition-all"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Perfil & Origem */}
+                  <div className="space-y-4">
+                    <h4 className="text-[10px] font-bold text-orange-500/70 tracking-[0.2em] uppercase">Perfil & Origem</h4>
+                    <div className="space-y-3">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-1.5 uppercase">Tipo</label>
+                          <select
+                            value={editTipo}
+                            onChange={(e) => setEditTipo(e.target.value)}
+                            className={`w-full bg-[#0a0a0a] border border-zinc-800 rounded-xl px-3 py-2.5 ${isDarkMode ? "text-white" : "text-zinc-900"} focus:outline-none focus:border-orange-500 transition-colors text-sm`}
+                          >
+                            <option value="Particular">Particular</option>
+                            <option value="Convênio">Convênio</option>
+                            <option value="Cortesia">Cortesia</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-1.5 uppercase">Convênio</label>
+                          <input
+                            type="text"
+                            value={editConvenio}
+                            onChange={(e) => setEditConvenio(e.target.value)}
+                            className={`w-full bg-[#0a0a0a] border border-zinc-800 rounded-xl px-4 py-2.5 ${isDarkMode ? "text-white" : "text-zinc-900"} focus:outline-none focus:border-orange-500 transition-colors text-sm`}
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-1.5 uppercase">Tags</label>
+                        <input
+                          type="text"
+                          value={editTags}
+                          onChange={(e) => setEditTags(e.target.value)}
+                          placeholder="VIP, Botox, Lipo..."
+                          className={`w-full bg-[#0a0a0a] border border-zinc-800 rounded-xl px-4 py-2.5 ${isDarkMode ? "text-white" : "text-zinc-900"} focus:outline-none focus:border-orange-500 transition-colors text-sm`}
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-1.5 uppercase">Origem</label>
+                          <input
+                            type="text"
+                            value={editOrigem}
+                            onChange={(e) => setEditOrigem(e.target.value)}
+                            placeholder="Instagram, Indicação..."
+                            className={`w-full bg-[#0a0a0a] border border-zinc-800 rounded-xl px-4 py-2.5 ${isDarkMode ? "text-white" : "text-zinc-900"} focus:outline-none focus:border-orange-500 transition-colors text-sm`}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-1.5 uppercase">Cor/Etnia</label>
+                          <input
+                            type="text"
+                            value={editCor}
+                            onChange={(e) => setEditCor(e.target.value)}
+                            className={`w-full bg-[#0a0a0a] border border-zinc-800 rounded-xl px-4 py-2.5 ${isDarkMode ? "text-white" : "text-zinc-900"} focus:outline-none focus:border-orange-500 transition-colors text-sm`}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Contato */}
+                  <div className="space-y-4">
+                    <h4 className="text-[10px] font-bold text-orange-500/70 tracking-[0.2em] uppercase">Contato</h4>
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-1.5 uppercase">Telefone</label>
+                        <input
+                          type="text"
+                          value={editPhone}
+                          onChange={e => setEditPhone(e.target.value)}
+                          placeholder="(00) 00000-0000"
+                          className={`w-full bg-[#0a0a0a] border border-zinc-800 rounded-xl px-4 py-2.5 ${isDarkMode ? "text-white" : "text-zinc-900"} focus:outline-none focus:border-orange-500 transition-colors text-sm`}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-1.5 uppercase">E-mail</label>
+                        <input
+                          type="email"
+                          value={editEmail}
+                          onChange={e => setEditEmail(e.target.value)}
+                          placeholder="paciente@email.com"
+                          className={`w-full bg-[#0a0a0a] border border-zinc-800 rounded-xl px-4 py-2.5 ${isDarkMode ? "text-white" : "text-zinc-900"} focus:outline-none focus:border-orange-500 transition-colors text-sm`}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Dados Pessoais */}
+                  <div className="space-y-4">
+                    <h4 className="text-[10px] font-bold text-orange-500/70 tracking-[0.2em] uppercase">Dados Pessoais</h4>
+                    <div className="space-y-3">
+                      <div className="grid grid-cols-2 gap-3">
+                        <MiniDatePicker
+                          label="Nascimento"
+                          value={editBirthDate}
+                          onChange={(val) => {
+                            setEditBirthDate(val);
+                            setEditIdade(calculateAge(val));
+                          }}
+                          isDarkMode={isDarkMode}
+                        />
+                        <div>
+                          <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-1.5 uppercase">Idade</label>
+                          <input
+                            type="number"
+                            value={editIdade}
+                            onChange={(e) => setEditIdade(e.target.value)}
+                            className={`w-full bg-[#0a0a0a] border border-zinc-800 rounded-xl px-4 py-2.5 ${isDarkMode ? "text-white" : "text-zinc-900"} focus:outline-none focus:border-orange-500 transition-colors text-sm`}
+                          />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-1.5 uppercase">Sexo</label>
+                          <select
+                            value={editSexo}
+                            onChange={(e) => setEditSexo(e.target.value)}
+                            className={`w-full bg-[#0a0a0a] border border-zinc-800 rounded-xl px-3 py-2.5 ${isDarkMode ? "text-white" : "text-zinc-900"} focus:outline-none focus:border-orange-500 transition-colors text-sm`}
+                          >
+                            <option value="">Selecione...</option>
+                            <option value="Feminino">Feminino</option>
+                            <option value="Masculino">Masculino</option>
+                            <option value="Outro">Outro</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-1.5 uppercase">Estado Civil</label>
+                          <input
+                            type="text"
+                            value={editEstadoCivil}
+                            onChange={(e) => setEditEstadoCivil(e.target.value)}
+                            className={`w-full bg-[#0a0a0a] border border-zinc-800 rounded-xl px-4 py-2.5 ${isDarkMode ? "text-white" : "text-zinc-900"} focus:outline-none focus:border-orange-500 transition-colors text-sm`}
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-1.5 uppercase">Profissão</label>
+                        <input
+                          type="text"
+                          value={editProfissao}
+                          onChange={(e) => setEditProfissao(e.target.value)}
+                          className={`w-full bg-[#0a0a0a] border border-zinc-800 rounded-xl px-4 py-2.5 ${isDarkMode ? "text-white" : "text-zinc-900"} focus:outline-none focus:border-orange-500 transition-colors text-sm`}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Localização */}
+                  <div className="space-y-4">
+                    <h4 className="text-[10px] font-bold text-orange-500/70 tracking-[0.2em] uppercase">Localização</h4>
+                    <div>
+                      <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-1.5 uppercase">Endereço Completo</label>
+                      <textarea
+                        value={editEndereco}
+                        onChange={(e) => setEditEndereco(e.target.value)}
+                        className={`w-full bg-[#0a0a0a] border border-zinc-800 rounded-xl px-4 py-2.5 ${isDarkMode ? "text-white" : "text-zinc-900"} focus:outline-none focus:border-orange-500 transition-colors text-sm resize-none h-20`}
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Observações Gerais</label>
+                    <textarea
+                      value={editNotes}
+                      onChange={e => setEditNotes(e.target.value)}
+                      placeholder="Alergias, queixas principais..."
+                      className={`w-full bg-[#0a0a0a] border border-zinc-800 rounded-xl px-4 py-3 ${isDarkMode ? "text-white" : "text-zinc-900"} focus:outline-none focus:border-orange-500 transition-colors text-sm resize-none h-24`}
+                    />
+                  </div>
                 </div>
 
                 <button
@@ -2361,8 +3087,8 @@ const ClientesView = ({ patients, setPatients, columns, onGenerateReceituario, i
                   disabled={isSaved}
                   className={`w-full ${isSaved
                     ? "bg-green-500/20 text-green-500 border-green-500/30 font-bold"
-                    : `bg-[#0a0a0a] hover:bg-zinc-900 border-zinc-800 ${isDarkMode ? "text-white" : "text-zinc-900"} font-semibold`
-                    } border py-3 rounded-xl transition-all duration-300 mt-4 text-sm`}
+                    : `bg-gradient-to-r from-orange-400 to-orange-600 text-black font-bold shadow-[0_0_20px_rgba(249,115,22,0.2)]`
+                    } border-none py-4 rounded-2xl transition-all duration-300 mt-4 text-sm uppercase tracking-widest`}
                 >
                   {isSaved ? "Salvo com sucesso ✓" : "Salvar Cadastro"}
                 </button>

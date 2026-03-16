@@ -1,7 +1,6 @@
 import { createUserWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
-import { collection, getDocs, limit, setDoc, doc, getDoc, serverTimestamp, query } from "firebase/firestore";
+import { collection, getDocs, limit, setDoc, doc, getDoc, serverTimestamp, query, where } from "firebase/firestore";
 import { auth, db } from "./firebase";
-import { query, where } from "firebase/firestore";
 
 export const verificarEmailExiste = async (email: string): Promise<boolean> => {
     try {
