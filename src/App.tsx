@@ -297,10 +297,11 @@ const MiniDatePicker = ({ value, onChange, isDarkMode = true, label }: { value: 
   );
 };
 
-const NavItem = ({ icon, label, active, onClick, isDarkMode = true }: { icon: React.ReactNode, label: string, active?: boolean, onClick: () => void, isDarkMode?: boolean }) => (
+const NavItem = ({ icon, label, active, onClick, isDarkMode = true, collapsed = false }: { icon: React.ReactNode, label: string, active?: boolean, onClick: () => void, isDarkMode?: boolean, collapsed?: boolean }) => (
   <button
+    title={collapsed ? label : undefined}
     onClick={onClick}
-    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors text-sm font-medium border ${active ? 'border-orange-900/30' : 'border-transparent'}`}
+    className={`w-full flex items-center ${collapsed ? 'justify-center px-0' : 'gap-3 px-3'} py-2.5 rounded-lg transition-colors text-sm font-medium border ${active ? 'border-orange-900/30' : 'border-transparent'} relative`}
     style={{
       backgroundColor: active ? 'var(--sidebar-active-bg)' : 'transparent',
       color: active ? 'var(--sidebar-active-text)' : 'var(--sidebar-text)',
@@ -309,8 +310,9 @@ const NavItem = ({ icon, label, active, onClick, isDarkMode = true }: { icon: Re
     onMouseLeave={(e) => { if (!active) { (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'transparent'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--sidebar-text)'; } }}
   >
     {icon}
-    <span>{label}</span>
-    {active && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-orange-500" />}
+    {!collapsed && <span>{label}</span>}
+    {active && !collapsed && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-orange-500" />}
+    {active && collapsed && <div className="absolute right-1 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-orange-500" />}
   </button>
 );
 
@@ -9437,6 +9439,7 @@ export default function App() {
   const [selectedPatientForReceituario, setSelectedPatientForReceituario] = useState<string | null>(null);
   const [isAssistantOpen, setIsAssistantOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [chatMessage, setChatMessage] = useState('');
   const [chatHistory, setChatHistory] = useState([
     { role: 'assistant', text: 'Olá! Sou o Estetix AI. Como posso ajudar com a gestão da sua clínica hoje?' }
@@ -9839,14 +9842,23 @@ export default function App() {
       )}
 
       {/* Sidebar */}
-      <aside className={`fixed lg:relative flex flex-col z-50 h-[100dvh] w-64 transform transition-transform duration-300 ease-in-out ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`} style={{ borderRight: '1px solid var(--sidebar-border)', backgroundColor: 'var(--sidebar-bg)' }}>
+      <aside className={`fixed lg:relative flex flex-col z-50 h-[100dvh] transition-all duration-300 ease-in-out z-50 ${isSidebarCollapsed ? 'w-20' : 'w-64'} ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`} style={{ borderRight: '1px solid var(--sidebar-border)', backgroundColor: 'var(--sidebar-bg)' }}>
+        {/* Desktop Collapse Button */}
+        <button
+          onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+          className="hidden lg:flex absolute -right-3.5 top-7 w-7 h-7 items-center justify-center rounded-full border transition-all z-50 shadow-sm hover:border-orange-500/50 hover:text-orange-500 group"
+          style={{ borderColor: 'var(--sidebar-border)', backgroundColor: 'var(--sidebar-bg)', color: 'var(--text-secondary)' }}
+        >
+          <ChevronLeft size={14} className={`transition-transform duration-300 ${isSidebarCollapsed ? 'rotate-180' : ''}`} />
+        </button>
+
         {/* Logo */}
-        <div className="h-20 flex items-center justify-between px-6 shrink-0" style={{ borderBottom: '1px solid var(--border-default)' }}>
+        <div className={`h-20 flex items-center ${isSidebarCollapsed ? 'justify-center px-2' : 'justify-between px-6'} shrink-0`} style={{ borderBottom: '1px solid var(--border-default)' }}>
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-orange-500 rounded flex items-center justify-center">
+            <div className="w-8 h-8 bg-orange-500 rounded flex shrink-0 items-center justify-center">
               <Asterisk style={{ color: 'var(--bg-base)' }} size={20} />
             </div>
-            <span className="font-semibold text-xl tracking-tight" style={{ color: 'var(--text-primary)' }}>EstéticaPro</span>
+            {!isSidebarCollapsed && <span className="font-semibold text-xl tracking-tight transition-opacity duration-300" style={{ color: 'var(--text-primary)' }}>EstéticaPro</span>}
           </div>
           <button onClick={() => setIsMobileMenuOpen(false)} className="lg:hidden text-[var(--text-secondary)] hover:text-[var(--text-primary)]">
             <X size={20} />
@@ -9855,38 +9867,41 @@ export default function App() {
 
         {/* Menu */}
         <div className="flex-1 overflow-y-auto py-6 px-4 flex flex-col gap-1 custom-scrollbar">
-          <div className="text-[10px] font-bold mb-2 px-2 tracking-widest uppercase" style={{ color: 'var(--text-tertiary)' }}>Menu</div>
-          {activeUserPermissions.dashboard?.view && <NavItem icon={<LayoutDashboard size={18} />} label="Dashboard" active={activeMenu === 'Dashboard'} onClick={() => setActiveMenu('Dashboard')} isDarkMode={isDarkMode} />}
-          {activeUserPermissions.agenda?.view && <NavItem icon={<Calendar size={18} />} label="Agenda" active={activeMenu === 'Agenda'} onClick={() => setActiveMenu('Agenda')} isDarkMode={isDarkMode} />}
-          {activeUserPermissions.crm?.view && <NavItem icon={<BarChart3 size={18} />} label="CRM" active={activeMenu === 'CRM'} onClick={() => setActiveMenu('CRM')} isDarkMode={isDarkMode} />}
-          {activeUserPermissions.clientes?.view && <NavItem icon={<Users size={18} />} label="Clientes" active={activeMenu === 'Clientes'} onClick={() => setActiveMenu('Clientes')} isDarkMode={isDarkMode} />}
-          {activeUserPermissions.receituario?.view && <NavItem icon={<FileSignature size={18} />} label="Receituário" active={activeMenu === 'Receituário'} onClick={() => setActiveMenu('Receituário')} isDarkMode={isDarkMode} />}
-          {activeUserPermissions.profissionais?.view && <NavItem icon={<User size={18} />} label="Profissionais" active={activeMenu === 'Profissionais'} onClick={() => setActiveMenu('Profissionais')} isDarkMode={isDarkMode} />}
-          {activeUserPermissions.servicos?.view && <NavItem icon={<Briefcase size={18} />} label="Serviços" active={activeMenu === 'Serviços'} onClick={() => setActiveMenu('Serviços')} isDarkMode={isDarkMode} />}
-          {activeUserPermissions.estoque?.view && <NavItem icon={<Box size={18} />} label="Estoque" active={activeMenu === 'Estoque'} onClick={() => setActiveMenu('Estoque')} isDarkMode={isDarkMode} />}
-          {activeUserPermissions.financeiro?.view && <NavItem icon={<DollarSign size={18} />} label="Financeiro" active={activeMenu === 'Financeiro'} onClick={() => setActiveMenu('Financeiro')} isDarkMode={isDarkMode} />}
-          {activeUserPermissions.relatorios?.view && <NavItem icon={<PieChart size={18} />} label="Relatórios" active={activeMenu === 'Relatórios'} onClick={() => setActiveMenu('Relatórios')} isDarkMode={isDarkMode} />}
+          <div className={`text-[10px] font-bold mb-2 px-2 tracking-widest uppercase transition-opacity duration-300 ${isSidebarCollapsed ? 'opacity-0 h-0 hidden' : 'opacity-100'}`} style={{ color: 'var(--text-tertiary)' }}>Menu</div>
+          {activeUserPermissions.dashboard?.view && <NavItem icon={<LayoutDashboard size={18} />} label="Dashboard" active={activeMenu === 'Dashboard'} onClick={() => setActiveMenu('Dashboard')} isDarkMode={isDarkMode} collapsed={isSidebarCollapsed} />}
+          {activeUserPermissions.agenda?.view && <NavItem icon={<Calendar size={18} />} label="Agenda" active={activeMenu === 'Agenda'} onClick={() => setActiveMenu('Agenda')} isDarkMode={isDarkMode} collapsed={isSidebarCollapsed} />}
+          {activeUserPermissions.crm?.view && <NavItem icon={<BarChart3 size={18} />} label="CRM" active={activeMenu === 'CRM'} onClick={() => setActiveMenu('CRM')} isDarkMode={isDarkMode} collapsed={isSidebarCollapsed} />}
+          {activeUserPermissions.clientes?.view && <NavItem icon={<Users size={18} />} label="Clientes" active={activeMenu === 'Clientes'} onClick={() => setActiveMenu('Clientes')} isDarkMode={isDarkMode} collapsed={isSidebarCollapsed} />}
+          {activeUserPermissions.receituario?.view && <NavItem icon={<FileSignature size={18} />} label="Receituário" active={activeMenu === 'Receituário'} onClick={() => setActiveMenu('Receituário')} isDarkMode={isDarkMode} collapsed={isSidebarCollapsed} />}
+          {activeUserPermissions.profissionais?.view && <NavItem icon={<User size={18} />} label="Profissionais" active={activeMenu === 'Profissionais'} onClick={() => setActiveMenu('Profissionais')} isDarkMode={isDarkMode} collapsed={isSidebarCollapsed} />}
+          {activeUserPermissions.servicos?.view && <NavItem icon={<Briefcase size={18} />} label="Serviços" active={activeMenu === 'Serviços'} onClick={() => setActiveMenu('Serviços')} isDarkMode={isDarkMode} collapsed={isSidebarCollapsed} />}
+          {activeUserPermissions.estoque?.view && <NavItem icon={<Box size={18} />} label="Estoque" active={activeMenu === 'Estoque'} onClick={() => setActiveMenu('Estoque')} isDarkMode={isDarkMode} collapsed={isSidebarCollapsed} />}
+          {activeUserPermissions.financeiro?.view && <NavItem icon={<DollarSign size={18} />} label="Financeiro" active={activeMenu === 'Financeiro'} onClick={() => setActiveMenu('Financeiro')} isDarkMode={isDarkMode} collapsed={isSidebarCollapsed} />}
+          {activeUserPermissions.relatorios?.view && <NavItem icon={<PieChart size={18} />} label="Relatórios" active={activeMenu === 'Relatórios'} onClick={() => setActiveMenu('Relatórios')} isDarkMode={isDarkMode} collapsed={isSidebarCollapsed} />}
         </div>
 
         {/* Bottom Menu */}
         <div className="p-4 flex flex-col gap-1 shrink-0" style={{ borderTop: '1px solid var(--border-default)' }}>
+          
           <button
             onClick={() => setIsDarkMode(!isDarkMode)}
-            className="flex items-center gap-3 px-3 py-2 rounded-lg transition-all mb-1"
+            title={isSidebarCollapsed ? (isDarkMode ? 'Modo Claro' : 'Modo Escuro') : undefined}
+            className={`flex items-center ${isSidebarCollapsed ? 'justify-center px-0' : 'gap-3 px-3'} py-2 rounded-lg transition-all mb-1`}
             style={{ color: 'var(--sidebar-text)' }}
             onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = 'var(--sidebar-hover-text)'; (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'var(--sidebar-hover-bg)'; }}
             onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = 'var(--sidebar-text)'; (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'transparent'; }}
           >
             {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
-            <span className="text-sm font-medium">{isDarkMode ? 'Modo Claro' : 'Modo Escuro'}</span>
+            {!isSidebarCollapsed && <span className="text-sm font-medium">{isDarkMode ? 'Modo Claro' : 'Modo Escuro'}</span>}
           </button>
+          
           {role === 'admin' && (
             <NavItem icon={<Settings size={18} />} label="Configurações" active={activeMenu === 'Configurações'} onClick={() => {
               setActiveMenu('Configurações');
               setActiveSettingsMenu('Conta & Organização');
-            }} isDarkMode={isDarkMode} />
+            }} isDarkMode={isDarkMode} collapsed={isSidebarCollapsed} />
           )}
-          <NavItem icon={<LogOut size={18} />} label="Sair" active={false} onClick={handleLogout} isDarkMode={isDarkMode} />
+          <NavItem icon={<LogOut size={18} />} label="Sair" active={false} onClick={handleLogout} isDarkMode={isDarkMode} collapsed={isSidebarCollapsed} />
         </div>
       </aside>
 
