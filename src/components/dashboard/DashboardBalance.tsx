@@ -8,6 +8,7 @@ interface DashboardBalanceProps {
   expenses?: FinanceRecord[];
   appointments?: AppointmentRecord[];
   services?: ServiceRecord[];
+  isDarkMode?: boolean;
 }
 
 function getAppointmentValue(app: AppointmentRecord, services: ServiceRecord[]): number {
@@ -26,7 +27,8 @@ export const DashboardBalance: React.FC<DashboardBalanceProps> = ({
   activePeriod, 
   expenses = [], 
   appointments = [], 
-  services = [] 
+  services = [],
+  isDarkMode = true
 }) => {
   const [showValues, setShowValues] = useState<boolean>(true);
   const [analysisPeriod, setAnalysisPeriod] = useState<number>(0);
@@ -179,12 +181,12 @@ export const DashboardBalance: React.FC<DashboardBalanceProps> = ({
       {/* Período de Análise Section */}
       <div className="flex flex-col gap-2">
         <h3 className="text-[10px] font-bold text-neutral-500 tracking-widest uppercase">Período de Análise</h3>
-        <div className="flex items-center justify-between bg-black border border-white/5 p-1.5 rounded-xl">
-          <button onClick={handlePrev} className="p-1.5 hover:bg-white/5 rounded-lg transition-colors">
+        <div className={`flex items-center justify-between border p-1.5 rounded-xl ${isDarkMode ? 'bg-black border-white/5' : 'bg-neutral-100 border-neutral-200'}`}>
+          <button onClick={handlePrev} className={`p-1.5 rounded-lg transition-colors ${isDarkMode ? 'hover:bg-white/5' : 'hover:bg-black/5'}`}>
             <ChevronLeft size={14} className="text-neutral-500" />
           </button>
-          <span className="text-[11px] font-bold text-neutral-400">{currentPeriods[analysisPeriod]}</span>
-          <button onClick={handleNext} className="p-1.5 hover:bg-white/5 rounded-lg transition-colors">
+          <span className={`text-[11px] font-bold ${isDarkMode ? 'text-neutral-400' : 'text-neutral-600'}`}>{currentPeriods[analysisPeriod]}</span>
+          <button onClick={handleNext} className={`p-1.5 rounded-lg transition-colors ${isDarkMode ? 'hover:bg-white/5' : 'hover:bg-black/5'}`}>
             <ChevronRight size={14} className="text-neutral-500" />
           </button>
         </div>
@@ -197,34 +199,34 @@ export const DashboardBalance: React.FC<DashboardBalanceProps> = ({
           <Info size={12} className="text-neutral-600" />
         </div>
 
-        <div className="bg-neutral-900/30 border border-white/5 rounded-2xl p-5 flex flex-col gap-6 relative overflow-hidden group">
+        <div className={`border rounded-2xl p-5 flex flex-col gap-6 relative overflow-hidden group shadow-sm transition-all duration-300 ${isDarkMode ? 'bg-neutral-900/40 border-white/5' : 'bg-white border-neutral-200'}`}>
           {/* Main Balance Display */}
           <div className="flex flex-col gap-1">
             <div className="flex justify-between items-center">
-              <span className="text-3xl font-light text-white font-bricolage tracking-tight">
+              <span className={`text-3xl font-light font-bricolage tracking-tight ${isDarkMode ? 'text-white' : 'text-neutral-900'}`}>
                 {showValues ? formatCurrency(financials.balanco) : 'R$ ••••••••'}
               </span>
               <button
                 onClick={() => setShowValues(!showValues)}
-                className="text-neutral-600 hover:text-neutral-400 transition-colors"
+                className={`transition-colors ${isDarkMode ? 'text-neutral-600 hover:text-neutral-400' : 'text-neutral-400 hover:text-neutral-600'}`}
               >
                 {showValues ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
             </div>
             <p className="text-[10px] text-neutral-500">
-              de <span className="text-neutral-300 font-bold">{showValues ? formatCurrency(financials.previsao) : 'R$ •••'}</span> previstos
+              de <span className={`${isDarkMode ? 'text-neutral-300' : 'text-neutral-600'} font-bold`}>{showValues ? formatCurrency(financials.previsao) : 'R$ •••'}</span> previstos
             </p>
           </div>
 
           {/* Detailed Stats Grid */}
-          <div className="grid grid-cols-2 gap-3 pt-5 border-t border-white/5">
+          <div className={`grid grid-cols-2 gap-3 pt-5 border-t ${isDarkMode ? 'border-white/5' : 'border-neutral-100'}`}>
             {/* Entradas */}
             <div className="flex flex-col gap-1">
               <span className="text-[9px] font-bold text-neutral-500 tracking-wider uppercase mb-0.5">Entradas:</span>
-              <span className="text-sm font-bold text-white leading-none">
+              <span className={`text-sm font-bold leading-none ${isDarkMode ? 'text-white' : 'text-neutral-900'}`}>
                 {showValues ? formatCurrency(financials.totalEntradas) : 'R$ •••'}
               </span>
-              <div className="w-4 h-4 rounded bg-zinc-800/40 flex items-center justify-center my-0.5">
+              <div className={`w-4 h-4 rounded flex items-center justify-center my-0.5 ${isDarkMode ? 'bg-zinc-800/40' : 'bg-emerald-50'}`}>
                 <ArrowUpRight size={10} className="text-emerald-500" />
               </div>
               <span className="text-[9px] text-neutral-500 leading-tight">
@@ -238,7 +240,7 @@ export const DashboardBalance: React.FC<DashboardBalanceProps> = ({
               <span className="text-sm font-bold text-red-500 leading-none">
                 {showValues ? `-${formatCurrency(financials.totalSaidas)}` : '-R$ •••'}
               </span>
-              <div className="w-4 h-4 rounded bg-zinc-800/40 flex items-center justify-center my-0.5">
+              <div className={`w-4 h-4 rounded flex items-center justify-center my-0.5 ${isDarkMode ? 'bg-zinc-800/40' : 'bg-red-50'}`}>
                 <ArrowDownRight size={10} className="text-red-500" />
               </div>
               <span className="text-[9px] text-neutral-500 leading-tight">

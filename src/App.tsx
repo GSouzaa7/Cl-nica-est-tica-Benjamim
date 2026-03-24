@@ -802,7 +802,7 @@ const DashboardView = ({
           </div>
 
           {/* Unified Cash Flow Card (The "Balloon") */}
-          <div className="bg-[#0A0A0A] border border-white/10 rounded-3xl p-8 mb-4 transition-all duration-500 hover:border-white/20">
+          <div className={`border rounded-3xl p-8 mb-4 transition-all duration-500 shadow-sm ${isDarkMode ? 'bg-[#0A0A0A] border-white/10 hover:border-white/20' : 'bg-white border-neutral-200 hover:border-neutral-300'}`}>
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
               {/* Main Content (Chart) */}
               <div className="lg:col-span-2">
@@ -812,16 +812,18 @@ const DashboardView = ({
                   expenses={expenses}
                   appointments={appointments}
                   services={services}
+                  isDarkMode={isDarkMode}
                 />
               </div>
 
               {/* Sidebar (Balance) */}
-              <div className="lg:col-span-1 border-l border-white/5 pl-6 h-full">
+              <div className={`lg:col-span-1 border-l pl-6 h-full transition-colors ${isDarkMode ? 'border-white/5' : 'border-black/5'}`}>
                 <DashboardBalance
                   activePeriod={activePeriod}
                   expenses={expenses}
                   appointments={appointments}
                   services={services}
+                  isDarkMode={isDarkMode}
                 />
               </div>
             </div>
@@ -829,14 +831,14 @@ const DashboardView = ({
 
           {/* Row 1: Separate Balloons for Widgets */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <div className="bg-[#0A0A0A] border border-white/10 rounded-2xl p-6 transition-all hover:border-white/20">
+            <div className={`border rounded-2xl p-6 transition-all shadow-sm ${isDarkMode ? 'bg-[#0A0A0A] border-white/10 hover:border-white/20' : 'bg-white border-neutral-200 hover:border-neutral-300'}`}>
               <UpcomingAppointmentsWidget
                 appointments={appointments}
                 services={services}
                 isDarkMode={isDarkMode}
               />
             </div>
-            <div className="bg-[#0A0A0A] border border-white/10 rounded-2xl p-6 transition-all hover:border-white/20">
+            <div className={`border rounded-2xl p-6 transition-all shadow-sm ${isDarkMode ? 'bg-[#0A0A0A] border-white/10 hover:border-white/20' : 'bg-white border-neutral-200 hover:border-neutral-300'}`}>
               <UpcomingBirthdaysWidget
                 patients={patients}
                 isDarkMode={isDarkMode}

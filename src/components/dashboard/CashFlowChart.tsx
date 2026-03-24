@@ -28,6 +28,7 @@ interface CashFlowChartProps {
   expenses?: FinanceRecord[];
   appointments?: AppointmentRecord[];
   services?: ServiceRecord[];
+  isDarkMode?: boolean;
 }
 
 function getAppointmentValue(app: any, services: any[]): number {
@@ -190,7 +191,14 @@ function buildChartData(
   });
 }
 
-export const CashFlowChart = ({ activePeriod, setActivePeriod, expenses = [], appointments = [], services = [] }: CashFlowChartProps) => {
+export const CashFlowChart = ({ 
+  activePeriod, 
+  setActivePeriod, 
+  expenses = [], 
+  appointments = [], 
+  services = [],
+  isDarkMode = true 
+}: CashFlowChartProps) => {
   const [chartType, setChartType] = useState<'line' | 'bar'>('bar');
 
   const currentData = useMemo(
@@ -205,12 +213,12 @@ export const CashFlowChart = ({ activePeriod, setActivePeriod, expenses = [], ap
       {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div className="flex items-center gap-2">
-          <h2 className="text-2xl font-light text-white font-bricolage tracking-tight whitespace-nowrap underline-offset-8">Fluxo de Caixa</h2>
-          <Info className="w-4 h-4 text-neutral-500 cursor-help" />
+          <h2 className={`text-2xl font-light font-bricolage tracking-tight whitespace-nowrap underline-offset-8 transition-colors ${isDarkMode ? 'text-white' : 'text-neutral-900'}`}>Fluxo de Caixa</h2>
+          <Info size={14} className="text-neutral-500 cursor-help" />
         </div>
 
         <div className="flex items-center gap-4">
-          <div className="flex bg-neutral-900/50 p-1 rounded-xl border border-white/5">
+          <div className={`flex p-1 rounded-xl border transition-colors ${isDarkMode ? 'bg-neutral-900/50 border-white/5' : 'bg-neutral-100 border-neutral-200'}`}>
             {periods.map((period) => (
               <button
                 key={period}
@@ -218,7 +226,7 @@ export const CashFlowChart = ({ activePeriod, setActivePeriod, expenses = [], ap
                 className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all duration-300 ${
                   activePeriod === period
                     ? 'bg-orange-600 text-white shadow-[0_0_15px_rgba(234,88,12,0.4)]'
-                    : 'text-neutral-500 hover:text-neutral-300'
+                    : `hover:text-neutral-300 ${isDarkMode ? 'text-neutral-500' : 'text-neutral-400 hover:text-neutral-600'}`
                 }`}
               >
                 {period}
@@ -232,7 +240,7 @@ export const CashFlowChart = ({ activePeriod, setActivePeriod, expenses = [], ap
               className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${
                 chartType === 'line' 
                   ? 'bg-orange-600 text-white shadow-[0_0_15px_rgba(234,88,12,0.4)]' 
-                  : 'bg-neutral-900 border border-white/5 text-neutral-500 hover:border-white/20'
+                  : `border transition-colors ${isDarkMode ? 'bg-neutral-900 border-white/5 text-neutral-500 hover:border-white/20' : 'bg-neutral-50 border-neutral-200 text-neutral-400 hover:border-neutral-300'}`
               }`}
             >
               <LineChartIcon className="w-4 h-4" />
@@ -242,7 +250,7 @@ export const CashFlowChart = ({ activePeriod, setActivePeriod, expenses = [], ap
               className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${
                 chartType === 'bar' 
                   ? 'bg-orange-600 text-white shadow-[0_0_15px_rgba(234,88,12,0.4)]' 
-                  : 'bg-neutral-900 border border-white/5 text-neutral-500 hover:border-white/20'
+                  : `border transition-colors ${isDarkMode ? 'bg-neutral-900 border-white/5 text-neutral-500 hover:border-white/20' : 'bg-neutral-50 border-neutral-200 text-neutral-400 hover:border-neutral-300'}`
               }`}
             >
               <BarChart3 className="w-4 h-4" />
@@ -261,11 +269,11 @@ export const CashFlowChart = ({ activePeriod, setActivePeriod, expenses = [], ap
                 <feComposite in="SourceGraphic" in2="blur" operator="over" />
               </filter>
             </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="#ffffff08" vertical={false} />
+            <CartesianGrid strokeDasharray="3 3" stroke={isDarkMode ? "#ffffff10" : "#00000010"} vertical={false} />
             <XAxis
               dataKey="name"
-              stroke="#ffffff20"
-              tick={{ fill: '#ffffff40', fontSize: 9 }}
+              stroke={isDarkMode ? "#ffffff20" : "#00000020"}
+              tick={{ fill: isDarkMode ? '#ffffff60' : '#525252', fontSize: 10, fontWeight: 500 }}
               axisLine={false}
               tickLine={false}
               dy={activePeriod === 'TRIMESTRAL' ? 5 : 15}
@@ -275,8 +283,8 @@ export const CashFlowChart = ({ activePeriod, setActivePeriod, expenses = [], ap
               minTickGap={0}
             />
             <YAxis
-              stroke="#ffffff20"
-              tick={{ fill: '#ffffff40', fontSize: 10 }}
+              stroke={isDarkMode ? "#ffffff20" : "#00000020"}
+              tick={{ fill: isDarkMode ? '#ffffff60' : '#525252', fontSize: 10, fontWeight: 500 }}
               axisLine={false}
               tickLine={false}
               tickFormatter={(value) => `R$ ${value >= 1000 || value <= -1000 ? (value / 1000).toFixed(0) + 'k' : value}`}
@@ -284,21 +292,34 @@ export const CashFlowChart = ({ activePeriod, setActivePeriod, expenses = [], ap
             />
             <Tooltip
               contentStyle={{
-                backgroundColor: '#0A0A0A',
-                border: '1px solid rgba(255,255,255,0.1)',
+                backgroundColor: isDarkMode ? '#0A0A0A' : '#ffffff',
+                border: isDarkMode ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(0,0,0,0.1)',
                 borderRadius: '12px',
                 fontSize: '12px',
+                boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
+                color: isDarkMode ? '#fff' : '#000'
               }}
               itemStyle={{ padding: '2px 0' }}
-              formatter={(value: number) => [`R$ ${value.toLocaleString('pt-BR')}`, '']}
+              labelStyle={{ color: isDarkMode ? '#888' : '#666', marginBottom: '4px', fontWeight: 'bold' }}
+              formatter={(value: number, name: string) => {
+                const labelMap: Record<string, string> = {
+                  entradas: 'Entradas',
+                  entradasPrevistas: 'Entradas Previstas',
+                  saidas: 'Saídas',
+                  saidasPrevistas: 'Saídas Previstas',
+                  saldo: 'Saldo Atual',
+                  saldoPrevisto: 'Saldo Previsto'
+                };
+                return [`R$ ${value.toLocaleString('pt-BR')}`, labelMap[name] || name];
+              }}
             />
             
             {chartType === 'line' ? (
               <>
                 <Line type="monotone" dataKey="entradas" stroke={COLOR_ENTRADA} strokeWidth={2} dot={{ r: 3, fill: COLOR_ENTRADA, strokeWidth: 0 }} activeDot={{ r: 5 }} />
-                <Line type="monotone" dataKey="entradasPrevistas" stroke={COLOR_ENTRADA_PREV} strokeWidth={2} strokeDasharray="5 5" dot={{ r: 3, fill: '#0A0A0A', stroke: COLOR_ENTRADA_PREV, strokeWidth: 2 }} activeDot={{ r: 5 }} />
+                <Line type="monotone" dataKey="entradasPrevistas" stroke={COLOR_ENTRADA_PREV} strokeWidth={2} strokeDasharray="5 5" dot={{ r: 3, fill: isDarkMode ? '#0A0A0A' : '#fff', stroke: COLOR_ENTRADA_PREV, strokeWidth: 2 }} activeDot={{ r: 5 }} />
                 <Line type="monotone" dataKey="saidas" stroke={COLOR_SAIDA} strokeWidth={2} dot={{ r: 3, fill: COLOR_SAIDA, strokeWidth: 0 }} activeDot={{ r: 5 }} />
-                <Line type="monotone" dataKey="saidasPrevistas" stroke={COLOR_SAIDA_PREV} strokeWidth={2} strokeDasharray="5 5" dot={{ r: 3, fill: '#0A0A0A', stroke: COLOR_SAIDA_PREV, strokeWidth: 2 }} activeDot={{ r: 5 }} />
+                <Line type="monotone" dataKey="saidasPrevistas" stroke={COLOR_SAIDA_PREV} strokeWidth={2} strokeDasharray="5 5" dot={{ r: 3, fill: isDarkMode ? '#0A0A0A' : '#fff', stroke: COLOR_SAIDA_PREV, strokeWidth: 2 }} activeDot={{ r: 5 }} />
               </>
             ) : (
               <>
@@ -315,7 +336,7 @@ export const CashFlowChart = ({ activePeriod, setActivePeriod, expenses = [], ap
               stroke={COLOR_SALDO} 
               strokeWidth={3} 
               filter="url(#glow)"
-              dot={{ r: 4, fill: COLOR_SALDO, strokeWidth: 2, stroke: '#0A0A0A' }} 
+              dot={{ r: 4, fill: COLOR_SALDO, strokeWidth: 2, stroke: isDarkMode ? '#0A0A0A' : '#fff' }} 
               activeDot={{ r: 6, strokeWidth: 0 }}
             />
             <Line 
@@ -324,7 +345,7 @@ export const CashFlowChart = ({ activePeriod, setActivePeriod, expenses = [], ap
               stroke={COLOR_SALDO_PREV} 
               strokeWidth={2} 
               strokeDasharray="5 5" 
-              dot={{ r: 3, fill: '#0A0A0A', stroke: COLOR_SALDO_PREV, strokeWidth: 2 }}
+              dot={{ r: 3, fill: isDarkMode ? '#0A0A0A' : '#fff', stroke: COLOR_SALDO_PREV, strokeWidth: 2 }}
               activeDot={{ r: 5 }}
             />
           </ComposedChart>
@@ -333,12 +354,12 @@ export const CashFlowChart = ({ activePeriod, setActivePeriod, expenses = [], ap
 
       {/* Custom Legend */}
       <div className="flex flex-wrap justify-center gap-x-8 gap-y-2 mt-2">
-        <LegendItem variant="rect" color={COLOR_ENTRADA} label="ENTRADAS" />
-        <LegendItem variant="rect" color={COLOR_ENTRADA_PREV} label="ENTRADAS PREVISTAS" />
-        <LegendItem variant="rect" color={COLOR_SAIDA} label="SAÍDAS" />
-        <LegendItem variant="rect" color={COLOR_SAIDA_PREV} label="SAÍDAS PREVISTAS" />
-        <LegendItem variant="line" color={COLOR_SALDO} label="SALDO" />
-        <LegendItem variant="line" color={COLOR_SALDO_PREV} label="SALDO PREVISTO" dashed />
+        <LegendItem variant="rect" color={COLOR_ENTRADA} label="ENTRADAS" isDarkMode={isDarkMode} />
+        <LegendItem variant="rect" color={COLOR_ENTRADA_PREV} label="ENTRADAS PREVISTAS" isDarkMode={isDarkMode} />
+        <LegendItem variant="rect" color={COLOR_SAIDA} label="SAÍDAS" isDarkMode={isDarkMode} />
+        <LegendItem variant="rect" color={COLOR_SAIDA_PREV} label="SAÍDAS PREVISTAS" isDarkMode={isDarkMode} />
+        <LegendItem variant="line" color={COLOR_SALDO} label="SALDO" isDarkMode={isDarkMode} />
+        <LegendItem variant="line" color={COLOR_SALDO_PREV} label="SALDO PREVISTO" dashed isDarkMode={isDarkMode} />
       </div>
     </div>
   );
@@ -348,12 +369,14 @@ const LegendItem = ({
   color, 
   label, 
   variant,
-  dashed = false 
+  dashed = false,
+  isDarkMode = true
 }: { 
   color: string; 
   label: string; 
   variant: 'rect' | 'line';
   dashed?: boolean;
+  isDarkMode?: boolean;
 }) => (
   <div className="flex items-center gap-2">
     {variant === 'rect' ? (
@@ -370,6 +393,6 @@ const LegendItem = ({
         }} 
       />
     )}
-    <span className="text-[9px] font-bold text-neutral-500 tracking-wider uppercase">{label}</span>
+    <span className={`text-[9px] font-bold tracking-wider uppercase transition-colors ${isDarkMode ? 'text-neutral-500' : 'text-neutral-600'}`}>{label}</span>
   </div>
 );
