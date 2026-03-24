@@ -80,6 +80,15 @@ import { encryptField, decryptField } from './lib/cryptoHelper';
 import { useDynamicPWA } from './hooks/useDynamicPWA';
 // @ts-ignore
 import videoBg from '../Flow_delpmaspu_.mp4';
+import { CashFlowChart } from './components/dashboard/CashFlowChart';
+import { DashboardBalance } from './components/dashboard/DashboardBalance';
+import {
+  UpcomingAppointmentsWidget,
+  UpcomingBirthdaysWidget,
+  AppointmentsByProfessionalWidget,
+  BusyDaysWidget,
+  BusyHoursWidget
+} from './components/dashboard/DashboardWidgets';
 
 const calculateAge = (birthDate: string): string => {
   if (!birthDate) return '';
@@ -639,6 +648,8 @@ const DashboardView = ({
   appointments = [],
   services = [],
   expenses = [],
+  patients = [],
+  professionals = [],
   isDarkMode = true
 }: {
   inventory: any[],
@@ -646,9 +657,12 @@ const DashboardView = ({
   appointments?: any[],
   services?: any[],
   expenses?: any[],
+  patients?: any[],
+  professionals?: any[],
   isDarkMode?: boolean
 }) => {
   const [faqs, setFaqs] = useState([{ q: 'Dói fazer botox?', a: 'Utilizamos pomada anestésica de alta eficácia para garantir o máximo de conforto.' }]);
+  const [activePeriod, setActivePeriod] = useState('MENSAL');
 
   // Agrupamento para Laranjas e Críticos
   const lowStockItems = inventory.filter((item: any) => item.stock <= item.minStock && item.stock > 0);
@@ -787,130 +801,65 @@ const DashboardView = ({
             </div>
           </div>
 
-          {/* Charts Row */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
-            {/* Main Chart */}
-            <div className="lg:col-span-2 bg-neutral-900 border-white/10 border rounded-2xl p-4 md:p-6 shadow-xl transition-colors duration-300">
-              <div className="flex justify-between items-center mb-8">
-                <h3 className="text-lg font-semibold text-white">Desempenho Semestral</h3>
-                <span className="text-[10px] font-bold px-2 py-1 rounded bg-white/5 text-neutral-400 tracking-wider">ÚLTIMOS 6 MESES</span>
+          {/* Unified Cash Flow Card (The "Balloon") */}
+          <div className="bg-[#0A0A0A] border border-white/10 rounded-3xl p-8 mb-4 transition-all duration-500 hover:border-white/20">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              {/* Main Content (Chart) */}
+              <div className="lg:col-span-2">
+                <CashFlowChart
+                  activePeriod={activePeriod}
+                  setActivePeriod={setActivePeriod}
+                  expenses={expenses}
+                  appointments={appointments}
+                  services={services}
+                />
               </div>
 
-              {/* Mock Chart Area */}
-              <div className="h-64 flex items-end justify-between gap-4 px-4 pb-8 relative">
-                {/* Horizontal grid lines */}
-                <div className="absolute inset-0 flex flex-col justify-between pb-8 z-0">
-                  {[...Array(5)].map((_, i) => (
-                    <div key={i} className={`w-full border-b ${isDarkMode ? "border-zinc-800/50" : "border-zinc-200/50"} h-0`} />
-                  ))}
-                </div>
-
-                {/* Bars */}
-                {(() => {
-                  const now = new Date();
-                  const chartData = [];
-                  for (let i = 5; i >= 0; i--) {
-                    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-                    const monthName = d.toLocaleDateString('pt-BR', { month: 'short' }).toUpperCase().replace('.', '');
-                    // Faturamento Bruto (Receitas Pagas)
-                    const faturamentoBruto = (expenses || [])
-                      .filter(e => {
-                        if (e.type !== 'Receita' || e.status !== 'Pago') return false;
-                        if (!e.date) return false;
-                        const expDate = new Date(e.date);
-                        return expDate.getMonth() === d.getMonth() && expDate.getFullYear() === d.getFullYear();
-                      })
-                      .reduce((sum, e) => sum + (Number(e.value || e.valor || 0)), 0);
-
-                    // Faturamento em Aberto (Apenas no mês atual, pois a projeção futura não tem passado, ou usa receitas pendentes)
-                    // Calcula com base nos agendamentos futuros não concluídos para o mês atual
-                    let faturamentoEmAberto = 0;
-                    if (i === 0) { // Current month
-                      // Agendamentos + Procedimentos => Receita Pendente
-                      const appointmentsRevenue = (appointments || []).reduce((sum, app) => {
-                        const svc = (services || []).find((s: any) => s.id === app.service || s.name === app.service);
-                        return sum + Number(svc?.price || svc?.valor || svc?.value || 0);
-                      }, 0);
-
-                      const pendingExpensesRevenue = (expenses || [])
-                        .filter(e => {
-                          if (e.type !== 'Receita' || e.status !== 'Pendente') return false;
-                          if (!e.date) return false;
-                          const expDate = new Date(e.date);
-                          return expDate.getMonth() === d.getMonth() && expDate.getFullYear() === d.getFullYear();
-                        })
-                        .reduce((sum, e) => sum + (Number(e.value || e.valor || 0)), 0);
-
-                      faturamentoEmAberto = appointmentsRevenue + pendingExpensesRevenue;
-                    }
-
-                    // Define the maximum value to scale (avoid division by 0)
-                    const maxVal = 50000; // default safe max
-                    const scale1 = Math.min((faturamentoBruto / maxVal) * 100, 100);
-                    const scale2 = Math.min((faturamentoEmAberto / maxVal) * 100, 100);
-
-                    chartData.push({ month: monthName, val1: scale1, val2: scale2, raw1: faturamentoBruto, raw2: faturamentoEmAberto });
-                  }
-
-                  return chartData.map((data, i) => (
-                    <div key={i} className="flex flex-col items-center gap-3 z-10 w-full group relative">
-                      <div className="w-full max-w-[48px] h-full flex items-end relative overflow-hidden rounded-t-lg">
-                        {/* Background Bar (Faturamento Bruto) */}
-                        <div
-                          className={`absolute bottom-0 w-full ${isDarkMode ? 'bg-zinc-800' : 'bg-zinc-200'} transition-all duration-500 rounded-t-lg`}
-                          style={{ height: `${data.val1 || 2}%` }}
-                        />
-                        {/* Foreground Bar (Faturamento Em Aberto) - stacked or overlay */}
-                        <div
-                          className="absolute bottom-0 w-full bg-gradient-to-t from-orange-600 to-orange-400 opacity-90 transition-all duration-500 rounded-t-lg"
-                          style={{ height: `${data.val2}%` }}
-                        />
-                      </div>
-
-                      {/* Tooltip Hover */}
-                      <div className="absolute -top-12 opacity-0 group-hover:opacity-100 transition-opacity bg-black text-white text-[10px] py-1 px-2 rounded pointer-events-none whitespace-nowrap z-50">
-                        Total: R$ {data.raw1.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}<br />
-                        Aberto: R$ {data.raw2.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                      </div>
-
-                      <span className={`text-xs font-medium ${isDarkMode ? 'text-zinc-500' : 'text-zinc-400'}`}>{data.month}</span>
-                    </div>
-                  ));
-                })()}
-              </div>
-
-              {/* Legend */}
-              <div className="flex items-center justify-center gap-6 mt-4">
-                <div className="flex items-center gap-2">
-                  <div className={`w-3 h-3 rounded ${isDarkMode ? 'bg-zinc-800/80 border-zinc-700' : 'bg-zinc-100 border-zinc-200'} border`}></div>
-                  <span className={`text-xs ${isDarkMode ? 'text-zinc-400' : 'text-zinc-600'}`}>Faturamento Bruto (R$)</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded bg-orange-500"></div>
-                  <span className={`text-xs ${isDarkMode ? 'text-zinc-400' : 'text-zinc-600'}`}>Margem Líquida</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded bg-orange-400"></div>
-                  <span className={`text-xs ${isDarkMode ? 'text-zinc-400' : 'text-zinc-600'}`}>Faturamento em aberto</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Agenda Widget */}
-            <div className={`col-span-1 ${isDarkMode ? "bg-[#0c0c0e] border-zinc-800/80 shadow-black/50" : "bg-white border-zinc-200 shadow-zinc-200/50"} border rounded-2xl p-4 md:p-6 shadow-xl transition-colors duration-300 flex flex-col`}>
-              <div className="flex justify-between items-start mb-6">
-                <h3 className={`text-lg font-semibold ${isDarkMode ? "text-white" : "text-zinc-900"} leading-tight`}>Próximos<br />Agendamentos</h3>
-                <span className={`text-[10px] font-bold px-2 py-1 rounded tracking-wider border ${isDarkMode ? 'bg-red-900/30 text-red-400 border-red-900/50' : 'bg-red-50 text-red-600 border-red-200'}`}>HOJE</span>
-              </div>
-
-              <div className="flex-1 flex flex-col items-center justify-center text-center">
-                <p className="text-zinc-500 text-sm mb-4">Nenhum agendamento para hoje</p>
-                <button className="text-orange-500 hover:text-orange-400 text-sm font-medium flex items-center gap-1 transition-colors">
-                  Ver Agenda Completa <ArrowRight size={16} />
-                </button>
+              {/* Sidebar (Balance) */}
+              <div className="lg:col-span-1 border-l border-white/5 pl-6 h-full">
+                <DashboardBalance
+                  activePeriod={activePeriod}
+                  expenses={expenses}
+                  appointments={appointments}
+                  services={services}
+                />
               </div>
             </div>
           </div>
+
+          {/* Row 1: Separate Balloons for Widgets */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="bg-[#0A0A0A] border border-white/10 rounded-2xl p-6 transition-all hover:border-white/20">
+              <UpcomingAppointmentsWidget
+                appointments={appointments}
+                services={services}
+                isDarkMode={isDarkMode}
+              />
+            </div>
+            <div className="bg-[#0A0A0A] border border-white/10 rounded-2xl p-6 transition-all hover:border-white/20">
+              <UpcomingBirthdaysWidget
+                patients={patients}
+                isDarkMode={isDarkMode}
+              />
+            </div>
+          </div>
+
+          {/* Row 2: Charts Trio (Heatmap etc.) */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4"> </div>
+
+          {/* Row 2: Charts Trio */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 pb-6">
+            <div className="lg:col-span-1">
+              <AppointmentsByProfessionalWidget appointments={appointments} professionals={professionals} isDarkMode={isDarkMode} />
+            </div>
+            <div className="lg:col-span-1">
+              <BusyDaysWidget appointments={appointments} isDarkMode={isDarkMode} />
+            </div>
+            <div className="lg:col-span-2">
+              <BusyHoursWidget appointments={appointments} isDarkMode={isDarkMode} />
+            </div>
+          </div>
+
 
         </div>
       </div>
@@ -1639,6 +1588,7 @@ const AgendaView = ({ professionals, services = [], appointments = [], setAppoin
                     serviceIds: allServiceIds,
                     time: selectedTime,
                     professionalId: selectedProfessional,
+                    date: selectedDate ? selectedDate.toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
                   };
                   setAppointments(prev => [...prev, newApp]);
                   // Cleanup Total de Estados
@@ -6402,8 +6352,8 @@ const RelatoriosView = ({ isDarkMode = true, expenses = [], appointments = [], p
 
   // States for Clientes VIP filter
   const [vipViewYear, setVipViewYear] = useState(currentYearStr);
-  const [vipViewPeriod, setVipViewPeriod] = useState('Semestral'); 
-  const [vipViewRange, setVipViewRange] = useState(Math.floor(new Date().getMonth() / 6)); 
+  const [vipViewPeriod, setVipViewPeriod] = useState('Semestral');
+  const [vipViewRange, setVipViewRange] = useState(Math.floor(new Date().getMonth() / 6));
   const [isVipViewYearDropdownOpen, setIsVipViewYearDropdownOpen] = useState(false);
   const [isVipViewRangeDropdownOpen, setIsVipViewRangeDropdownOpen] = useState(false);
 
@@ -6549,7 +6499,7 @@ const RelatoriosView = ({ isDarkMode = true, expenses = [], appointments = [], p
       if (!dStr) return;
       const d = new Date(dStr);
       if (isNaN(d.getTime())) return;
-      
+
       if (vipViewPeriod === 'Anual') {
         if (d.getFullYear() === numVipYear) {
           vipPatientAppCount[a.patient] = (vipPatientAppCount[a.patient] || 0) + 1;
@@ -9882,7 +9832,7 @@ export default function App() {
 
         {/* Bottom Menu */}
         <div className="p-4 flex flex-col gap-1 shrink-0" style={{ borderTop: '1px solid var(--border-default)' }}>
-          
+
           <button
             onClick={() => setIsDarkMode(!isDarkMode)}
             title={isSidebarCollapsed ? (isDarkMode ? 'Modo Claro' : 'Modo Escuro') : undefined}
@@ -9894,7 +9844,7 @@ export default function App() {
             {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
             {!isSidebarCollapsed && <span className="text-sm font-medium">{isDarkMode ? 'Modo Claro' : 'Modo Escuro'}</span>}
           </button>
-          
+
           {role === 'admin' && (
             <NavItem icon={<Settings size={18} />} label="Configurações" active={activeMenu === 'Configurações'} onClick={() => {
               setActiveMenu('Configurações');
@@ -9951,7 +9901,7 @@ export default function App() {
             setTimeoutConfig={setTimeoutConfig}
           />
         ) : activeMenu === 'Dashboard' ? (
-          <DashboardView inventory={inventory} setActiveMenu={setActiveMenu} appointments={appointments} services={services} expenses={expenses} isDarkMode={isDarkMode} />
+          <DashboardView inventory={inventory} setActiveMenu={setActiveMenu} appointments={appointments} services={services} expenses={expenses} patients={patients} professionals={professionals} isDarkMode={isDarkMode} />
         ) : activeMenu === 'Agenda' ? (
           <AgendaView professionals={professionals} services={services} appointments={appointments} setAppointments={setAppointments} onCompleteService={handleCompleteService} isDarkMode={isDarkMode} patients={patients} />
         ) : activeMenu === 'CRM' ? (
