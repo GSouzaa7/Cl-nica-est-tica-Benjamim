@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { collection, query, orderBy, limit, getDocs, where, Timestamp } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
-import { Activity, Calendar, Search, ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react';
+import { Activity, Search, ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react';
+import { MiniCalendar } from '../ui/MiniCalendar';
 
 interface AuditLog {
   id: string;
@@ -23,135 +24,6 @@ const formatTimestamp = (ts: any): string => {
   } catch {
     return 'Agora';
   }
-};
-
-const formatDateBR = (d: Date): string => {
-  const pad = (n: number) => n.toString().padStart(2, '0');
-  return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
-};
-
-const monthNames = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
-const weekDaysShort = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
-
-interface MiniCalendarProps {
-  selectedDate: Date;
-  onSelect: (d: Date) => void;
-  isOpen: boolean;
-  onToggle: () => void;
-  onClear: () => void;
-  isDarkMode: boolean;
-  label: string;
-  align?: 'left' | 'right';
-}
-
-const MiniCalendar = ({ selectedDate, onSelect, isOpen, onToggle, onClear, isDarkMode, label, align = 'left' }: MiniCalendarProps) => {
-  const [viewDate, setViewDate] = useState(new Date(selectedDate));
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handleClick = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) onToggle();
-    };
-    if (isOpen) document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
-  }, [isOpen]);
-
-  const getDaysInMonth = (y: number, m: number) => new Date(y, m + 1, 0).getDate();
-  const getFirstDay = (y: number, m: number) => new Date(y, m, 1).getDay();
-
-  const daysInMonth = getDaysInMonth(viewDate.getFullYear(), viewDate.getMonth());
-  const firstDay = getFirstDay(viewDate.getFullYear(), viewDate.getMonth());
-
-  const prevMonthDays = getDaysInMonth(viewDate.getFullYear(), viewDate.getMonth() - 1);
-  const totalCells = Math.ceil((firstDay + daysInMonth) / 7) * 7;
-
-  const isToday = (day: number) => {
-    const t = new Date();
-    return day === t.getDate() && viewDate.getMonth() === t.getMonth() && viewDate.getFullYear() === t.getFullYear();
-  };
-
-  const isSelected = (day: number) => {
-    return day === selectedDate.getDate() && viewDate.getMonth() === selectedDate.getMonth() && viewDate.getFullYear() === selectedDate.getFullYear();
-  };
-
-  return (
-    <div className="relative" ref={ref}>
-      <button
-        type="button"
-        onClick={onToggle}
-        className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors ${isDarkMode ? 'border-zinc-800 bg-[#121214] text-zinc-300 hover:border-zinc-700' : 'border-zinc-200 bg-white text-zinc-700 hover:border-zinc-300'}`}
-      >
-        <Calendar size={13} className="text-zinc-500" />
-        <span>{formatDateBR(selectedDate)}</span>
-        <ChevronDown size={12} className={`text-zinc-500 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
-      </button>
-
-      {isOpen && (
-        <div className={`absolute top-full mt-2 z-50 rounded-xl border shadow-2xl p-4 w-[280px] ${align === 'right' ? 'right-0' : 'left-0'} ${isDarkMode ? 'bg-[#0a0a0a] border-zinc-800' : 'bg-white border-zinc-200'}`}>
-          {/* Month Navigation */}
-          <div className="flex items-center justify-between mb-3">
-            <span className={`text-sm font-medium ${isDarkMode ? 'text-zinc-300' : 'text-zinc-700'}`}>
-              {monthNames[viewDate.getMonth()]} de {viewDate.getFullYear()} ▾
-            </span>
-            <div className="flex items-center gap-1">
-              <button onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() - 1, 1))} className={`p-1 rounded-md ${isDarkMode ? 'hover:bg-zinc-800 text-zinc-400' : 'hover:bg-zinc-100 text-zinc-500'}`}>
-                <ChevronLeft size={16} />
-              </button>
-              <button onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 1))} className={`p-1 rounded-md ${isDarkMode ? 'hover:bg-zinc-800 text-zinc-400' : 'hover:bg-zinc-100 text-zinc-500'}`}>
-                <ChevronRight size={16} />
-              </button>
-            </div>
-          </div>
-
-          {/* Week Days Header */}
-          <div className="grid grid-cols-7 mb-1">
-            {weekDaysShort.map((d, i) => (
-              <div key={i} className={`text-center text-[10px] font-bold uppercase py-1 ${isDarkMode ? 'text-zinc-500' : 'text-zinc-400'}`}>{d}</div>
-            ))}
-          </div>
-
-          {/* Days Grid */}
-          <div className="grid grid-cols-7">
-            {Array.from({ length: totalCells }).map((_, i) => {
-              const dayNum = i - firstDay + 1;
-              const isCurrentMonth = dayNum >= 1 && dayNum <= daysInMonth;
-              const displayDay = !isCurrentMonth
-                ? (dayNum < 1 ? prevMonthDays + dayNum : dayNum - daysInMonth)
-                : dayNum;
-
-              return (
-                <button
-                  key={i}
-                  type="button"
-                  onClick={() => {
-                    if (isCurrentMonth) {
-                      const newDate = new Date(viewDate.getFullYear(), viewDate.getMonth(), dayNum);
-                      onSelect(newDate);
-                    }
-                  }}
-                  disabled={!isCurrentMonth}
-                  className={`w-full aspect-square flex items-center justify-center text-xs rounded-md transition-colors
-                    ${!isCurrentMonth ? (isDarkMode ? 'text-zinc-700' : 'text-zinc-300') : ''}
-                    ${isCurrentMonth && isSelected(dayNum) ? 'bg-orange-500 text-white font-bold' : ''}
-                    ${isCurrentMonth && isToday(dayNum) && !isSelected(dayNum) ? (isDarkMode ? 'border border-zinc-600 text-white' : 'border border-zinc-400 text-zinc-900') : ''}
-                    ${isCurrentMonth && !isSelected(dayNum) && !isToday(dayNum) ? (isDarkMode ? 'text-zinc-300 hover:bg-zinc-800' : 'text-zinc-700 hover:bg-zinc-100') : ''}
-                  `}
-                >
-                  {displayDay}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Footer Actions */}
-          <div className="flex items-center justify-between mt-3 pt-3 border-t" style={{ borderColor: isDarkMode ? '#27272a' : '#e4e4e7' }}>
-            <button onClick={onClear} className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors">Limpar</button>
-            <button onClick={() => { onSelect(new Date()); setViewDate(new Date()); }} className="text-xs text-orange-500 hover:text-orange-400 font-medium transition-colors">Hoje</button>
-          </div>
-        </div>
-      )}
-    </div>
-  );
 };
 
 export const AuditLogPanel = ({ isDarkMode }: { isDarkMode: boolean }) => {

@@ -89,6 +89,8 @@ import {
   BusyDaysWidget,
   BusyHoursWidget
 } from './components/dashboard/DashboardWidgets';
+import AppointmentModal from './components/calendar/AppointmentModal';
+import { LucideIcon } from 'lucide-react';
 
 const calculateAge = (birthDate: string): string => {
   if (!birthDate) return '';
@@ -1297,321 +1299,61 @@ const AgendaView = ({ professionals, services = [], appointments = [], setAppoin
       </div>
 
       {/* New Appointment Modal */}
-      {isModalOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className={`${isDarkMode ? "bg-[#0a0a0a] border-orange-900/30 shadow-[0_0_50px_rgba(249,115,22,0.1)]" : "bg-white border-[var(--border-default)] shadow-2xl"} border rounded-3xl w-full max-w-md p-8 relative max-h-[90vh] overflow-y-auto custom-scrollbar`}>
-            <button
-              onClick={() => { setIsModalOpen(false); setIsProfDropdownOpen(false); setIsServiceDropdownOpen(false); setSelectedProfessional(''); setAdditionalServices([]); setPatientSearchQuery(''); setIsPatientDropdownOpen(false); }}
-              className={`absolute top-6 right-6 text-zinc-500 hover:${isDarkMode ? "text-white" : "text-zinc-900"} transition-colors`}
-            >
-              <X size={20} />
-            </button>
-
-            <h2 className={`text-2xl font-bold ${isDarkMode ? "text-white" : "text-zinc-900"} mb-8`}>Novo Agendamento</h2>
-
-            <div className="flex flex-col gap-6">
-              {/* Patient search with autocomplete */}
-              <div className="relative">
-                <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Paciente</label>
-                <input
-                  type="text"
-                  placeholder="Buscar paciente..."
-                  value={patientSearchQuery}
-                  onChange={(e) => {
-                    setPatientSearchQuery(e.target.value);
-                    setPatientName(e.target.value);
-                    setIsPatientDropdownOpen(true);
-                  }}
-                  onFocus={() => setIsPatientDropdownOpen(true)}
-                  className={`w-full bg-[#050505] border border-zinc-800 rounded-xl px-4 py-3 ${isDarkMode ? "text-white" : "text-zinc-900"} focus:outline-none focus:border-orange-500 transition-colors`}
-                />
-                {isPatientDropdownOpen && patientSearchQuery.length > 0 && (
-                  <>
-                    <div className="fixed inset-0 z-40" onClick={() => setIsPatientDropdownOpen(false)} />
-                    <div className={`absolute top-full left-0 w-full mt-2 z-50 rounded-xl border shadow-2xl overflow-hidden max-h-48 overflow-y-auto custom-scrollbar ${isDarkMode ? "border-zinc-700/50 bg-[#0a0a0a]" : "border-zinc-200 bg-white"}`}>
-                      {(patients || [])
-                        .filter((p: any) => p.name?.toLowerCase().includes(patientSearchQuery.toLowerCase()))
-                        .length === 0 ? (
-                        <div className="px-4 py-3 text-sm text-zinc-500">Nenhum paciente encontrado</div>
-                      ) : (
-                        (patients || [])
-                          .filter((p: any) => p.name?.toLowerCase().includes(patientSearchQuery.toLowerCase()))
-                          .map((p: any) => (
-                            <button
-                              key={p.id}
-                              type="button"
-                              onClick={() => {
-                                setPatientName(p.name);
-                                setPatientSearchQuery(p.name);
-                                setIsPatientDropdownOpen(false);
-                              }}
-                              className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${isDarkMode ? 'text-white hover:bg-white/5' : 'text-zinc-900 hover:bg-zinc-100'}`}
-                            >
-                              {p.name}
-                            </button>
-                          ))
-                      )}
-                    </div>
-                  </>
-                )}
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="relative">
-                  <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Data</label>
-                  <button
-                    type="button"
-                    onClick={() => setIsDatePickerOpen(!isDatePickerOpen)}
-                    className={`w-full flex items-center justify-between ${isDarkMode ? 'bg-[#050505] border-zinc-800 text-white' : 'bg-white border-zinc-200 text-zinc-900'} border rounded-xl px-4 py-3 focus:outline-none focus:border-orange-500 transition-colors text-left text-sm`}
-                  >
-                    <span className={selectedDate ? '' : 'text-zinc-500'}>
-                      {selectedDate ? selectedDate.toLocaleDateString('pt-BR') : 'dd/mm/aaaa'}
-                    </span>
-                    <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-zinc-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>
-                  </button>
-                  {isDatePickerOpen && (
-                    <>
-                      <div className="fixed inset-0 z-40" onClick={() => setIsDatePickerOpen(false)} />
-                      <div className={`absolute z-50 mt-2 left-0 rounded-xl border shadow-2xl p-4 w-[280px] ${isDarkMode ? 'border-zinc-700/50 bg-[#0a0a0a]' : 'border-zinc-200 bg-white'}`}>
-                        {/* Header */}
-                        <div className="flex items-center justify-between mb-4">
-                          <button type="button" onClick={() => { if (datePickerMonth === 0) { setDatePickerMonth(11); setDatePickerYear(datePickerYear - 1); } else { setDatePickerMonth(datePickerMonth - 1); } }} className={`p-1 rounded-lg ${isDarkMode ? 'hover:bg-white/10 text-zinc-400' : 'hover:bg-zinc-100 text-zinc-500'} transition-colors`}>
-                            <ChevronDown className="w-4 h-4 rotate-90" />
-                          </button>
-                          <span className={`text-sm font-medium ${isDarkMode ? 'text-white' : 'text-zinc-900'}`}>
-                            {new Date(datePickerYear, datePickerMonth).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }).replace(/^./, s => s.toUpperCase())}
-                          </span>
-                          <button type="button" onClick={() => { if (datePickerMonth === 11) { setDatePickerMonth(0); setDatePickerYear(datePickerYear + 1); } else { setDatePickerMonth(datePickerMonth + 1); } }} className={`p-1 rounded-lg ${isDarkMode ? 'hover:bg-white/10 text-zinc-400' : 'hover:bg-zinc-100 text-zinc-500'} transition-colors`}>
-                            <ChevronDown className="w-4 h-4 -rotate-90" />
-                          </button>
-                        </div>
-                        {/* Day headers */}
-                        <div className="grid grid-cols-7 gap-1 mb-2">
-                          {['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((d, i) => (
-                            <div key={i} className="text-center text-[10px] font-medium text-zinc-500 py-1">{d}</div>
-                          ))}
-                        </div>
-                        {/* Days grid */}
-                        <div className="grid grid-cols-7 gap-1">
-                          {(() => {
-                            const firstDay = new Date(datePickerYear, datePickerMonth, 1).getDay();
-                            const daysInMonth = new Date(datePickerYear, datePickerMonth + 1, 0).getDate();
-                            const today = new Date();
-                            const cells = [];
-                            for (let i = 0; i < firstDay; i++) {
-                              cells.push(<div key={`empty-${i}`} />);
-                            }
-                            for (let day = 1; day <= daysInMonth; day++) {
-                              const isToday = today.getDate() === day && today.getMonth() === datePickerMonth && today.getFullYear() === datePickerYear;
-                              const isSelected = selectedDate && selectedDate.getDate() === day && selectedDate.getMonth() === datePickerMonth && selectedDate.getFullYear() === datePickerYear;
-                              cells.push(
-                                <button
-                                  key={day}
-                                  type="button"
-                                  onClick={() => {
-                                    setSelectedDate(new Date(datePickerYear, datePickerMonth, day));
-                                    setIsDatePickerOpen(false);
-                                  }}
-                                  className={`w-8 h-8 rounded-full text-xs font-medium flex items-center justify-center transition-all ${isSelected
-                                    ? 'bg-orange-500 text-white shadow-[0_0_10px_rgba(249,115,22,0.4)]'
-                                    : isToday
-                                      ? 'bg-orange-500/20 text-orange-500 font-bold'
-                                      : isDarkMode ? 'text-zinc-300 hover:bg-white/10' : 'text-zinc-700 hover:bg-zinc-100'
-                                    }`}
-                                >
-                                  {day}
-                                </button>
-                              );
-                            }
-                            return cells;
-                          })()}
-                        </div>
-                      </div>
-                    </>
-                  )}
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Horário</label>
-                  <div className="relative">
-                    <button
-                      type="button"
-                      onClick={() => setIsTimeDropdownOpen(!isTimeDropdownOpen)}
-                      className={`w-full flex items-center justify-between ${isDarkMode ? 'bg-[#050505] border-zinc-800 text-white' : 'bg-white border-zinc-200 text-zinc-900'} border rounded-xl px-4 py-3 focus:outline-none focus:border-orange-500 transition-colors text-left text-sm`}
-                    >
-                      <span className={selectedTime ? '' : 'text-zinc-500'}>
-                        {selectedTime || 'Selecione...'}
-                      </span>
-                      <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-zinc-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
-                    </button>
-                    {isTimeDropdownOpen && (
-                      <>
-                        <div className="fixed inset-0 z-40" onClick={() => setIsTimeDropdownOpen(false)} />
-                        <div className={`absolute z-50 mt-2 left-0 w-full rounded-xl border shadow-2xl max-h-48 overflow-y-auto custom-scrollbar ${isDarkMode ? 'border-zinc-700/50 bg-[#0a0a0a]' : 'border-zinc-200 bg-white'}`}>
-                          {(() => {
-                            const times = [];
-                            for (let h = 8; h <= 19; h++) {
-                              times.push(`${h.toString().padStart(2, '0')}:00`);
-                              if (h !== 19 || true) times.push(`${h.toString().padStart(2, '0')}:30`);
-                            }
-                            return times.map((t) => (
-                              <button
-                                key={t}
-                                type="button"
-                                onClick={() => { setSelectedTime(t); setIsTimeDropdownOpen(false); }}
-                                className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${selectedTime === t
-                                  ? 'bg-gradient-to-r from-orange-600/30 to-transparent text-orange-500 font-medium'
-                                  : isDarkMode ? 'text-white hover:bg-white/5' : 'text-zinc-900 hover:bg-zinc-100'
-                                  }`}
-                              >
-                                {t}
-                              </button>
-                            ));
-                          })()}
-                        </div>
-                      </>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Profissional</label>
-                <div className="relative">
-                  <button
-                    type="button"
-                    onClick={() => setIsProfDropdownOpen(!isProfDropdownOpen)}
-                    className={`w-full flex items-center justify-between bg-[#050505] border border-zinc-800 rounded-xl px-4 py-3 ${isDarkMode ? "text-white" : "text-zinc-900"} focus:outline-none focus:border-orange-500 transition-colors relative z-10`}
-                  >
-                    <span className="truncate">{(professionals && selectedProfessional) ? professionals.find((p: any) => p.id === selectedProfessional)?.name : 'Selecione um profissional'}</span>
-                    <ChevronDown size={16} className={`shrink-0 transition-transform duration-200 ${isProfDropdownOpen ? 'rotate-180' : ''} text-zinc-500`} />
-                  </button>
-                  {isProfDropdownOpen && (
-                    <>
-                      <div className="fixed inset-0 z-40" onClick={() => setIsProfDropdownOpen(false)} />
-                      <div className={`absolute top-full left-0 w-full mt-2 z-50 rounded-xl border shadow-2xl overflow-hidden ${isDarkMode ? "border-zinc-700/50 bg-[#0a0a0a]" : "border-zinc-200 bg-white"}`}>
-                        {(professionals || []).map((prof: any) => (
-                          <button key={prof.id} type="button" onClick={() => { setSelectedProfessional(prof.id); setIsProfDropdownOpen(false); }} className={`w-full text-left px-4 py-2.5 text-sm transition-colors relative z-50 ${selectedProfessional === prof.id ? 'bg-gradient-to-r from-orange-600/30 to-transparent text-orange-500 font-medium' : (isDarkMode ? 'text-white hover:bg-white/5' : 'text-zinc-900 hover:bg-zinc-100')}`}>{prof.name}</button>
-                        ))}
-                      </div>
-                    </>
-                  )}
-                </div>
-              </div>
-
-              {/* Service section — optional, with +ADICIONAR button */}
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <label className="block text-[10px] font-bold text-zinc-500 tracking-wider uppercase">Serviço <span className="text-zinc-600 normal-case font-normal">(opcional)</span></label>
-                  <button
-                    type="button"
-                    onClick={() => setAdditionalServices(prev => [...prev, ''])}
-                    className="flex items-center gap-1 text-[10px] font-bold text-orange-500 hover:text-orange-400 tracking-wider uppercase transition-colors"
-                  >
-                    <Plus size={12} />
-                    Adicionar
-                  </button>
-                </div>
-
-                {/* Primary service */}
-                <div className="relative mb-2">
-                  <button
-                    type="button"
-                    onClick={() => setIsServiceDropdownOpen(!isServiceDropdownOpen)}
-                    className={`w-full flex items-center justify-between bg-[#050505] border border-zinc-800 rounded-xl px-4 py-3 ${isDarkMode ? "text-white" : "text-zinc-900"} focus:outline-none focus:border-orange-500 transition-colors relative z-10`}
-                  >
-                    <span className={`truncate ${!selectedService ? 'text-zinc-500' : ''}`}>{(services && selectedService) ? services.find((s: any) => s.id === selectedService)?.name : 'Selecione um serviço'}</span>
-                    <ChevronDown size={16} className={`shrink-0 transition-transform duration-200 ${isServiceDropdownOpen ? 'rotate-180' : ''} text-zinc-500`} />
-                  </button>
-                  {isServiceDropdownOpen && (
-                    <>
-                      <div className="fixed inset-0 z-40" onClick={() => setIsServiceDropdownOpen(false)} />
-                      <div className={`absolute top-full left-0 w-full mt-2 z-50 rounded-xl border shadow-2xl overflow-hidden max-h-48 overflow-y-auto custom-scrollbar ${isDarkMode ? "border-zinc-700/50 bg-[#0a0a0a]" : "border-zinc-200 bg-white"}`}>
-                        <button type="button" onClick={() => { setSelectedService(''); setIsServiceDropdownOpen(false); }} className={`w-full text-left px-4 py-2.5 text-sm transition-colors text-zinc-500 italic ${isDarkMode ? 'hover:bg-white/5' : 'hover:bg-zinc-100'}`}>Nenhum</button>
-                        {(services || []).map((service: any) => (
-                          <button key={service.id} type="button" onClick={() => { setSelectedService(service.id); setIsServiceDropdownOpen(false); }} className={`w-full text-left px-4 py-2.5 text-sm transition-colors relative z-50 ${selectedService === service.id ? 'bg-gradient-to-r from-orange-600/30 to-transparent text-orange-500 font-medium' : (isDarkMode ? 'text-white hover:bg-white/5' : 'text-zinc-900 hover:bg-zinc-100')}`}>{service.name}</button>
-                        ))}
-                      </div>
-                    </>
-                  )}
-                </div>
-
-                {/* Additional services */}
-                {additionalServices.map((svcId, idx) => (
-                  <div key={idx} className="relative flex items-center gap-2 mb-2">
-                    <div className="relative flex-1">
-                      <button
-                        type="button"
-                        onClick={() => setAdditionalServiceDropdownIndex(additionalServiceDropdownIndex === idx ? null : idx)}
-                        className={`w-full flex items-center justify-between bg-[#050505] border border-zinc-800 rounded-xl px-4 py-3 ${isDarkMode ? "text-white" : "text-zinc-900"} focus:outline-none focus:border-orange-500 transition-colors relative z-10`}
-                      >
-                        <span className={`truncate ${!svcId ? 'text-zinc-500' : ''}`}>{(services && svcId) ? services.find((s: any) => s.id === svcId)?.name : 'Selecione um serviço'}</span>
-                        <ChevronDown size={16} className={`shrink-0 transition-transform duration-200 ${additionalServiceDropdownIndex === idx ? 'rotate-180' : ''} text-zinc-500`} />
-                      </button>
-                      {additionalServiceDropdownIndex === idx && (
-                        <>
-                          <div className="fixed inset-0 z-40" onClick={() => setAdditionalServiceDropdownIndex(null)} />
-                          <div className={`absolute top-full left-0 w-full mt-2 z-50 rounded-xl border shadow-2xl overflow-hidden max-h-48 overflow-y-auto custom-scrollbar ${isDarkMode ? "border-zinc-700/50 bg-[#0a0a0a]" : "border-zinc-200 bg-white"}`}>
-                            {(services || []).map((service: any) => (
-                              <button key={service.id} type="button" onClick={() => {
-                                setAdditionalServices(prev => prev.map((s, i) => i === idx ? service.id : s));
-                                setAdditionalServiceDropdownIndex(null);
-                              }} className={`w-full text-left px-4 py-2.5 text-sm transition-colors relative z-50 ${svcId === service.id ? 'bg-gradient-to-r from-orange-600/30 to-transparent text-orange-500 font-medium' : (isDarkMode ? 'text-white hover:bg-white/5' : 'text-zinc-900 hover:bg-zinc-100')}`}>{service.name}</button>
-                            ))}
-                          </div>
-                        </>
-                      )}
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setAdditionalServices(prev => prev.filter((_, i) => i !== idx))}
-                      className="p-2 text-zinc-500 hover:text-red-500 transition-colors shrink-0"
-                    >
-                      <X size={16} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-
-              <button
-                onClick={() => {
-                  if (!patientName || !selectedProfessional || !selectedTime) {
-                    alert('Erro: Preencha Paciente, Profissional e Horário antes de confirmar.');
-                    return;
-                  }
-                  const allServiceNames = [
-                    selectedService ? services.find((s: any) => s.id === selectedService)?.name : null,
-                    ...additionalServices.map(sid => sid ? services.find((s: any) => s.id === sid)?.name : null)
-                  ].filter(Boolean);
-                  const allServiceIds = [selectedService, ...additionalServices].filter(Boolean);
-                  const newApp = {
-                    id: Date.now(),
-                    patient: patientName,
-                    service: allServiceNames.join(', ') || 'Sem serviço',
-                    serviceIds: allServiceIds,
-                    time: selectedTime,
-                    professionalId: selectedProfessional,
-                    date: selectedDate ? selectedDate.toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
-                  };
-                  setAppointments(prev => [...prev, newApp]);
-                  // Cleanup Total de Estados
-                  setIsModalOpen(false);
-                  setPatientName('');
-                  setPatientSearchQuery('');
-                  setIsPatientDropdownOpen(false);
-                  setSelectedService('');
-                  setAdditionalServices([]);
-                  setSelectedProfessional('');
-                  setIsProfDropdownOpen(false);
-                  setIsServiceDropdownOpen(false);
-                }}
-                className="w-full bg-gradient-to-r from-orange-400 to-orange-500 hover:from-orange-500 hover:to-orange-600 text-black font-semibold py-3.5 rounded-xl transition-all shadow-[0_0_20px_rgba(249,115,22,0.2)] mt-2"
-              >
-                Confirmar Agendamento
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <AppointmentModal 
+        isOpen={isModalOpen}
+        onClose={() => { 
+          setIsModalOpen(false); 
+          setIsProfDropdownOpen(false); 
+          setIsServiceDropdownOpen(false); 
+          setSelectedProfessional(''); 
+          setAdditionalServices([]); 
+          setPatientSearchQuery('');
+          setIsPatientDropdownOpen(false);
+          setPatientName('');
+        }}
+        onConfirm={(data) => {
+          if (!data.patientName || !data.professionalId || !data.startTime) {
+            alert('Erro: Preencha Paciente, Profissional e Horário de Início antes de confirmar.');
+            return;
+          }
+          const allServiceNames = data.services
+            .map((s: any) => services.find((serv: any) => serv.id === s.id)?.name)
+            .filter(Boolean);
+          const allServiceIds = data.services.map((s: any) => s.id).filter(Boolean);
+          
+          const newApp = {
+            id: Date.now(),
+            patient: data.patientName,
+            service: allServiceNames.join(', ') || 'Sem serviço',
+            serviceIds: allServiceIds,
+            time: data.startTime,
+            endTime: data.endTime,
+            plan: data.plan,
+            professionalId: data.professionalId,
+            date: data.date ? (typeof data.date === 'string' ? data.date : data.date.toISOString().split('T')[0]) : new Date().toISOString().split('T')[0],
+          };
+          setAppointments(prev => [...prev, newApp]);
+          setIsModalOpen(false);
+          // Cleanup
+          setPatientName('');
+          setPatientSearchQuery('');
+          setIsPatientDropdownOpen(false);
+          setSelectedService('');
+          setAdditionalServices([]);
+          setSelectedProfessional('');
+          setIsProfDropdownOpen(false);
+          setIsServiceDropdownOpen(false);
+        }}
+        professionals={professionals}
+        services={services}
+        patients={patients}
+        isDarkMode={isDarkMode}
+        initialDate={selectedDate || undefined}
+        initialTime={selectedTime || undefined}
+        initialPatientName={patientName}
+        initialProfessionalId={selectedProfessional}
+        initialServiceIds={selectedService ? [selectedService, ...additionalServices].filter(Boolean) : additionalServices}
+      />
 
       {/* Details / Life Cycle Modal */}
       {isDetailsModalOpen && selectedAppDetails && (
