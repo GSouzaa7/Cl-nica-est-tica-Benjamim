@@ -29,6 +29,7 @@ interface CashFlowChartProps {
   appointments?: AppointmentRecord[];
   services?: ServiceRecord[];
   isDarkMode?: boolean;
+  showValues?: boolean;
 }
 
 function getAppointmentValue(app: any, services: any[]): number {
@@ -197,7 +198,8 @@ export const CashFlowChart = ({
   expenses = [], 
   appointments = [], 
   services = [],
-  isDarkMode = true 
+  isDarkMode = true,
+  showValues = true
 }: CashFlowChartProps) => {
   const [chartType, setChartType] = useState<'line' | 'bar'>('bar');
 
@@ -260,7 +262,7 @@ export const CashFlowChart = ({
       </div>
 
       {/* Chart */}
-      <div className="h-[350px] w-full">
+      <div className={`h-[350px] w-full transition-all duration-500 ${!showValues ? 'blur-md grayscale opacity-50' : ''}`}>
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={currentData} margin={{ top: 20, right: 30, left: 10, bottom: 20 }} stackOffset="sign">
             <defs>
@@ -287,32 +289,34 @@ export const CashFlowChart = ({
               tick={{ fill: isDarkMode ? '#ffffff60' : '#525252', fontSize: 10, fontWeight: 500 }}
               axisLine={false}
               tickLine={false}
-              tickFormatter={(value) => `R$ ${value >= 1000 || value <= -1000 ? (value / 1000).toFixed(0) + 'k' : value}`}
+              tickFormatter={(value) => showValues ? `R$ ${value >= 1000 || value <= -1000 ? (value / 1000).toFixed(0) + 'k' : value}` : '••••'}
               dx={-10}
             />
-            <Tooltip
-              contentStyle={{
-                backgroundColor: isDarkMode ? '#0A0A0A' : '#ffffff',
-                border: isDarkMode ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(0,0,0,0.1)',
-                borderRadius: '12px',
-                fontSize: '12px',
-                boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
-                color: isDarkMode ? '#fff' : '#000'
-              }}
-              itemStyle={{ padding: '2px 0' }}
-              labelStyle={{ color: isDarkMode ? '#888' : '#666', marginBottom: '4px', fontWeight: 'bold' }}
-              formatter={(value: number, name: string) => {
-                const labelMap: Record<string, string> = {
-                  entradas: 'Entradas',
-                  entradasPrevistas: 'Entradas Previstas',
-                  saidas: 'Saídas',
-                  saidasPrevistas: 'Saídas Previstas',
-                  saldo: 'Saldo Atual',
-                  saldoPrevisto: 'Saldo Previsto'
-                };
-                return [`R$ ${value.toLocaleString('pt-BR')}`, labelMap[name] || name];
-              }}
-            />
+            {showValues && (
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: isDarkMode ? '#0A0A0A' : '#ffffff',
+                  border: isDarkMode ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(0,0,0,0.1)',
+                  borderRadius: '12px',
+                  fontSize: '12px',
+                  boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
+                  color: isDarkMode ? '#fff' : '#000'
+                }}
+                itemStyle={{ padding: '2px 0' }}
+                labelStyle={{ color: isDarkMode ? '#888' : '#666', marginBottom: '4px', fontWeight: 'bold' }}
+                formatter={(value: number, name: string) => {
+                  const labelMap: Record<string, string> = {
+                    entradas: 'Entradas',
+                    entradasPrevistas: 'Entradas Previstas',
+                    saidas: 'Saídas',
+                    saidasPrevistas: 'Saídas Previstas',
+                    saldo: 'Saldo Atual',
+                    saldoPrevisto: 'Saldo Previsto'
+                  };
+                  return [`R$ ${value.toLocaleString('pt-BR')}`, labelMap[name] || name];
+                }}
+              />
+            )}
             
             {chartType === 'line' ? (
               <>

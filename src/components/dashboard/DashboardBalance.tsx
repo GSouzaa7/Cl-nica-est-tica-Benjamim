@@ -9,6 +9,8 @@ interface DashboardBalanceProps {
   appointments?: AppointmentRecord[];
   services?: ServiceRecord[];
   isDarkMode?: boolean;
+  showValues: boolean;
+  setShowValues: (val: boolean) => void;
 }
 
 function getAppointmentValue(app: AppointmentRecord, services: ServiceRecord[]): number {
@@ -28,9 +30,10 @@ export const DashboardBalance: React.FC<DashboardBalanceProps> = ({
   expenses = [], 
   appointments = [], 
   services = [],
-  isDarkMode = true
+  isDarkMode = true,
+  showValues,
+  setShowValues
 }) => {
-  const [showValues, setShowValues] = useState<boolean>(true);
   const [analysisPeriod, setAnalysisPeriod] = useState<number>(0);
 
   const now = new Date();

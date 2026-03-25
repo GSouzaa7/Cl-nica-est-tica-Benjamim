@@ -90,7 +90,9 @@ import {
   BusyHoursWidget
 } from './components/dashboard/DashboardWidgets';
 import AppointmentModal from './components/calendar/AppointmentModal';
-import { LucideIcon } from 'lucide-react';
+import { PeriodSelector } from './components/ui/PeriodSelector';
+import { LucideIcon, FileStack } from 'lucide-react';
+import { AgendaReportsView } from './components/agenda/AgendaReportsView';
 
 const calculateAge = (birthDate: string): string => {
   if (!birthDate) return '';
@@ -665,6 +667,7 @@ const DashboardView = ({
 }) => {
   const [faqs, setFaqs] = useState([{ q: 'Dói fazer botox?', a: 'Utilizamos pomada anestésica de alta eficácia para garantir o máximo de conforto.' }]);
   const [activePeriod, setActivePeriod] = useState('MENSAL');
+  const [showValues, setShowValues] = useState<boolean>(true);
 
   // Agrupamento para Laranjas e Críticos
   const lowStockItems = inventory.filter((item: any) => item.stock <= item.minStock && item.stock > 0);
@@ -682,8 +685,8 @@ const DashboardView = ({
       </header>
 
       {/* Content Grid */}
-      <div className="flex-1 overflow-y-auto px-4 lg:px-12 py-4 lg:py-0 lg:pb-10 z-10 custom-scrollbar">
-        <div className="flex flex-col gap-4 md:gap-6 max-w-6xl">
+      <div className="flex-1 overflow-y-auto px-4 lg:px-12 py-4 lg:pb-10 z-10 custom-scrollbar">
+        <div className="flex flex-col gap-4 md:gap-6 w-full">
 
           {/* Top Stats Row */}
           {(() => {
@@ -712,7 +715,7 @@ const DashboardView = ({
                     </div>
                   </div>
                   <div className={`text-3xl font-bold ${isDarkMode ? 'text-white' : 'text-zinc-900'} mb-2`}>
-                    R$ {totalFaturamento.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    {showValues ? `R$ ${totalFaturamento.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : 'R$ •••••••'}
                   </div>
                   <div className="flex items-center gap-1 text-xs font-medium text-emerald-500">
                     <TrendingUp size={14} />
@@ -759,7 +762,7 @@ const DashboardView = ({
                     </div>
                   </div>
                   <div className={`text-3xl font-bold ${isDarkMode ? 'text-white' : 'text-red-700'} mb-2`}>
-                    R$ {totalDespesas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    {showValues ? `R$ ${totalDespesas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : 'R$ •••••••'}
                   </div>
                   <div className="flex items-center gap-1 text-xs font-medium text-neutral-500">
                     <TrendingUp size={14} />
@@ -815,6 +818,7 @@ const DashboardView = ({
                   appointments={appointments}
                   services={services}
                   isDarkMode={isDarkMode}
+                  showValues={showValues}
                 />
               </div>
 
@@ -826,6 +830,8 @@ const DashboardView = ({
                   appointments={appointments}
                   services={services}
                   isDarkMode={isDarkMode}
+                  showValues={showValues}
+                  setShowValues={setShowValues}
                 />
               </div>
             </div>
@@ -962,8 +968,315 @@ const SERVICE_INVENTORY_MAP: Record<string, string> = {
   'default': 'Kit Descartável Padrão, Gel Condutor, Luvas Nitrílicas'
 };
 
+const AgendaOverview = ({ appointments = [], professionals = [], services = [], isDarkMode = true, patients = [] }: any) => {
+  const today = new Date();
+  const [isSelectorOpen, setIsSelectorOpen] = useState(false);
+  const [activePreset, setActivePreset] = useState('Esta semana');
+
+  // Inicializa com a semana atual
+  const defStart = new Date(today);
+  defStart.setDate(today.getDate() - today.getDay());
+  defStart.setHours(0, 0, 0, 0);
+  const defEnd = new Date(defStart);
+  defEnd.setDate(defStart.getDate() + 6);
+  defEnd.setHours(23, 59, 59, 999);
+
+  const [startDate, setStartDate] = useState(defStart);
+  const [endDate, setEndDate] = useState(defEnd);
+
+  const formatDateShort = (d: Date) => {
+    return `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}/${d.getFullYear()}`;
+  };
+
+  const periodLabel = `${formatDateShort(startDate)} - ${formatDateShort(endDate)}`;
+
+  // 2. Filtro de Agendamentos por Período Selecionado
+  const periodAppts = appointments.filter((app: any) => {
+    if (!app.date) return false;
+    const appDate = new Date(app.date);
+    return appDate >= startDate && appDate <= endDate;
+  });
+
+  const totalAppts = periodAppts.length;
+
+  // 3. Cálculo de Ociosidade
+  // 08:00 - 19:30 em intervalos de 30m = 24 slots por prof por dia
+  // Calcula o número de dias no período
+  const diffTime = Math.abs(endDate.getTime() - startDate.getTime());
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) || 1;
+
+  const slotsPerDay = 24;
+  const totalPotentialSlots = professionals.length * slotsPerDay * diffDays;
+  const bookedSlots = periodAppts.length;
+  const idlenessPercValue = totalPotentialSlots > 0
+    ? ((totalPotentialSlots - bookedSlots) / totalPotentialSlots * 100)
+    : 100;
+
+  const statusStats = {
+    Agendado: periodAppts.filter((a: any) => !a.completed && !a.cancelled).length || 0,
+    Confirmado: 0,
+    'Não compareceu': 0,
+    Concluído: periodAppts.filter((a: any) => a.completed).length || 0,
+    Cancelado: periodAppts.filter((a: any) => a.cancelled).length || 0,
+  };
+
+  const statusPerc = (count: number) => totalAppts > 0 ? (count / totalAppts * 100).toFixed(1) + '%' : '0%';
+
+  const weekDaysShort = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
+  const dayCounts = Array(7).fill(0);
+  periodAppts.forEach((app: any) => {
+    if (!app.date) return;
+    const date = new Date(app.date);
+    dayCounts[date.getDay()]++;
+  });
+  const maxCount = Math.max(...dayCounts, 1);
+
+  // 4. Clientes Frequentes
+  const clientCounts: Record<string, number> = {};
+  periodAppts.forEach((app: any) => {
+    if (app.patientName) clientCounts[app.patientName] = (clientCounts[app.patientName] || 0) + 1;
+  });
+  const topClients = Object.entries(clientCounts)
+    .sort((a: any, b: any) => b[1] - a[1])
+    .slice(0, 3);
+
+  // 5. Serviços Frequentes
+  const serviceCounts: Record<string, number> = {};
+  periodAppts.forEach((app: any) => {
+    if (app.service) serviceCounts[app.service] = (serviceCounts[app.service] || 0) + 1;
+  });
+  const topServices = Object.entries(serviceCounts)
+    .sort((a: any, b: any) => b[1] - a[1])
+    .slice(0, 3);
+
+  // 6. Ociosidade por Profissional
+  const profAppts: Record<string, number> = {};
+  periodAppts.forEach((app: any) => {
+    if (app.professionalId) profAppts[app.professionalId] = (profAppts[app.professionalId] || 0) + 1;
+  });
+  const profIdleness = professionals.map((p: any) => {
+    const booked = profAppts[p.id] || 0;
+    const totalSlots = slotsPerDay * diffDays;
+    const idle = totalSlots > 0 ? ((totalSlots - booked) / totalSlots * 100).toFixed(1) + '%' : '100%';
+    return { name: p.name, value: idle };
+  }).sort((a: any, b: any) => parseFloat(b.value) - parseFloat(a.value)).slice(0, 3);
+
+  return (
+    <div className="flex-1 overflow-y-auto px-4 lg:px-12 pb-10 custom-scrollbar flex flex-col gap-8 animate-in fade-in duration-500">
+      {/* Header with Period Selector */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex flex-col gap-1">
+          <h2 className={`text-2xl font-light font-bricolage tracking-tight ${isDarkMode ? 'text-white' : 'text-neutral-900'}`}>Visão Geral</h2>
+          <p className="text-xs text-neutral-500 font-medium uppercase tracking-widest">Agenda & Performance</p>
+        </div>
+
+        <div className="flex items-center gap-4 relative">
+          <button
+            onClick={() => setIsSelectorOpen(!isSelectorOpen)}
+            className="flex items-center gap-3 bg-orange-500 hover:bg-orange-600 text-white px-6 py-3 rounded-2xl transition-all shadow-lg shadow-orange-500/20 active:scale-95 group"
+          >
+            <Calendar size={18} className="group-hover:rotate-12 transition-transform" />
+            <span className="text-[10px] font-bold tracking-widest uppercase">Período</span>
+          </button>
+
+          <div className={`px-6 py-3 rounded-2xl border ${isDarkMode ? 'bg-white/5 border-white/10' : 'bg-neutral-50 border-neutral-200'}`}>
+            <span className={`text-[12px] font-bold ${isDarkMode ? 'text-orange-500' : 'text-orange-600'}`}>
+              {periodLabel}
+            </span>
+          </div>
+
+          <PeriodSelector
+            startDate={startDate}
+            endDate={endDate}
+            onSelect={(start, end, preset) => {
+              setStartDate(start);
+              setEndDate(end);
+              setActivePreset(preset || 'Personalizado');
+            }}
+            isOpen={isSelectorOpen}
+            onClose={() => setIsSelectorOpen(false)}
+            isDarkMode={isDarkMode}
+            activePreset={activePreset}
+          />
+        </div>
+      </div>
+
+      {/* KPI Row */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {[
+          { title: `Agendamentos (${activePreset})`, value: totalAppts, trend: null },
+          { title: 'Ociosidade Média', value: idlenessPercValue.toFixed(2) + '%', trend: null },
+          { title: 'Pacientes na lista de espera', value: '0', trend: null },
+        ].map((kpi, idx) => (
+          <div key={idx} className={`p-6 rounded-3xl border ${isDarkMode ? 'bg-[#0a0a0a]/50 border-white/5 shadow-xl' : 'bg-white border-neutral-200 shadow-sm'} flex flex-col gap-4 relative overflow-hidden group`}>
+            <div className="flex justify-between items-start">
+              <h3 className="text-[10px] font-bold text-neutral-500 tracking-widest uppercase">{kpi.title}</h3>
+              {kpi.trend && kpi.trend.startsWith('-') ? <TrendingDown size={14} className="text-red-500 opacity-50" /> : kpi.trend ? <TrendingUp size={14} className="text-emerald-500 opacity-50" /> : null}
+            </div>
+            <div className="flex items-baseline gap-2">
+              <span className={`text-4xl font-light font-bricolage tracking-tight ${isDarkMode ? 'text-white' : 'text-neutral-900'}`}>{kpi.value}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Main Charts Row */}
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-6">
+        {/* Agendamentos por período */}
+        <div className={`p-8 rounded-3xl border ${isDarkMode ? 'bg-[#0a0a0a] border-white/10' : 'bg-white border-neutral-200'} shadow-xl flex flex-col gap-8`}>
+          <div className="flex items-center justify-between">
+            <h3 className="text-[10px] font-bold text-neutral-500 tracking-widest uppercase">Volume de Agendamentos</h3>
+            <span className="text-[9px] font-bold text-orange-500 bg-orange-500/10 px-2 py-1 rounded-full uppercase tracking-widest">{activePreset}</span>
+          </div>
+
+          <div className="h-64 flex items-end justify-between px-2 pb-2 gap-4">
+            {weekDaysShort.map((day, i) => (
+              <div key={i} className="flex flex-col items-center gap-3 w-full group">
+                <div
+                  className={`w-full max-w-[40px] rounded-lg transition-all duration-700 relative ${dayCounts[i] > 0 ? 'bg-orange-500/40' : (isDarkMode ? 'bg-white/5' : 'bg-neutral-100')}`}
+                  style={{ height: `${(dayCounts[i] / maxCount) * 100}%`, minHeight: '8px' }}
+                >
+                  {dayCounts[i] === maxCount && dayCounts[i] > 0 && <div className="absolute -top-1 left-0 right-0 h-1 bg-orange-500 rounded-full blur-[2px]" />}
+                </div>
+                <span className={`text-[10px] font-bold transition-colors ${isDarkMode ? 'text-neutral-500 group-hover:text-white' : 'text-neutral-600 group-hover:text-neutral-900'}`}>{day}</span>
+              </div>
+            ))}
+          </div>
+
+          <div className="flex items-center gap-6 pt-4 border-t border-white/5">
+            <div className="flex items-center gap-2">
+              <div className="w-2.5 h-1 bg-orange-500/60 rounded-full" />
+              <span className="text-[9px] font-bold text-neutral-500 uppercase tracking-widest">Procedimentos</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Agendamentos por status */}
+        <div className={`p-8 rounded-3xl border ${isDarkMode ? 'bg-[#0a0a0a] border-white/10' : 'bg-white border-neutral-200'} shadow-xl flex flex-col gap-8`}>
+          <h3 className="text-[10px] font-bold text-neutral-500 tracking-widest uppercase">Distribuição por status</h3>
+          <div className="flex flex-col gap-6">
+            {[
+              { label: 'Agendado', color: 'orange', icon: Calendar, count: statusStats.Agendado },
+              { label: 'Confirmado', color: 'emerald', icon: CheckCircle2, count: statusStats.Confirmado },
+              { label: 'Não compareceu', color: 'red', icon: XCircle, count: statusStats['Não compareceu'] },
+              { label: 'Concluído', color: 'emerald', icon: Target, count: statusStats.Concluído },
+              { label: 'Cancelado', color: 'neutral', icon: Trash2, count: statusStats.Cancelado },
+            ].map((st) => (
+              <div key={st.label} className="flex items-center justify-between group">
+                <div className="flex items-center gap-3">
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-transform group-hover:scale-110 shadow-lg ${st.color === 'orange' ? 'bg-orange-500/10 text-orange-500' : st.color === 'emerald' ? 'bg-emerald-500/10 text-emerald-500' : st.color === 'red' ? 'bg-red-500/10 text-red-500' : 'bg-zinc-500/10 text-zinc-500'}`}>
+                    <st.icon size={20} />
+                  </div>
+                  <div className="flex flex-col">
+                    <span className={`text-xs font-bold leading-none ${isDarkMode ? 'text-white' : 'text-neutral-900'}`}>{st.label}</span>
+                    <span className="text-[12px] text-neutral-500 font-medium mt-1.5">{st.count}</span>
+                  </div>
+                </div>
+                <span className="text-[10px] font-mono font-bold text-neutral-500">{statusPerc(st.count)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Detail Summaries */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {/* Clientes frequentes */}
+        <div className={`p-6 rounded-3xl border ${isDarkMode ? 'bg-[#0a0a0a]/50 border-white/5' : 'bg-white border-neutral-200'} flex flex-col gap-6 group hover:border-orange-500/20 transition-colors`}>
+          <div className="flex justify-between items-center">
+            <div className="flex items-center gap-2">
+              <Users size={14} className="text-orange-500/60" />
+              <h3 className="text-[10px] font-bold text-neutral-500 tracking-widest uppercase">Clientes mais frequentes</h3>
+            </div>
+          </div>
+          <div className="flex flex-col gap-4">
+            {topClients.length > 0 ? topClients.map(([name, count], i) => (
+              <div key={i} className="flex items-center justify-between">
+                <span className={`text-xs ${isDarkMode ? 'text-white' : 'text-neutral-900'} truncate mr-2`}>{name}</span>
+                <span className="text-[10px] font-bold text-orange-500">{count}x</span>
+              </div>
+            )) : (
+              <div className="py-4 flex flex-col items-center gap-2 opacity-30">
+                <AlertTriangle size={20} />
+                <span className="text-[8px] uppercase font-bold tracking-widest">Sem dados</span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Ociosidade por profissional */}
+        <div className={`p-6 rounded-3xl border ${isDarkMode ? 'bg-[#0a0a0a]/50 border-white/5' : 'bg-white border-neutral-200'} flex flex-col gap-6 group hover:border-orange-500/20 transition-colors`}>
+          <div className="flex justify-between items-center">
+            <div className="flex items-center gap-2">
+              <Briefcase size={14} className="text-orange-500/60" />
+              <h3 className="text-[10px] font-bold text-neutral-500 tracking-widest uppercase">Ociosidade por Profissional</h3>
+            </div>
+          </div>
+          <div className="flex flex-col gap-4">
+            {profIdleness.length > 0 ? profIdleness.map((p, i) => (
+              <div key={i} className="flex items-center justify-between">
+                <span className={`text-xs ${isDarkMode ? 'text-white' : 'text-neutral-900'} truncate mr-2`}>{p.name}</span>
+                <span className={`text-[10px] font-bold ${parseFloat(p.value) > 70 ? 'text-red-500' : 'text-emerald-500'}`}>{p.value}</span>
+              </div>
+            )) : (
+              <div className="py-4 flex flex-col items-center gap-2 opacity-30">
+                <AlertTriangle size={20} />
+                <span className="text-[8px] uppercase font-bold tracking-widest">Sem dados</span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Serviços mais frequentes */}
+        <div className={`p-6 rounded-3xl border ${isDarkMode ? 'bg-[#0a0a0a]/50 border-white/5' : 'bg-white border-neutral-200'} flex flex-col gap-6 group hover:border-orange-500/20 transition-colors`}>
+          <div className="flex justify-between items-center">
+            <div className="flex items-center gap-2">
+              <Box size={14} className="text-orange-500/60" />
+              <h3 className="text-[10px] font-bold text-neutral-500 tracking-widest uppercase">Serviços mais frequentes</h3>
+            </div>
+          </div>
+          <div className="flex flex-col gap-4">
+            {topServices.length > 0 ? topServices.map(([name, count], i) => (
+              <div key={i} className="flex items-center justify-between">
+                <span className={`text-xs ${isDarkMode ? 'text-white' : 'text-neutral-900'} truncate mr-2`}>{name}</span>
+                <span className="text-[10px] font-bold text-orange-500">{count}x</span>
+              </div>
+            )) : (
+              <div className="py-4 flex flex-col items-center gap-2 opacity-30">
+                <AlertTriangle size={20} />
+                <span className="text-[8px] uppercase font-bold tracking-widest">Sem dados</span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Lista de Espera */}
+        <div className={`p-6 rounded-3xl border ${isDarkMode ? 'bg-[#0a0a0a]/50 border-white/5' : 'bg-white border-neutral-200'} flex flex-col gap-6 group hover:border-orange-500/20 transition-colors`}>
+          <div className="flex justify-between items-center">
+            <div className="flex items-center gap-2">
+              <List size={14} className="text-orange-500/60" />
+              <h3 className="text-[10px] font-bold text-neutral-500 tracking-widest uppercase">Lista de Espera</h3>
+            </div>
+          </div>
+          <div className="flex flex-col items-center justify-center py-4 gap-2 opacity-30">
+            <AlertTriangle size={20} />
+            <span className="text-[8px] uppercase font-bold tracking-widest">Nenhum paciente na lista</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Activity Widgets */}
+      <div className="grid grid-cols-1 xl:grid-cols-[1fr_2.5fr] gap-6 pb-6">
+        <BusyDaysWidget appointments={appointments} isDarkMode={isDarkMode} />
+        <BusyHoursWidget appointments={appointments} isDarkMode={isDarkMode} />
+      </div>
+    </div>
+  );
+};
+
 const AgendaView = ({ professionals, services = [], appointments = [], setAppointments, onCompleteService, isDarkMode = true, patients = [] }: any) => {
   const { addToast } = useToast();
+  const [activeAgendaSubTab, setActiveAgendaSubTab] = useState('CALENDÁRIO');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedTime, setSelectedTime] = useState('08:00');
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -1152,161 +1465,198 @@ const AgendaView = ({ professionals, services = [], appointments = [], setAppoin
 
 
       {/* Header */}
-      <header className="pt-12 px-12 pb-8 z-50 relative shrink-0 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Calendar className={`${isDarkMode ? "text-white" : "text-zinc-900"}`} size={32} />
-          <h1 className={`text-3xl font-bold ${isDarkMode ? "text-white" : "text-zinc-900"} tracking-tight`}>Agenda</h1>
+      <header className="pt-12 px-12 pb-8 z-50 relative shrink-0 flex flex-col gap-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Calendar className={`${isDarkMode ? "text-white" : "text-zinc-900"}`} size={32} />
+            <h1 className={`text-3xl font-bold ${isDarkMode ? "text-white" : "text-zinc-900"} tracking-tight`}>Agenda</h1>
+          </div>
+
+          <div className="flex items-center gap-6">
+            {activeAgendaSubTab === 'CALENDÁRIO' && (
+              <>
+                <div className={`flex items-center gap-4 ${isDarkMode ? "text-white" : "text-zinc-900"} font-medium relative`}>
+                  <button onClick={handlePrevDay} className="hover:text-orange-500 hover:scale-110 transition-all"><ChevronLeft size={20} /></button>
+                  <div className="relative" ref={calendarRef}>
+                    <button
+                      onClick={() => setIsCalendarOpen(!isCalendarOpen)}
+                      className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-colors ${isCalendarOpen ? (isDarkMode ? 'bg-orange-500/10 text-orange-500' : 'bg-orange-50 text-orange-600') : (isDarkMode ? 'hover:bg-zinc-800' : 'hover:bg-zinc-100')}`}
+                    >
+                      <span>{formatHeaderDate(selectedCalendarDate)}</span>
+                      <ChevronDown size={14} className={`shrink-0 transition-transform ${isCalendarOpen ? 'rotate-180 text-orange-500' : 'text-zinc-500'}`} />
+                    </button>
+
+                    {/* Calendário Luminous Popover */}
+                    {isCalendarOpen && (
+                      <div className={`absolute top-full mt-3 right-0 md:left-1/2 md:-translate-x-1/2 w-72 z-[9999] rounded-2xl border shadow-2xl overflow-hidden ${isDarkMode ? "bg-[#121214] border-zinc-800" : "bg-white border-zinc-200"}`}>
+                        <div className={`p-4 flex items-center justify-between border-b ${isDarkMode ? "border-zinc-800/80" : "border-zinc-200"}`}>
+                          <button onClick={handlePrevMonth} className={`p-1 rounded opacity-70 hover:opacity-100 transition-colors ${isDarkMode ? "hover:bg-zinc-800" : "hover:bg-zinc-100"}`}><ChevronLeft size={18} /></button>
+                          <div className="font-semibold text-sm">
+                            {monthNames[viewDate.getMonth()]} {viewDate.getFullYear()}
+                          </div>
+                          <button onClick={handleNextMonth} className={`p-1 rounded opacity-70 hover:opacity-100 transition-colors ${isDarkMode ? "hover:bg-zinc-800" : "hover:bg-zinc-100"}`}><ChevronRight size={18} /></button>
+                        </div>
+
+                        <div className="p-4">
+                          <div className="grid grid-cols-7 gap-1 mb-2 text-center">
+                            {weekDaysShort.map((day, i) => (
+                              <div key={i} className={`text-[10px] font-bold tracking-wider ${isDarkMode ? "text-zinc-500" : "text-zinc-400"}`}>{day}</div>
+                            ))}
+                          </div>
+
+                          <div className="grid grid-cols-7 gap-1">
+                            {Array.from({ length: firstDay }).map((_, i) => (
+                              <div key={`empty-${i}`} className="w-8 h-8" />
+                            ))}
+
+                            {Array.from({ length: currentMonthDays }).map((_, i) => {
+                              const day = i + 1;
+                              const isCurrentDay = day === new Date().getDate() && viewDate.getMonth() === new Date().getMonth() && viewDate.getFullYear() === new Date().getFullYear();
+                              const isSelected = day === selectedCalendarDate.getDate() && viewDate.getMonth() === selectedCalendarDate.getMonth() && viewDate.getFullYear() === selectedCalendarDate.getFullYear();
+
+                              return (
+                                <button
+                                  key={day}
+                                  onClick={() => {
+                                    setSelectedCalendarDate(new Date(viewDate.getFullYear(), viewDate.getMonth(), day));
+                                    setIsCalendarOpen(false);
+                                  }}
+                                  className={`w-8 h-8 rounded-full flex items-center justify-center text-sm transition-all
+                                    ${isSelected
+                                      ? "bg-orange-500 text-white font-bold shadow-[0_0_10px_rgba(249,115,22,0.4)]"
+                                      : isCurrentDay
+                                        ? (isDarkMode ? "bg-zinc-800 text-orange-400 font-semibold" : "bg-orange-50 text-orange-600 font-semibold")
+                                        : (isDarkMode ? "text-zinc-300 hover:bg-zinc-800" : "text-zinc-700 hover:bg-zinc-100")
+                                    }
+                                  `}
+                                >
+                                  {day}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  <button onClick={handleNextDay} className="hover:text-orange-500 hover:scale-110 transition-all"><ChevronRight size={20} /></button>
+                </div>
+                <button
+                  onClick={() => setIsModalOpen(true)}
+                  className="bg-gradient-to-r from-orange-400 to-orange-500 hover:from-orange-500 hover:to-orange-600 text-black font-semibold px-6 py-2.5 rounded-full flex items-center gap-2 transition-all shadow-[0_0_15px_rgba(249,115,22,0.3)]"
+                >
+                  <Plus size={18} />
+                  Novo Agendamento
+                </button>
+              </>
+            )}
+
+            {activeAgendaSubTab === 'VISÃO GERAL' && (
+              <div className="flex items-center gap-4 animate-in slide-in-from-right-4 duration-500">
+                <div className={`p-2.5 rounded-2xl border ${isDarkMode ? 'bg-[#0a0a0a] border-white/10' : 'bg-zinc-50 border-zinc-200'} text-neutral-500 hover:text-orange-500 transition-colors cursor-pointer group`}>
+                  <Search size={18} />
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
-        <div className="flex items-center gap-6">
-          <div className={`flex items-center gap-4 ${isDarkMode ? "text-white" : "text-zinc-900"} font-medium relative`}>
-            <button onClick={handlePrevDay} className="hover:text-orange-500 hover:scale-110 transition-all"><ChevronLeft size={20} /></button>
-            <div className="relative" ref={calendarRef}>
-              <button
-                onClick={() => setIsCalendarOpen(!isCalendarOpen)}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-colors ${isCalendarOpen ? (isDarkMode ? 'bg-orange-500/10 text-orange-500' : 'bg-orange-50 text-orange-600') : (isDarkMode ? 'hover:bg-zinc-800' : 'hover:bg-zinc-100')}`}
-              >
-                <span>{formatHeaderDate(selectedCalendarDate)}</span>
-                <ChevronDown size={14} className={`shrink-0 transition-transform ${isCalendarOpen ? 'rotate-180 text-orange-500' : 'text-zinc-500'}`} />
-              </button>
-
-              {/* Calendário Luminous Popover */}
-              {isCalendarOpen && (
-                <div className={`absolute top-full mt-3 right-0 md:left-1/2 md:-translate-x-1/2 w-72 z-[9999] rounded-2xl border shadow-2xl overflow-hidden ${isDarkMode ? "bg-[#121214] border-zinc-800" : "bg-white border-zinc-200"}`}>
-                  <div className={`p-4 flex items-center justify-between border-b ${isDarkMode ? "border-zinc-800/80" : "border-zinc-200"}`}>
-                    <button onClick={handlePrevMonth} className={`p-1 rounded opacity-70 hover:opacity-100 transition-colors ${isDarkMode ? "hover:bg-zinc-800" : "hover:bg-zinc-100"}`}><ChevronLeft size={18} /></button>
-                    <div className="font-semibold text-sm">
-                      {monthNames[viewDate.getMonth()]} {viewDate.getFullYear()}
-                    </div>
-                    <button onClick={handleNextMonth} className={`p-1 rounded opacity-70 hover:opacity-100 transition-colors ${isDarkMode ? "hover:bg-zinc-800" : "hover:bg-zinc-100"}`}><ChevronRight size={18} /></button>
-                  </div>
-
-                  <div className="p-4">
-                    <div className="grid grid-cols-7 gap-1 mb-2 text-center">
-                      {weekDaysShort.map((day, i) => (
-                        <div key={i} className={`text-[10px] font-bold tracking-wider ${isDarkMode ? "text-zinc-500" : "text-zinc-400"}`}>{day}</div>
-                      ))}
-                    </div>
-
-                    <div className="grid grid-cols-7 gap-1">
-                      {Array.from({ length: firstDay }).map((_, i) => (
-                        <div key={`empty-${i}`} className="w-8 h-8" />
-                      ))}
-
-                      {Array.from({ length: currentMonthDays }).map((_, i) => {
-                        const day = i + 1;
-                        const isCurrentDay = day === new Date().getDate() && viewDate.getMonth() === new Date().getMonth() && viewDate.getFullYear() === new Date().getFullYear();
-                        const isSelected = day === selectedCalendarDate.getDate() && viewDate.getMonth() === selectedCalendarDate.getMonth() && viewDate.getFullYear() === selectedCalendarDate.getFullYear();
-
-                        return (
-                          <button
-                            key={day}
-                            onClick={() => {
-                              setSelectedCalendarDate(new Date(viewDate.getFullYear(), viewDate.getMonth(), day));
-                              setIsCalendarOpen(false);
-                            }}
-                            className={`w-8 h-8 rounded-full flex items-center justify-center text-sm transition-all
-                              ${isSelected
-                                ? "bg-orange-500 text-white font-bold shadow-[0_0_10px_rgba(249,115,22,0.4)]"
-                                : isCurrentDay
-                                  ? (isDarkMode ? "bg-zinc-800 text-orange-400 font-semibold" : "bg-orange-50 text-orange-600 font-semibold")
-                                  : (isDarkMode ? "text-zinc-300 hover:bg-zinc-800" : "text-zinc-700 hover:bg-zinc-100")
-                              }
-                            `}
-                          >
-                            {day}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-            <button onClick={handleNextDay} className="hover:text-orange-500 hover:scale-110 transition-all"><ChevronRight size={20} /></button>
-          </div>
-          <button
-            onClick={() => setIsModalOpen(true)}
-            className="bg-gradient-to-r from-orange-400 to-orange-500 hover:from-orange-500 hover:to-orange-600 text-black font-semibold px-6 py-2.5 rounded-full flex items-center gap-2 transition-all shadow-[0_0_15px_rgba(249,115,22,0.3)]"
-          >
-            <Plus size={18} />
-            Novo Agendamento
-          </button>
+        {/* Sub-tabs Link Bar */}
+        <div className={`flex items-center gap-6 border-b ${isDarkMode ? "border-zinc-800/50" : "border-zinc-200/50"} pb-4`}>
+          {[
+            { id: 'VISÃO GERAL', label: 'Visão Geral', icon: BarChart3 },
+            { id: 'CALENDÁRIO', label: 'Calendário', icon: Calendar },
+            { id: 'RELATÓRIOS', label: 'Relatórios', icon: FileStack }
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveAgendaSubTab(tab.id)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${activeAgendaSubTab === tab.id ? 'bg-[#1c0d04] text-orange-500 border border-[#431c09]' : 'text-zinc-500 hover:text-zinc-300 border border-transparent'}`}
+            >
+              <tab.icon size={16} />
+              {tab.label}
+            </button>
+          ))}
         </div>
       </header>
 
       {/* Content Grid */}
-      <div className="flex-1 flex px-12 gap-8 z-10 overflow-hidden pb-10">
-
-        {/* Main Calendar Area */}
-        <div className={`flex-1 flex flex-col bg-[#0a0a0a] border ${isDarkMode ? "border-zinc-800/80" : "border-zinc-200/80"} rounded-3xl overflow-hidden shadow-xl shadow-black/50`}>
-          {/* Professionals Header */}
-          <div className={`flex border-b ${isDarkMode ? "border-zinc-800/80" : "border-zinc-200/80"} pl-16`}>
-            {professionals.map((prof: any) => (
-              <div key={prof.id} className={`flex-1 p-4 flex items-center gap-3 border-r ${isDarkMode ? "border-zinc-800/80" : "border-zinc-200/80"} last:border-r-0`}>
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isDarkMode ? "text-white" : "text-zinc-900"} font-bold shadow-lg`} style={{ backgroundColor: prof.color }}>
-                  {prof.name.charAt(0).toUpperCase()}
-                </div>
-                <div>
-                  <div className={`${isDarkMode ? "text-white" : "text-zinc-900"} font-medium text-sm leading-tight`}>{prof.name}</div>
-                  <div className="text-[10px] text-zinc-500 font-bold tracking-wider mt-0.5">0 AGEND.</div>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Time Slots */}
-          <div className="flex-1 overflow-y-auto custom-scrollbar relative">
-            <CurrentTimeIndicator selectedDate={selectedCalendarDate} />
-            {timeSlots.map(time => (
-              <div key={time} className={`time-slot-row flex border-b ${isDarkMode ? "border-zinc-800/50" : "border-zinc-200/50"} transition-colors`}>
-                <div className={`w-16 p-3 text-xs font-medium text-zinc-500 border-r ${isDarkMode ? "border-zinc-800/80" : "border-zinc-200/80"} flex items-center justify-center`}>
-                  {time}
-                </div>
-                {professionals.map((prof: any) => (
-                  <div
-                    key={`${prof.id}-${time}`}
-                    className={`flex-1 p-2 border-r ${isDarkMode ? "border-zinc-800/80" : "border-zinc-200/80"} last:border-r-0 cursor-pointer transition-colors relative group ${isDarkMode ? "hover:bg-orange-500/10" : "hover:bg-orange-50"}`}
-                    onClick={() => handleTimeClick(time)}
-                  >
-                    <div className={`absolute inset-2 rounded-lg border-2 border-dashed border-transparent transition-all duration-300 ${isDarkMode ? "group-hover:border-orange-500/30" : "group-hover:border-orange-400/60"}`} />
-                    {(() => {
-                      const app = appointmentsMap[`${prof.id}-${time}`];
-                      if (!app) return null;
-                      const textColor = getContrastYIQ(app.displayColor);
-                      const bgColor = app.displayColor.startsWith('#') ? app.displayColor :
-                        app.displayColor === 'red' ? '#ef4444' :
-                          app.displayColor === 'blue' ? '#3b82f6' :
-                            app.displayColor === 'green' ? '#22c55e' :
-                              app.displayColor === 'purple' ? '#a855f7' : '#f97316';
-                      return (
-                        <div
-                          className={`absolute inset-1 z-20 ${textColor} p-2 rounded-lg shadow-md animate-in zoom-in duration-200 flex flex-col overflow-hidden cursor-pointer hover:ring-2 hover:ring-white/50 transition-all`}
-                          style={{ backgroundColor: bgColor }}
-                          onClick={(e) => { e.stopPropagation(); setSelectedAppDetails(app); setIsDetailsModalOpen(true); }}
-                        >
-                          <span className="text-[10px] font-bold uppercase truncate leading-tight pointer-events-none">{app.patient}</span>
-                          <span className="text-[9px] opacity-90 truncate leading-tight pointer-events-none">{app.service}</span>
-                        </div>
-                      );
-                    })()}
+      {activeAgendaSubTab === 'CALENDÁRIO' ? (
+        <div className="flex-1 flex px-4 lg:px-12 gap-8 z-10 overflow-hidden pb-10 animate-in slide-in-from-bottom-4 duration-500">
+          {/* Main Calendar Area */}
+          <div className={`flex-1 flex flex-col ${isDarkMode ? 'bg-[#0a0a0a]/50' : 'bg-white'} border ${isDarkMode ? "border-white/5" : "border-zinc-200/80"} rounded-[32px] overflow-hidden shadow-2xl shadow-black/40`}>
+            {/* Professionals Header */}
+            <div className={`flex border-b ${isDarkMode ? "border-white/5" : "border-zinc-200/80"} pl-16`}>
+              {professionals.map((prof: any) => (
+                <div key={prof.id} className={`flex-1 p-5 flex items-center gap-4 border-r ${isDarkMode ? "border-white/5" : "border-zinc-200/80"} last:border-r-0`}>
+                  <div className={`w-10 h-10 rounded-2xl flex items-center justify-center ${isDarkMode ? "text-white" : "text-zinc-900"} font-bold shadow-lg transform transition-transform hover:scale-110`} style={{ backgroundColor: prof.color }}>
+                    {prof.name.charAt(0).toUpperCase()}
                   </div>
-                ))}
-              </div>
-            ))}
+                  <div>
+                    <div className={`${isDarkMode ? "text-white" : "text-zinc-900"} font-bold text-sm tracking-tight`}>{prof.name}</div>
+                    <div className="text-[10px] text-zinc-500 font-bold tracking-[0.2em] mt-1">0 AGEND.</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Time Slots */}
+            <div className="flex-1 overflow-y-auto custom-scrollbar relative">
+              <CurrentTimeIndicator selectedDate={selectedCalendarDate} />
+              {timeSlots.map(time => (
+                <div key={time} className={`time-slot-row flex border-b ${isDarkMode ? "border-white/[0.03]" : "border-zinc-200/50"} transition-colors`}>
+                  <div className={`w-16 p-4 text-[10px] font-bold text-zinc-500 border-r ${isDarkMode ? "border-white/5" : "border-zinc-200/80"} flex items-center justify-center bg-black/5`}>
+                    {time}
+                  </div>
+                  {professionals.map((prof: any) => (
+                    <div
+                      key={`${prof.id}-${time}`}
+                      className={`flex-1 p-2 border-r ${isDarkMode ? "border-white/5" : "border-zinc-200/80"} last:border-r-0 cursor-pointer transition-colors relative group ${isDarkMode ? "hover:bg-orange-500/[0.03]" : "hover:bg-orange-50/30"}`}
+                      onClick={() => handleTimeClick(time)}
+                    >
+                      <div className={`absolute inset-2 rounded-xl border-2 border-dashed border-transparent transition-all duration-300 ${isDarkMode ? "group-hover:border-orange-500/20" : "group-hover:border-orange-400/40"}`} />
+                      {(() => {
+                        const app = appointmentsMap[`${prof.id}-${time}`];
+                        if (!app) return null;
+                        const textColor = getContrastYIQ(app.displayColor);
+                        const bgColor = app.displayColor.startsWith('#') ? app.displayColor :
+                          app.displayColor === 'red' ? '#ef4444' :
+                            app.displayColor === 'blue' ? '#3b82f6' :
+                              app.displayColor === 'green' ? '#22c55e' :
+                                app.displayColor === 'purple' ? '#a855f7' : '#f97316';
+                        return (
+                          <div
+                            className={`absolute inset-1.5 z-20 ${textColor} p-2.5 rounded-xl shadow-xl animate-in zoom-in duration-300 flex flex-col overflow-hidden cursor-pointer hover:ring-2 hover:ring-white/40 transition-all active:scale-95`}
+                            style={{ backgroundColor: bgColor }}
+                            onClick={(e) => { e.stopPropagation(); setSelectedAppDetails(app); setIsDetailsModalOpen(true); }}
+                          >
+                            <span className="text-[10px] font-bold uppercase truncate tracking-wider leading-tight pointer-events-none">{app.patient}</span>
+                            <span className="text-[9px] opacity-80 truncate leading-tight mt-0.5 pointer-events-none">{app.service}</span>
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
           </div>
         </div>
-      </div>
+      ) : activeAgendaSubTab === 'VISÃO GERAL' ? (
+        <AgendaOverview appointments={appointments} professionals={professionals} services={services} isDarkMode={isDarkMode} patients={patients} />
+      ) : (
+        <AgendaReportsView appointments={appointments} professionals={professionals} isDarkMode={isDarkMode} patients={patients} />
+      )}
 
       {/* New Appointment Modal */}
-      <AppointmentModal 
+      <AppointmentModal
         isOpen={isModalOpen}
-        onClose={() => { 
-          setIsModalOpen(false); 
-          setIsProfDropdownOpen(false); 
-          setIsServiceDropdownOpen(false); 
-          setSelectedProfessional(''); 
-          setAdditionalServices([]); 
+        onClose={() => {
+          setIsModalOpen(false);
+          setIsProfDropdownOpen(false);
+          setIsServiceDropdownOpen(false);
+          setSelectedProfessional('');
+          setAdditionalServices([]);
           setPatientSearchQuery('');
           setIsPatientDropdownOpen(false);
           setPatientName('');
@@ -1320,7 +1670,7 @@ const AgendaView = ({ professionals, services = [], appointments = [], setAppoin
             .map((s: any) => services.find((serv: any) => serv.id === s.id)?.name)
             .filter(Boolean);
           const allServiceIds = data.services.map((s: any) => s.id).filter(Boolean);
-          
+
           const newApp = {
             id: Date.now(),
             patient: data.patientName,
@@ -8670,12 +9020,17 @@ const SettingsView = ({
         {activeSettingsMenu === 'Financeiro & Fiscal' && (
           <div className="flex-1 flex flex-col max-w-4xl overflow-y-auto pr-4 custom-scrollbar">
             <div className="mb-8 shrink-0">
-              <h2 className={`text-xl font-semibold ${isDarkMode ? "text-white" : "text-zinc-900"} mb-1`}>Financeiro & Fiscal</h2>
+              <h2 className={`text-xl font-semibold ${isDarkMode ? 'text-white' : 'text-zinc-900'} mb-1`}>
+                Financeiro & Fiscal
+              </h2>
               <p className={`text-sm ${isDarkMode ? "text-zinc-400" : "text-zinc-500"}`}>Configure taxas, categorias, comissões e dados fiscais da clínica.</p>
             </div>
 
             {/* 1. Formas de Pagamento e Taxas */}
-            <div className={` ${isDarkMode ? "bg-[#0c0c0e] border-zinc-800/80 shadow-black/50" : "bg-[var(--bg-card)] border-[var(--border-default)] shadow-[var(--card-shadow)]"} border rounded-xl p-6 mb-8 transition-colors duration-300 shrink-0 `}>
+            <div className={`
+              ${isDarkMode ? 'bg-[#0c0c0e] border-zinc-800/80 shadow-black/50' : 'bg-[var(--bg-card)] border-[var(--border-default)] shadow-[var(--card-shadow)]'}
+              border rounded-xl p-6 mb-8 transition-colors duration-300 shrink-0
+            `}>
               <div className="flex items-center gap-3 mb-6">
                 <Receipt className="text-zinc-400" size={20} />
                 <h3 className={`font-medium ${isDarkMode ? "text-white" : "text-zinc-900"}`}>Formas de Pagamento e Taxas (Maquininhas)</h3>

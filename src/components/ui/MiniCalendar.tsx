@@ -9,6 +9,7 @@ interface MiniCalendarProps {
   onClear?: () => void;
   isDarkMode: boolean;
   align?: 'left' | 'right';
+  label?: string;
   className?: string;
 }
 
@@ -27,6 +28,7 @@ export const MiniCalendar = ({
   onToggle, 
   onClear, 
   isDarkMode, 
+  label,
   align = 'left',
   className = ""
 }: MiniCalendarProps) => {
@@ -66,7 +68,12 @@ export const MiniCalendar = ({
   };
 
   return (
-    <div className={`relative ${className}`} ref={ref}>
+    <div className={`relative flex flex-col gap-2 ${className}`} ref={ref}>
+      {label && (
+        <span className="text-[10px] font-bold text-neutral-500 tracking-wider uppercase flex items-center gap-1">
+          {label}
+        </span>
+      )}
       <div 
         onClick={onToggle}
         className={`

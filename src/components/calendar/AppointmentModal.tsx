@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { X, Plus, Search, ChevronDown, Trash2, User, Clock, Settings, AlertCircle, Calendar as CalendarIcon, Check } from 'lucide-react';
+import { X, Plus, Search, ChevronDown, Trash2, User, Clock, Settings, AlertCircle, Calendar as CalendarIcon, Check, CheckCircle2, RotateCcw, Pause, Play, UserX, AlertTriangle, Eye, EyeOff } from 'lucide-react';
 import { MiniCalendar } from '../ui/MiniCalendar';
+import { PremiumSelect } from '../ui/PremiumSelect';
 
 // Helper functions for time manipulation
 const timeToMinutes = (time: string): number => {
@@ -51,7 +52,7 @@ const TimePicker: React.FC<TimePickerProps> = ({ value, onChange, isDarkMode, la
 
   return (
     <div className="flex flex-col gap-2 relative" ref={dropdownRef}>
-      <span className="text-[10px] font-bold text-neutral-500 tracking-wider uppercase flex items-center gap-1">{label}</span>
+      {label && <span className="text-[10px] font-bold text-neutral-500 tracking-wider uppercase flex items-center gap-1">{label}</span>}
       <div className="relative">
         <button
           type="button"
@@ -87,8 +88,8 @@ const TimePicker: React.FC<TimePickerProps> = ({ value, onChange, isDarkMode, la
                   className={`
                     w-full px-4 py-2.5 text-left text-xs font-semibold rounded-lg transition-all flex items-center justify-between
                     ${value === time
-                      ? 'bg-orange-500 text-white'
-                      : isDarkMode ? 'hover:bg-white/5 text-neutral-400' : 'hover:bg-neutral-50 text-neutral-600'}
+                      ? 'bg-gradient-to-r from-orange-600/30 to-transparent text-orange-500 font-medium'
+                      : isDarkMode ? 'text-white hover:bg-white/5' : 'hover:bg-neutral-50 text-neutral-600 hover:text-neutral-900'}
                   `}
                 >
                   {time}
@@ -112,7 +113,25 @@ interface CustomSelectProps {
   className?: string;
 }
 
-const CustomSelect: React.FC<CustomSelectProps> = ({ value, onChange, options, isDarkMode, label, className = "" }) => {
+// Removed CustomSelect in favor of global PremiumSelect
+
+const STATUS_OPTIONS = [
+  { value: 'Agendado', label: 'Agendado', color: '#f97316', icon: Clock },
+  { value: 'Confirmado', label: 'Confirmado', color: '#3b82f6', icon: CheckCircle2 },
+  { value: 'Remarcado', label: 'Remarcado', color: '#f59e0b', icon: RotateCcw },
+  { value: 'Cancelado', label: 'Cancelado', color: '#ef4444', icon: AlertCircle },
+  { value: 'Não compareceu', label: 'Não compareceu', color: '#737373', icon: UserX },
+  { value: 'Aguardando', label: 'Aguardando', color: '#0ea5e9', icon: Pause },
+  { value: 'Em atendimento', label: 'Em atendimento', color: '#eab308', icon: Play },
+  { value: 'Concluído', label: 'Concluído', color: '#22c55e', icon: CheckCircle2 },
+];
+
+const StatusSelect: React.FC<{
+  value: string;
+  onChange: (val: string) => void;
+  isDarkMode: boolean;
+  label?: string;
+}> = ({ value, onChange, isDarkMode, label }) => {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = React.useRef<HTMLDivElement>(null);
 
@@ -126,52 +145,69 @@ const CustomSelect: React.FC<CustomSelectProps> = ({ value, onChange, options, i
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isOpen]);
 
-  const selectedOption = options.find(opt => opt.value === value);
+  const selectedOption = STATUS_OPTIONS.find(opt => opt.value === value) || STATUS_OPTIONS[0];
+  const Icon = selectedOption.icon;
 
   return (
-    <div className={`flex flex-col gap-2 relative ${className}`} ref={dropdownRef}>
+    <div className="flex flex-col gap-2 relative" ref={dropdownRef}>
       {label && <span className="text-[10px] font-bold text-neutral-500 tracking-wider uppercase flex items-center gap-1">{label}</span>}
       <div className="relative">
         <button
           type="button"
           onClick={() => setIsOpen(!isOpen)}
           className={`
-            w-full pl-4 pr-10 py-3 rounded-xl border text-sm transition-all flex items-center justify-between
+            w-full pl-5 pr-10 py-3.5 rounded-2xl border text-sm transition-all flex items-center justify-between group
             ${isDarkMode
-              ? 'bg-black border-white/5 text-white focus:border-orange-500/50'
-              : 'bg-white border-neutral-200 text-neutral-900 focus:border-orange-400 focus:bg-white'}
+              ? 'bg-[#0A0A0B] border-white/5 text-white hover:border-orange-500/30'
+              : 'bg-neutral-50 border-neutral-200 text-neutral-900 hover:border-orange-400'}
             outline-none
           `}
         >
-          <span className="truncate">{selectedOption?.label || value}</span>
-          <ChevronDown size={14} className={`text-neutral-500 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+          <div className="flex items-center gap-3">
+            <div className="relative flex items-center justify-center">
+               <Icon size={16} className="text-neutral-500" />
+               <div className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full border-2 border-[#0A0A0B]" style={{ backgroundColor: selectedOption.color }} />
+            </div>
+            <span className="truncate font-medium">{selectedOption.label}</span>
+          </div>
+          <ChevronDown size={14} className={`text-neutral-500 transition-transform duration-300 group-hover:text-orange-500 ${isOpen ? 'rotate-180' : ''}`} />
         </button>
 
         {isOpen && (
           <div className={`
-            absolute top-full left-0 right-0 mt-2 z-[100] rounded-xl border overflow-hidden shadow-2xl animate-in fade-in slide-in-from-top-2 duration-200
-            ${isDarkMode ? 'bg-[#121214] border-white/10' : 'bg-white border-neutral-200'}
+            absolute top-full left-0 right-0 mt-2 z-[150] rounded-2xl border overflow-hidden shadow-2xl animate-in fade-in slide-in-from-top-2 duration-200
+            ${isDarkMode ? 'bg-[#0A0A0B] border-white/10 shadow-black/80' : 'bg-white border-neutral-200'}
           `}>
             <div className="p-1.5 flex flex-col gap-1 max-h-72 overflow-y-auto custom-scrollbar">
-              {options.map(opt => (
-                <button
-                  key={opt.value}
-                  type="button"
-                  onClick={() => {
-                    onChange(opt.value);
-                    setIsOpen(false);
-                  }}
-                  className={`
-                    w-full px-3 py-2.5 text-left text-xs font-semibold rounded-lg transition-all flex items-center justify-between
-                    ${value === opt.value
-                      ? 'bg-orange-500 text-white'
-                      : isDarkMode ? 'hover:bg-white/5 text-neutral-400' : 'hover:bg-neutral-50 text-neutral-600'}
-                  `}
-                >
-                  {opt.label}
-                  {value === opt.value && <Check size={12} />}
-                </button>
-              ))}
+              {STATUS_OPTIONS.map(opt => {
+                const OptIcon = opt.icon;
+                const isSelected = value === opt.value;
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => {
+                      onChange(opt.value);
+                      setIsOpen(false);
+                    }}
+                    className={`
+                      w-full px-4 py-3 text-left text-xs font-semibold rounded-xl transition-all flex items-center justify-between group
+                      ${isSelected
+                        ? 'bg-gradient-to-r from-orange-600/30 to-transparent text-orange-500 font-medium'
+                        : isDarkMode ? 'hover:bg-white/5 text-zinc-400 hover:text-white' : 'hover:bg-neutral-50 text-neutral-600 hover:text-neutral-900'}
+                    `}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="relative flex items-center justify-center">
+                        <OptIcon size={16} className={isSelected ? 'text-orange-500' : 'text-neutral-500 group-hover:text-neutral-400'} />
+                        <div className={`absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full border-2 ${isSelected ? 'border-orange-950' : 'border-[#0A0A0B]'}`} style={{ backgroundColor: opt.color }} />
+                      </div>
+                      {opt.label}
+                    </div>
+                    {isSelected && <Check size={14} className="text-orange-500" />}
+                  </button>
+                );
+              })}
             </div>
           </div>
         )}
@@ -225,7 +261,7 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
   const [date, setDate] = useState(initialDate || new Date());
   const [startTime, setStartTime] = useState(initialTime || '07:30');
   const [endTime, setEndTime] = useState('08:10');
-  const [plan, setPlan] = useState('Avulso');
+
   const [isDataExpanded, setIsDataExpanded] = useState(true);
 
   // States for Bloqueio & Lembrete
@@ -242,7 +278,7 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
   const [eventServiceIds, setEventServiceIds] = useState<string[]>([]);
   const [showEventServDropdown, setShowEventServDropdown] = useState(false);
   const [allowOtherAgendamentos, setAllowOtherAgendamentos] = useState(false);
-  const [isAdvancedExpanded, setIsAdvancedExpanded] = useState(false);
+
   const [endDate, setEndDate] = useState<Date>(date);
   const [isFullDay, setIsFullDay] = useState(false);
   const [recurrence, setRecurrence] = useState('Não se repete');
@@ -408,22 +444,24 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
                     {/* Autocomplete Results */}
                     {showPatientResults && filteredPatients.length > 0 && (
                       <div className={`
-                        absolute top-full left-0 right-0 mt-2 z-50 rounded-xl border overflow-hidden shadow-2xl
-                        ${isDarkMode ? 'bg-[#121214] border-white/10' : 'bg-white border-neutral-200'}
+                        absolute top-full left-0 right-0 mt-1 z-50 rounded-xl border shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-1 duration-200
+                        ${isDarkMode ? 'bg-[#0a0a0a] border-zinc-700/50 shadow-black' : 'bg-white border-neutral-200'}
                       `}>
-                        {filteredPatients.map(p => (
-                          <button
-                            key={p.id}
-                            onClick={() => {
-                              setPatientId(p.id);
-                              setPatientSearch(p.name);
-                              setShowPatientResults(false);
-                            }}
-                            className={`w-full px-4 py-3 text-left text-sm transition-colors ${isDarkMode ? 'hover:bg-white/5 text-neutral-300' : 'hover:bg-neutral-50 text-neutral-700'}`}
-                          >
-                            {p.name}
-                          </button>
-                        ))}
+                        <div className="flex flex-col max-h-64 overflow-y-auto custom-scrollbar">
+                          {filteredPatients.map(p => (
+                            <button
+                              key={p.id}
+                              onClick={() => {
+                                setPatientId(p.id);
+                                setPatientSearch(p.name);
+                                setShowPatientResults(false);
+                              }}
+                              className={`w-full px-4 py-3 text-left text-sm transition-colors ${isDarkMode ? 'text-white hover:bg-gradient-to-r hover:from-orange-600/30 hover:to-transparent hover:text-orange-500 hover:font-medium' : 'hover:bg-neutral-50 text-neutral-700'}`}
+                            >
+                              {p.name}
+                            </button>
+                          ))}
+                        </div>
                       </div>
                     )}
                   </div>
@@ -433,72 +471,37 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
                   {/* Profissional */}
                   <div className="flex flex-col gap-2">
                     <span className="text-[10px] font-bold text-neutral-500 tracking-wider uppercase">Profissional</span>
-                    <div className="relative">
-                      <User size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-500" />
-                      <select
-                        value={professionalId}
-                        onChange={(e) => setProfessionalId(e.target.value)}
-                        className={`
-                          w-full pl-11 pr-10 py-3.5 rounded-xl border appearance-none text-sm transition-all
-                          ${isDarkMode
-                            ? 'bg-white/[0.03] border-white/10 text-white focus:border-orange-500/50'
-                            : 'bg-neutral-50 border-neutral-200 text-neutral-900 focus:border-orange-400 focus:bg-white'}
-                          outline-none
-                        `}
-                      >
-                        <option value="">Selecione...</option>
-                        {professionals.map(p => (
-                          <option key={p.id} value={p.id}>{p.name}</option>
-                        ))}
-                      </select>
-                      <ChevronDown size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-500 pointer-events-none" />
-                    </div>
+                    <PremiumSelect
+                      value={professionalId}
+                      onChange={setProfessionalId}
+                      isDarkMode={isDarkMode}
+                      placeholder="Selecione..."
+                      options={professionals.map(p => ({
+                        value: p.id,
+                        label: p.name,
+                        icon: User
+                      }))}
+                    />
                   </div>
 
-                  <div className="flex flex-col gap-2">
-                    <span className="text-[10px] font-bold text-neutral-500 tracking-wider uppercase">Status</span>
-                    <div className="relative">
-                      <Clock size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-500" />
-                      <select
-                        value={status}
-                        onChange={(e) => setStatus(e.target.value)}
-                        className={`
-                          w-full pl-11 pr-10 py-3.5 rounded-xl border appearance-none text-sm transition-all
-                          ${isDarkMode
-                            ? 'bg-white/[0.03] border-white/10 text-white focus:border-orange-500/50'
-                            : 'bg-neutral-50 border-neutral-200 text-neutral-900 focus:border-orange-400 focus:bg-white'}
-                          outline-none
-                        `}
-                      >
-                        <option value="Agendado">Agendado</option>
-                        <option value="Confirmado">Confirmado</option>
-                        <option value="Finalizado">Finalizado</option>
-                        <option value="Faltou">Faltou</option>
-                      </select>
-                      <ChevronDown size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-500 pointer-events-none" />
-                    </div>
-                  </div>
+                  <StatusSelect
+                    label="Status"
+                    value={status}
+                    onChange={setStatus}
+                    isDarkMode={isDarkMode}
+                  />
 
                   <div className="flex flex-col gap-2">
                     <span className="text-[10px] font-bold text-neutral-500 tracking-wider uppercase">Cor</span>
-                    <div className="relative">
-                      <div className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-orange-500" />
-                      <select
-                        value={color}
-                        onChange={(e) => setColor(e.target.value)}
-                        className={`
-                          w-full pl-11 pr-10 py-3.5 rounded-xl border appearance-none text-sm transition-all
-                          ${isDarkMode
-                            ? 'bg-white/[0.03] border-white/10 text-white focus:border-orange-500/50'
-                            : 'bg-neutral-50 border-neutral-200 text-neutral-900 focus:border-orange-400 focus:bg-white'}
-                          outline-none
-                        `}
-                      >
-                        <option value="Padrão">Padrão</option>
-                        <option value="Destaque">Destaque</option>
-                      </select>
-                      <ChevronDown size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-500 pointer-events-none" />
-                    </div>
+                    <PremiumSelect
+                      value={color}
+                      onChange={setColor}
+                      isDarkMode={isDarkMode}
+                      options={[
+                        { value: 'Padrão', label: 'Padrão' },
+                        { value: 'Destaque', label: 'Destaque' }
+                      ]}
+                    />
                   </div>
                 </div>
 
@@ -607,8 +610,8 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
                     {/* Dropdown for Block Professionals */}
                     {showBlockProfDropdown && !isAllClinic && (
                       <div className={`
-                        absolute top-full left-0 right-0 mt-2 z-[60] rounded-xl border overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200
-                        ${isDarkMode ? 'bg-[#121214] border-white/10' : 'bg-white border-neutral-200'}
+                        absolute top-full left-0 right-0 mt-1 z-[60] rounded-xl border overflow-hidden shadow-2xl animate-in fade-in slide-in-from-top-1 duration-200
+                        ${isDarkMode ? 'bg-[#0a0a0a] border-zinc-700/50 shadow-black' : 'bg-white border-neutral-200'}
                       `}>
                         <div className="p-2 flex flex-col gap-1 max-h-[200px] overflow-y-auto custom-scrollbar">
                           {professionals.length > 0 ? professionals.map(p => (
@@ -624,8 +627,8 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
                               className={`
                                 w-full px-4 py-2.5 text-left text-xs font-semibold rounded-lg transition-all flex items-center justify-between
                                 ${blockProfessionalIds.includes(p.id)
-                                  ? 'bg-orange-500 text-white'
-                                  : isDarkMode ? 'hover:bg-white/5 text-neutral-400' : 'hover:bg-neutral-50 text-neutral-600'}
+                                  ? 'bg-gradient-to-r from-orange-600/30 to-transparent text-orange-500 font-medium'
+                                  : isDarkMode ? 'text-white hover:bg-white/5' : 'hover:bg-neutral-50 text-neutral-600 hover:text-neutral-900'}
                               `}
                             >
                               {p.name}
@@ -712,7 +715,12 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
                           )}
                         </div>
                         <div className="flex items-center gap-2">
-                          <button className="p-1 hover:bg-neutral-500/10 rounded-md transition-colors"><X size={14} className="text-neutral-500" /></button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setParticipantIds([]); setShowParticipantDropdown(false); }}
+                            className="p-1 hover:bg-neutral-500/10 rounded-md transition-colors"
+                          >
+                            <X size={14} className="text-neutral-500" />
+                          </button>
                           <ChevronDown size={14} className={`text-neutral-500 transition-transform duration-300 ${showParticipantDropdown ? 'rotate-180' : ''}`} />
                         </div>
                       </div>
@@ -736,8 +744,8 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
                                 className={`
                                   w-full px-4 py-2.5 text-left text-xs font-semibold rounded-lg transition-all flex items-center justify-between
                                   ${participantIds.includes(p.id)
-                                    ? 'bg-orange-500 text-white'
-                                    : isDarkMode ? 'hover:bg-white/5 text-neutral-400' : 'hover:bg-neutral-50 text-neutral-600'}
+                                    ? 'bg-gradient-to-r from-orange-600/30 to-transparent text-orange-500 font-medium'
+                                    : isDarkMode ? 'text-white hover:bg-white/5' : 'hover:bg-neutral-50 text-neutral-600 hover:text-neutral-900'}
                                 `}
                               >
                                 {p.name}
@@ -857,7 +865,12 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
                           )}
                         </div>
                         <div className="flex items-center gap-2">
-                          <button className="p-1 hover:bg-neutral-500/10 rounded-md transition-colors"><X size={14} className="text-neutral-500" /></button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setEventProfessionalIds([]); setShowEventProfDropdown(false); }}
+                            className="p-1 hover:bg-neutral-500/10 rounded-md transition-colors"
+                          >
+                            <X size={14} className="text-neutral-500" />
+                          </button>
                           <ChevronDown size={14} className="text-neutral-500" />
                         </div>
                       </div>
@@ -865,7 +878,7 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
                         <div className={`absolute top-full left-0 right-0 mt-2 z-[60] rounded-xl border overflow-hidden shadow-2xl ${isDarkMode ? 'bg-[#121214] border-white/10' : 'bg-white border-neutral-200'}`}>
                           <div className="p-2 flex flex-col gap-1 max-h-[200px] overflow-y-auto custom-scrollbar">
                             {professionals.map(p => (
-                              <button key={p.id} onClick={() => !eventProfessionalIds.includes(p.id) ? setEventProfessionalIds([...eventProfessionalIds, p.id]) : setEventProfessionalIds(eventProfessionalIds.filter(pid => pid !== p.id))} className={`w-full px-4 py-2 text-left text-xs font-semibold rounded-lg ${eventProfessionalIds.includes(p.id) ? 'bg-orange-500 text-white' : 'hover:bg-white/5 text-neutral-400'}`}>{p.name}</button>
+                              <button key={p.id} onClick={() => !eventProfessionalIds.includes(p.id) ? setEventProfessionalIds([...eventProfessionalIds, p.id]) : setEventProfessionalIds(eventProfessionalIds.filter(pid => pid !== p.id))} className={`w-full px-4 py-2 text-left text-xs font-semibold rounded-lg transition-all ${eventProfessionalIds.includes(p.id) ? 'bg-gradient-to-r from-orange-600/30 to-transparent text-orange-500 font-medium' : isDarkMode ? 'text-white hover:bg-white/5' : 'hover:bg-neutral-50 text-neutral-600 hover:text-neutral-900'}`}>{p.name}</button>
                             ))}
                           </div>
                         </div>
@@ -902,7 +915,7 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
                               <button
                                 key={s.id}
                                 onClick={() => !eventServiceIds.includes(s.id) ? setEventServiceIds([...eventServiceIds, s.id]) : setEventServiceIds(eventServiceIds.filter(sid => sid !== s.id))}
-                                className={`w-full px-4 py-2.5 text-left text-xs font-semibold rounded-lg transition-all ${eventServiceIds.includes(s.id) ? 'bg-orange-500 text-white' : 'hover:bg-white/5 text-neutral-400'}`}
+                                className={`w-full px-4 py-2.5 text-left text-xs font-semibold rounded-lg transition-all ${eventServiceIds.includes(s.id) ? 'bg-gradient-to-r from-orange-600/30 to-transparent text-orange-500 font-medium' : isDarkMode ? 'text-white hover:bg-white/5' : 'hover:bg-neutral-50 text-neutral-600 hover:text-neutral-900'}`}
                               >
                                 {s.name}
                               </button>
@@ -930,34 +943,7 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
                     </label>
                   </div>
 
-                  {/* Opções avançadas */}
-                  <div className="mt-4 border-t border-white/5 pt-6">
-                    <button
-                      onClick={() => setIsAdvancedExpanded(!isAdvancedExpanded)}
-                      className="flex items-center justify-between w-full group"
-                    >
-                      <h3 className="text-xl font-light font-bricolage tracking-tight">Opções avançadas</h3>
-                      <ChevronDown size={18} className={`text-neutral-500 transition-transform duration-300 ${isAdvancedExpanded ? 'rotate-180' : ''}`} />
-                    </button>
-                    {isAdvancedExpanded && (
-                      <div className="mt-4 flex flex-col gap-4 animate-in fade-in slide-in-from-top-2 duration-300">
-                        <div className="flex items-center justify-between p-4 rounded-xl border border-white/5 bg-white/[0.02]">
-                          <div className="flex flex-col gap-1">
-                            <span className="text-xs font-semibold text-neutral-300">Notificação por E-mail</span>
-                            <p className="text-[10px] text-neutral-500">Enviar lembrete para profissionais 24h antes.</p>
-                          </div>
-                          <label className="inline-flex items-center cursor-pointer">
-                            <input type="checkbox" className="sr-only peer" />
-                            <div className="relative w-9 h-5 bg-neutral-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-orange-500"></div>
-                          </label>
-                        </div>
-                        <div className="flex flex-col gap-2">
-                          <span className="text-[10px] font-bold text-neutral-500 uppercase">Sala / Recinto</span>
-                          <input type="text" placeholder="Ex: Sala 02" className="w-full px-4 py-3 rounded-xl border border-white/10 bg-white/[0.03] text-sm focus:border-orange-500/50 outline-none" />
-                        </div>
-                      </div>
-                    )}
-                  </div>
+
                 </div>
               </>
             ) : null}
@@ -974,31 +960,16 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
                         <div className="flex-1 flex flex-col gap-2">
                           <span className="text-[10px] font-bold text-neutral-400 tracking-wider uppercase">Nome</span>
                           <div className="relative">
-                            <select
-                              value={svc.id}
-                              onChange={(e) => handleServiceChange(idx, e.target.value)}
-                              className={`
-                              w-full px-4 pr-10 py-3.5 rounded-xl border appearance-none text-sm transition-all
-                              ${isDarkMode
-                                  ? 'bg-white/[0.03] border-white/10 text-white focus:border-orange-500/50'
-                                  : 'bg-neutral-50 border-neutral-200 text-neutral-900 focus:border-orange-400 focus:bg-white'}
-                              outline-none
-                            `}
-                            >
-                              <option value="">Selecione um procedimento...</option>
-                              {services.map(s => (
-                                <option key={s.id} value={s.id}>{s.name} - R$ {s.price || 0}</option>
-                              ))}
-                              {/* Clinical Examples if no services provided */}
-                              {services.length === 0 && (
-                                <>
-                                  <option value="botox">Botox (Toxina Botulínica)</option>
-                                  <option value="limpeza">Limpeza de Pele Profunda</option>
-                                  <option value="preenchimento">Preenchimento Labial</option>
-                                </>
-                              )}
-                            </select>
-                            <ChevronDown size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-500 pointer-events-none" />
+                          <PremiumSelect
+                            value={svc.id}
+                            onChange={(val) => handleServiceChange(idx, val)}
+                            isDarkMode={isDarkMode}
+                            placeholder="Selecione um procedimento..."
+                            options={services.map(s => ({
+                              value: s.id,
+                              label: `${s.name} - R$ ${s.price || 0}`
+                            }))}
+                          />
                           </div>
                         </div>
 
@@ -1082,64 +1053,48 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
                       )}
 
                       {/* Fim / Hora */}
-                      <div className="flex flex-col gap-2">
-                        <div className="flex items-center justify-between">
-                          <span className="text-[10px] font-bold text-neutral-500 tracking-wider uppercase flex items-center gap-1">{type === 'Lembrete' ? 'HORA*' : 'FIM*'}</span>
-                          {(type === 'Bloqueio' || type === 'Lembrete') && (
-                            <div className="flex items-center gap-2">
-                              <label className="inline-flex items-center cursor-pointer">
-                                <input
-                                  type="checkbox"
-                                  className="sr-only peer"
-                                  checked={isFullDay}
-                                  onChange={() => setIsFullDay(!isFullDay)}
-                                />
-                                <div className="relative w-7 h-4 bg-neutral-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-orange-500"></div>
-                              </label>
-                              <span className="text-[10px] font-bold text-neutral-500 uppercase">Dia todo</span>
-                            </div>
-                          )}
+                      <TimePicker
+                        label={type === 'Lembrete' ? 'HORA*' : 'FIM*'}
+                        value={isFullDay ? '23:59' : endTime}
+                        onChange={setEndTime}
+                        isDarkMode={isDarkMode}
+                        disabled={isFullDay}
+                      />
+
+                       {/* Dia Todo Switch (Moved to its own column) */}
+                      {(type === 'Bloqueio' || type === 'Lembrete') && (
+                        <div className="flex flex-col gap-2">
+                          <span className="text-[10px] font-bold text-neutral-500 tracking-wider uppercase opacity-0">PLACEHOLDER</span> {/* Invisible label to maintain alignment */}
+                          <div className={`
+                            flex items-center gap-3 px-4 py-3 rounded-xl border transition-all
+                            ${isDarkMode ? 'bg-white/[0.03] border-white/10' : 'bg-neutral-50 border-neutral-200'}
+                          `}>
+                            <label className="inline-flex items-center cursor-pointer">
+                              <input
+                                type="checkbox"
+                                className="sr-only peer"
+                                checked={isFullDay}
+                                onChange={() => setIsFullDay(!isFullDay)}
+                              />
+                              <div className={`
+                                relative w-11 h-6 bg-neutral-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-500
+                                ${isDarkMode ? 'bg-white/10 border-white/5' : ''}
+                              `}></div>
+                            </label>
+                            <span className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider">Dia todo</span>
+                          </div>
                         </div>
-                        <TimePicker
-                          label=""
-                          value={isFullDay ? '23:59' : endTime}
-                          onChange={setEndTime}
-                          isDarkMode={isDarkMode}
-                          disabled={isFullDay}
-                        />
-                      </div>
+                      )}
                     </div>
 
                     {/* Plano & Recorrência & Advanced Options */}
                     <div className="flex flex-wrap items-start gap-x-6 gap-y-4">
-                      {type === 'Agendamento' && (
-                        <div className="flex-1 min-w-[160px] flex flex-col gap-2">
-                          <span className="text-[10px] font-bold text-neutral-400 tracking-wider uppercase flex items-center gap-1">Plano*</span>
-                          <div className="relative">
-                            <select
-                              value={plan}
-                              onChange={(e) => setPlan(e.target.value)}
-                              className={`
-                            w-full px-4 pr-10 py-3.5 rounded-xl border appearance-none text-sm transition-all
-                            ${isDarkMode
-                                  ? 'bg-white/[0.03] border-white/10 text-white focus:border-orange-500/50'
-                                  : 'bg-neutral-50 border-neutral-200 text-neutral-900 focus:border-orange-400 focus:bg-white'}
-                            outline-none
-                          `}
-                            >
-                              <option value="Avulso">Avulso</option>
-                              <option value="Convênio">Convênio</option>
-                              <option value="Pacote">Pacote</option>
-                            </select>
-                            <ChevronDown size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-500 pointer-events-none" />
-                          </div>
-                        </div>
-                      )}
+
 
                       {(type === 'Agendamento' || type === 'Bloqueio' || type === 'Lembrete') && (
                         <div className="flex-1 min-w-[160px] flex flex-col gap-2">
                           <span className="text-[10px] font-bold text-neutral-400 tracking-wider uppercase flex items-center gap-1">Recorrência*</span>
-                          <CustomSelect
+                          <PremiumSelect
                             value={recurrence}
                             onChange={setRecurrence}
                             isDarkMode={isDarkMode}
@@ -1166,7 +1121,7 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
                           {/* Termina */}
                           <div className="flex-1 min-w-[160px] flex flex-col gap-2 animate-in fade-in slide-in-from-top-2 duration-300">
                             <span className="text-[10px] font-bold text-neutral-400 tracking-wider uppercase">Termina*</span>
-                            <CustomSelect
+                            <PremiumSelect
                               value={endsAt}
                               onChange={setEndsAt}
                               isDarkMode={isDarkMode}
@@ -1247,20 +1202,18 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
                               `}
                             />
                             <div className="relative flex-1">
-                              <select
+                              <PremiumSelect
                                 value={repeatUnit}
-                                onChange={(e) => setRepeatUnit(e.target.value)}
-                                className={`
-                                  w-full bg-transparent text-sm outline-none appearance-none cursor-pointer
-                                  ${isDarkMode ? 'text-neutral-400' : 'text-neutral-500'}
-                                `}
-                              >
-                                <option value="dia">dia</option>
-                                <option value="semana">semana</option>
-                                <option value="mês">mês</option>
-                                <option value="ano">ano</option>
-                              </select>
-                              <ChevronDown size={14} className="absolute right-0 top-1/2 -translate-y-1/2 pointer-events-none opacity-50" />
+                                onChange={setRepeatUnit}
+                                isDarkMode={isDarkMode}
+                                className="w-32"
+                                options={[
+                                  { value: 'dia', label: 'dia' },
+                                  { value: 'semana', label: 'semana' },
+                                  { value: 'mês', label: 'mês' },
+                                  { value: 'ano', label: 'ano' }
+                                ]}
+                              />
                             </div>
                           </div>
                         </div>
@@ -1337,7 +1290,7 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
                 startTime,
                 endTime: (type === 'Lembrete' || isFullDay) ? '23:59' : (type === 'Evento' ? endTime : endTime),
                 endDate: type === 'Evento' ? endDate : date,
-                plan,
+
                 isAllClinic,
                 isFullDay,
                 recurrence,
