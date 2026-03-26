@@ -25,6 +25,7 @@ import { FinanceRecord, AppointmentRecord, ServiceRecord } from '../../types/fin
 interface CashFlowChartProps {
   activePeriod: string;
   setActivePeriod: (period: string) => void;
+  analysisPeriod: number;
   expenses?: FinanceRecord[];
   appointments?: AppointmentRecord[];
   services?: ServiceRecord[];
@@ -44,10 +45,24 @@ function buildChartData(
   expenses: any[],
   appointments: any[],
   services: any[],
-  activePeriod: string
+  activePeriod: string,
+  analysisPeriod: number
 ): any[] {
-  const now = new Date();
-  const todayStr = now.toISOString().split('T')[0];
+  // We need to mirror the history logic from DashboardBalance to get the correct "anchor" date
+  const anchorDate = new Date();
+  let baseDate = new Date();
+
+  if (activePeriod === 'DIÁRIA' || activePeriod === 'SEMANAL' || activePeriod === 'MENSAL') {
+    // 0 is 12 months ago, 12 is current month
+    const offset = analysisPeriod - 12;
+    baseDate = new Date(anchorDate.getFullYear(), anchorDate.getMonth() + offset, 1);
+  } else {
+    // 0 is 5 years ago, 5 is current year
+    const offset = analysisPeriod - 5;
+    baseDate = new Date(anchorDate.getFullYear() + offset, 0, 1);
+  }
+
+  const todayStr = anchorDate.toISOString().split('T')[0];
 
   const bucketExpense = (dateStr: string): string | null => {
     if (!dateStr) return null;
@@ -56,15 +71,11 @@ function buildChartData(
 
     switch (activePeriod) {
       case 'DIÁRIA': {
-        const currMonth = now.getMonth();
-        const currYear = now.getFullYear();
-        if (y === currYear && m - 1 === currMonth) return String(d).padStart(2, '0');
+        if (y === baseDate.getFullYear() && m - 1 === baseDate.getMonth()) return String(d).padStart(2, '0');
         return null;
       }
       case 'SEMANAL': {
-        const currMonth = now.getMonth();
-        const currYear = now.getFullYear();
-        if (y === currYear && m - 1 === currMonth) {
+        if (y === baseDate.getFullYear() && m - 1 === baseDate.getMonth()) {
           const week = Math.ceil(d / 7);
           return `Sem ${String(week).padStart(2, '0')}`;
         }
@@ -72,29 +83,29 @@ function buildChartData(
       }
       case 'MENSAL': {
         const meses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
-        const monthsBack = (now.getFullYear() - y) * 12 + (now.getMonth() - (m - 1));
-        if (monthsBack >= 0 && monthsBack < 6) return `${meses[m - 1]} ${y}`;
+        const dateDate = new Date(y, m - 1, 1);
+        const endDate = new Date(baseDate.getFullYear(), baseDate.getMonth(), 1);
+        const startDate = new Date(baseDate.getFullYear(), baseDate.getMonth() - 5, 1);
+        
+        if (dateDate >= startDate && dateDate <= endDate) return `${meses[m - 1]} ${y}`;
         return null;
       }
       case 'TRIMESTRAL': {
-        const currYear = now.getFullYear();
-        if (y === currYear) {
+        if (y === baseDate.getFullYear()) {
           const q = Math.ceil(m / 3);
           return `${q}º Tri`;
         }
         return null;
       }
       case 'SEMESTRAL': {
-        const currYear = now.getFullYear();
-        if (y === currYear) {
+        if (y === baseDate.getFullYear()) {
           const s = m <= 6 ? 1 : 2;
           return `${s}º Sem`;
         }
         return null;
       }
       case 'ANUAL': {
-        const currYear = now.getFullYear();
-        if (y >= currYear - 3 && y <= currYear) return String(y);
+        if (y >= baseDate.getFullYear() - 3 && y <= baseDate.getFullYear()) return String(y);
         return null;
       }
       default:
@@ -105,7 +116,7 @@ function buildChartData(
   const generateLabels = (): string[] => {
     switch (activePeriod) {
       case 'DIÁRIA': {
-        const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+        const daysInMonth = new Date(baseDate.getFullYear(), baseDate.getMonth() + 1, 0).getDate();
         return Array.from({ length: daysInMonth }, (_, i) => String(i + 1).padStart(2, '0'));
       }
       case 'SEMANAL': {
@@ -115,7 +126,7 @@ function buildChartData(
         const meses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
         const labels: string[] = [];
         for (let i = 5; i >= 0; i--) {
-          const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+          const d = new Date(baseDate.getFullYear(), baseDate.getMonth() - i, 1);
           labels.push(`${meses[d.getMonth()]} ${d.getFullYear()}`);
         }
         return labels;
@@ -125,8 +136,8 @@ function buildChartData(
       case 'SEMESTRAL':
         return ['1º Sem', '2º Sem'];
       case 'ANUAL': {
-        const currYear = now.getFullYear();
-        return [String(currYear - 3), String(currYear - 2), String(currYear - 1), String(currYear)];
+        const bY = baseDate.getFullYear();
+        return [String(bY - 3), String(bY - 2), String(bY - 1), String(bY)];
       }
       default:
         return [];
@@ -134,6 +145,7 @@ function buildChartData(
   };
 
   const labels = generateLabels();
+  // ... rest of the function stays same
   const data: Record<string, { entradas: number; entradasPrevistas: number; saidas: number; saidasPrevistas: number }> = {};
   labels.forEach(l => { data[l] = { entradas: 0, entradasPrevistas: 0, saidas: 0, saidasPrevistas: 0 }; });
 
@@ -195,6 +207,7 @@ function buildChartData(
 export const CashFlowChart = ({ 
   activePeriod, 
   setActivePeriod, 
+  analysisPeriod,
   expenses = [], 
   appointments = [], 
   services = [],
@@ -204,8 +217,8 @@ export const CashFlowChart = ({
   const [chartType, setChartType] = useState<'line' | 'bar'>('bar');
 
   const currentData = useMemo(
-    () => buildChartData(expenses, appointments, services, activePeriod),
-    [expenses, appointments, services, activePeriod]
+    () => buildChartData(expenses, appointments, services, activePeriod, analysisPeriod),
+    [expenses, appointments, services, activePeriod, analysisPeriod]
   );
 
   const barThickness = activePeriod === 'DIÁRIA' ? 20 : activePeriod === 'MENSAL' ? 40 : (activePeriod === 'TRIMESTRAL' || activePeriod === 'SEMESTRAL') ? 60 : activePeriod === 'ANUAL' ? 50 : 30;

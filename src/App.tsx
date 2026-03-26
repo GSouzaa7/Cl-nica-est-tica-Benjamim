@@ -90,6 +90,7 @@ import {
   BusyHoursWidget
 } from './components/dashboard/DashboardWidgets';
 import AppointmentModal from './components/calendar/AppointmentModal';
+import { AppointmentDetailsModal } from './components/calendar/AppointmentDetailsModal';
 import { PeriodSelector } from './components/ui/PeriodSelector';
 import { LucideIcon, FileStack } from 'lucide-react';
 import { AgendaReportsView } from './components/agenda/AgendaReportsView';
@@ -667,7 +668,17 @@ const DashboardView = ({
 }) => {
   const [faqs, setFaqs] = useState([{ q: 'Dói fazer botox?', a: 'Utilizamos pomada anestésica de alta eficácia para garantir o máximo de conforto.' }]);
   const [activePeriod, setActivePeriod] = useState('MENSAL');
+  const [analysisPeriod, setAnalysisPeriod] = useState(12); // Default to current month index
   const [showValues, setShowValues] = useState<boolean>(true);
+
+  // Reset analysis period when activePeriod changes
+  useEffect(() => {
+    if (activePeriod === 'DIÁRIA' || activePeriod === 'SEMANAL' || activePeriod === 'MENSAL') {
+      setAnalysisPeriod(12);
+    } else {
+      setAnalysisPeriod(5); // Middle of 11 year range (index 5)
+    }
+  }, [activePeriod]);
 
   // Agrupamento para Laranjas e Críticos
   const lowStockItems = inventory.filter((item: any) => item.stock <= item.minStock && item.stock > 0);
@@ -814,6 +825,7 @@ const DashboardView = ({
                 <CashFlowChart
                   activePeriod={activePeriod}
                   setActivePeriod={setActivePeriod}
+                  analysisPeriod={analysisPeriod}
                   expenses={expenses}
                   appointments={appointments}
                   services={services}
@@ -826,6 +838,8 @@ const DashboardView = ({
               <div className={`lg:col-span-1 border-l pl-6 h-full transition-colors ${isDarkMode ? 'border-white/5' : 'border-black/5'}`}>
                 <DashboardBalance
                   activePeriod={activePeriod}
+                  analysisPeriod={analysisPeriod}
+                  setAnalysisPeriod={setAnalysisPeriod}
                   expenses={expenses}
                   appointments={appointments}
                   services={services}
@@ -1274,7 +1288,7 @@ const AgendaOverview = ({ appointments = [], professionals = [], services = [], 
   );
 };
 
-const AgendaView = ({ professionals, services = [], appointments = [], setAppointments, onCompleteService, isDarkMode = true, patients = [] }: any) => {
+const AgendaView = ({ professionals, services = [], appointments = [], setAppointments, setPatients, onCompleteService, isDarkMode = true, patients = [], onNavigateToPatient }: any) => {
   const { addToast } = useToast();
   const [activeAgendaSubTab, setActiveAgendaSubTab] = useState('CALENDÁRIO');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -1295,6 +1309,7 @@ const AgendaView = ({ professionals, services = [], appointments = [], setAppoin
   const [isPatientDropdownOpen, setIsPatientDropdownOpen] = useState(false);
   // appointments state moved to App.tsx
   const [selectedAppDetails, setSelectedAppDetails] = useState<any | null>(null);
+  const [selectedAppId, setSelectedAppId] = useState<string | number | null>(null);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
 
   // Audio Recording States & Refs
@@ -1440,7 +1455,8 @@ const AgendaView = ({ professionals, services = [], appointments = [], setAppoin
   const timeSlots = [
     '08:00', '08:30', '09:00', '09:30', '10:00', '10:30', '11:00', '11:30',
     '12:00', '12:30', '13:00', '13:30', '14:00', '14:30', '15:00', '15:30',
-    '16:00', '16:30', '17:00', '17:30', '18:00', '18:30', '19:00', '19:30'
+    '16:00', '16:30', '17:00', '17:30', '18:00', '18:30', '19:00', '19:30',
+    '20:00', '20:30', '21:00'
   ];
 
   const handleTimeClick = (time: string) => {
@@ -1601,23 +1617,36 @@ const AgendaView = ({ professionals, services = [], appointments = [], setAppoin
             </div>
 
             {/* Time Slots */}
-            <div className="flex-1 overflow-y-auto custom-scrollbar relative">
+            <div className="flex-1 overflow-y-auto custom-scrollbar relative pt-8 pb-12">
               <CurrentTimeIndicator selectedDate={selectedCalendarDate} />
               {timeSlots.map(time => (
-                <div key={time} className={`time-slot-row flex border-b ${isDarkMode ? "border-white/[0.03]" : "border-zinc-200/50"} transition-colors`}>
-                  <div className={`w-16 p-4 text-[10px] font-bold text-zinc-500 border-r ${isDarkMode ? "border-white/5" : "border-zinc-200/80"} flex items-center justify-center bg-black/5`}>
-                    {time}
+                <div key={time} className={`time-slot-row flex h-[60px] border-t ${isDarkMode ? "border-white/[0.04]" : "border-zinc-200/60"} transition-colors relative`}>
+                  <div className={`w-16 relative flex items-start justify-center`}>
+                    <span className="absolute -top-2.5 text-[10px] font-medium text-zinc-400 tabular-nums">
+                      {time}
+                    </span>
                   </div>
                   {professionals.map((prof: any) => (
                     <div
                       key={`${prof.id}-${time}`}
-                      className={`flex-1 p-2 border-r ${isDarkMode ? "border-white/5" : "border-zinc-200/80"} last:border-r-0 cursor-pointer transition-colors relative group ${isDarkMode ? "hover:bg-orange-500/[0.03]" : "hover:bg-orange-50/30"}`}
+                      className={`flex-1 border-r ${isDarkMode ? "border-white/[0.04]" : "border-zinc-200/60"} last:border-r-0 cursor-pointer transition-colors relative group`}
                       onClick={() => handleTimeClick(time)}
                     >
-                      <div className={`absolute inset-2 rounded-xl border-2 border-dashed border-transparent transition-all duration-300 ${isDarkMode ? "group-hover:border-orange-500/20" : "group-hover:border-orange-400/40"}`} />
                       {(() => {
                         const app = appointmentsMap[`${prof.id}-${time}`];
                         if (!app) return null;
+
+                        const parse = (t: string) => {
+                          if (!t) return 0;
+                          const [h, m] = t.split(':').map(Number);
+                          return h * 60 + m;
+                        };
+
+                        const startMin = parse(app.time);
+                        const endMin = parse(app.endTime || app.time);
+                        const duration = Math.max(30, endMin - startMin);
+                        const slots = duration / 30;
+
                         const textColor = getContrastYIQ(app.displayColor);
                         const bgColor = app.displayColor.startsWith('#') ? app.displayColor :
                           app.displayColor === 'red' ? '#ef4444' :
@@ -1626,12 +1655,19 @@ const AgendaView = ({ professionals, services = [], appointments = [], setAppoin
                                 app.displayColor === 'purple' ? '#a855f7' : '#f97316';
                         return (
                           <div
-                            className={`absolute inset-1.5 z-20 ${textColor} p-2.5 rounded-xl shadow-xl animate-in zoom-in duration-300 flex flex-col overflow-hidden cursor-pointer hover:ring-2 hover:ring-white/40 transition-all active:scale-95`}
-                            style={{ backgroundColor: bgColor }}
+                            className={`absolute top-0 left-2 right-2 z-40 ${textColor} p-2 rounded-xl shadow-2xl animate-in zoom-in duration-300 flex flex-col justify-center overflow-hidden cursor-pointer hover:ring-2 hover:ring-white/40 transition-all active:scale-[0.98] border border-white/10`}
+                            style={{ 
+                              backgroundColor: bgColor,
+                              height: `calc(${slots * 100}% + ${Math.max(0, Math.ceil(slots) - 1)}px - 4px)`
+                            }}
                             onClick={(e) => { e.stopPropagation(); setSelectedAppDetails(app); setIsDetailsModalOpen(true); }}
                           >
-                            <span className="text-[10px] font-bold uppercase truncate tracking-wider leading-tight pointer-events-none">{app.patient}</span>
-                            <span className="text-[9px] opacity-80 truncate leading-tight mt-0.5 pointer-events-none">{app.service}</span>
+                            <div className="flex flex-col gap-0.5 pointer-events-none">
+                              <span className="text-[12px] font-bold uppercase truncate tracking-tight leading-zero">{app.patient}</span>
+                              <span className="text-[11px] opacity-80 truncate leading-none">{app.service}</span>
+                              <span className="text-[10px] font-black uppercase tracking-widest mt-0.5 opacity-90">{app.status || 'Agendado'}</span>
+                            </div>
+                            <div className="absolute left-0 top-0 bottom-0 w-1 bg-white/20" />
                           </div>
                         );
                       })()}
@@ -1660,8 +1696,9 @@ const AgendaView = ({ professionals, services = [], appointments = [], setAppoin
           setPatientSearchQuery('');
           setIsPatientDropdownOpen(false);
           setPatientName('');
+          setSelectedAppId(null);
         }}
-        onConfirm={(data) => {
+        onConfirm={async (data) => {
           if (!data.patientName || !data.professionalId || !data.startTime) {
             alert('Erro: Preencha Paciente, Profissional e Horário de Início antes de confirmar.');
             return;
@@ -1671,19 +1708,104 @@ const AgendaView = ({ professionals, services = [], appointments = [], setAppoin
             .filter(Boolean);
           const allServiceIds = data.services.map((s: any) => s.id).filter(Boolean);
 
+          // Auto-create patient in Clientes if they don't exist yet
+          let patientIdForApp = data.patientId || null;
+          const existingPatient = patients?.find((p: any) =>
+            (data.patientId && p.id === data.patientId) ||
+            p.name?.toLowerCase().trim() === data.patientName?.toLowerCase().trim()
+          );
+          if (!existingPatient) {
+            const newPatientId = data.patientId || `pat_${Date.now()}`;
+            const newPatient = {
+              id: newPatientId,
+              name: data.patientName,
+              phone: data.patientPhone || '',
+              email: data.patientEmail || '',
+              notes: '',
+              history: [],
+              createdAt: new Date().toISOString(),
+            };
+            try {
+              await setDoc(doc(db, 'clientes', newPatientId), newPatient);
+              // setPatients is handled by onSnapshot in App.js now
+              patientIdForApp = newPatientId;
+            } catch (e) { console.error('Erro ao criar paciente:', e); }
+          } else {
+            patientIdForApp = existingPatient.id;
+          }
+
+          const appId = data.id || Date.now();
           const newApp = {
-            id: Date.now(),
+            id: appId,
             patient: data.patientName,
+            patientId: patientIdForApp,
             service: allServiceNames.join(', ') || 'Sem serviço',
             serviceIds: allServiceIds,
             time: data.startTime,
             endTime: data.endTime,
-            plan: data.plan,
+            plan: data.plan || '',
+            status: data.status || 'Agendado',
+            color: data.color || 'Padrão',
+            observations: data.observations || '',
             professionalId: data.professionalId,
             date: data.date ? (typeof data.date === 'string' ? data.date : data.date.toISOString().split('T')[0]) : new Date().toISOString().split('T')[0],
           };
-          setAppointments(prev => [...prev, newApp]);
-          setIsModalOpen(false);
+
+          try {
+            await setDoc(doc(db, 'agendamentos', String(appId)), newApp);
+            
+            // If status changed to "Concluído", trigger inventory reduction and finance
+            if (data.status === 'Concluído') {
+              // Trigger same logic as onComplete but adapted for this context
+              const appServices = data.services
+                .map((s: any) => services.find((serv: any) => serv.id === s.id))
+                .filter(Boolean);
+
+              for (const sid of allServiceIds) {
+                const s = services?.find((serv: any) => serv.id === sid);
+                if (s && s.items) {
+                  for (const item of s.items) {
+                    const invDocRef = doc(db, 'estoque', item.itemId);
+                    const invSnap = await getDoc(invDocRef);
+                    if (invSnap.exists()) {
+                      const currentStock = invSnap.data().stock || 0;
+                      await updateDoc(invDocRef, {
+                        stock: Math.max(0, currentStock - (item.quantity || 1))
+                      });
+                    }
+                  }
+                }
+              }
+              
+              // Financial entry if not already present (simplified check)
+              let totalValue = 0;
+              for (const sid of allServiceIds) {
+                const s = services?.find((serv: any) => serv.id === sid);
+                if (s) totalValue += Number(s.price || s.valor || s.value || 0);
+              }
+              if (totalValue > 0) {
+                const financeId = `fin_${appId}`;
+                await setDoc(doc(db, 'financeiro', financeId), {
+                  id: financeId,
+                  description: `Atendimento: ${newApp.service} - ${newApp.patient}`,
+                  category: 'Serviços Prestados',
+                  quantity: 1, value: totalValue,
+                  dueDate: new Date().toISOString().split('T')[0],
+                  status: 'Pago', recurrence: 'Não', type: 'Receita', date: new Date().toISOString()
+                });
+              }
+            }
+
+            setAppointments(prev => {
+              const filtered = prev.filter(a => String(a.id) !== String(appId));
+              return [...filtered, newApp];
+            });
+            setIsModalOpen(false);
+          } catch (e) {
+            console.error('Erro ao salvar agendamento:', e);
+            alert('Erro ao salvar agendamento no servidor.');
+          }
+
           // Cleanup
           setPatientName('');
           setPatientSearchQuery('');
@@ -1693,6 +1815,7 @@ const AgendaView = ({ professionals, services = [], appointments = [], setAppoin
           setSelectedProfessional('');
           setIsProfDropdownOpen(false);
           setIsServiceDropdownOpen(false);
+          setSelectedAppId(null);
         }}
         professionals={professionals}
         services={services}
@@ -1703,262 +1826,122 @@ const AgendaView = ({ professionals, services = [], appointments = [], setAppoin
         initialPatientName={patientName}
         initialProfessionalId={selectedProfessional}
         initialServiceIds={selectedService ? [selectedService, ...additionalServices].filter(Boolean) : additionalServices}
+        initialId={selectedAppId || undefined}
       />
 
-      {/* Details / Life Cycle Modal */}
-      {isDetailsModalOpen && selectedAppDetails && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className={`${isDarkMode ? "bg-[#0a0a0a] border-orange-900/30 shadow-[0_0_50px_rgba(249,115,22,0.1)]" : "bg-white border-[var(--border-default)] shadow-2xl"} border rounded-3xl w-full max-w-sm max-h-[90vh] overflow-y-auto custom-scrollbar p-8 relative flex flex-col`}>
-            <button
-              onClick={() => {
-                setIsDetailsModalOpen(false);
-                setSelectedAppDetails(null);
-                setTranscription('');
-                setIsRecording(false);
-                if (recognitionRef.current) recognitionRef.current.stop();
-              }}
-              className={`absolute top-6 right-6 text-zinc-500 hover:${isDarkMode ? "text-white" : "text-zinc-900"} transition-colors`}
-            >
-              <X size={20} />
-            </button>
-
-            <h2 className={`text-xl font-bold ${isDarkMode ? "text-white" : "text-zinc-900"} mb-1`}>Detalhes do Atendimento</h2>
-            <p className="text-zinc-500 text-sm mb-6">{selectedAppDetails.time} • Status: Confirmado</p>
-
-            <div className={`p-4 rounded-xl border ${isDarkMode ? "border-zinc-800 bg-[#121214]" : "border-zinc-200 bg-zinc-50"} mb-6`}>
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 rounded-full bg-orange-500/10 flex items-center justify-center text-orange-500">
-                  <User size={20} />
-                </div>
-                <div>
-                  <div className={`font-semibold ${isDarkMode ? "text-white" : "text-zinc-900"}`}>{selectedAppDetails.patient}</div>
-                  <div className="text-xs text-zinc-500">{selectedAppDetails.service}</div>
-                </div>
-              </div>
-            </div>
-
-            {/* Áudio / Evolução */}
-            <div className={`mb-6 p-4 rounded-xl border ${isDarkMode ? "border-zinc-800 bg-[#050505]" : "border-zinc-200 bg-zinc-50"}`}>
-              <div className="flex items-center justify-between mb-3">
-                <span className={`text-xs font-bold uppercase tracking-wider ${isDarkMode ? "text-zinc-400" : "text-zinc-500"}`}>Anotações do Atendimento</span>
-                <button
-                  onClick={handleRecordAudio}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${isRecording
-                    ? 'bg-red-600 text-white border border-red-500 animate-pulse'
-                    : 'bg-[#1c0d04] text-orange-500 border border-[#431c09] hover:bg-orange-500/20'
-                    }`}
-                >
-                  {isRecording ? <Square size={14} /> : <Mic size={14} />}
-                  {isRecording ? 'Parar' : 'Gravar Áudio'}
-                </button>
-              </div>
-              <textarea
-                value={transcription}
-                onChange={(e) => setTranscription(e.target.value)}
-                placeholder="Descreva o atendimento, material utilizado ou anamnese..."
-                className={`w-full bg-transparent border-none ${isDarkMode ? "text-zinc-300" : "text-zinc-900"} focus:outline-none resize-none h-24 text-sm leading-relaxed custom-scrollbar`}
-              />
-            </div>
-
-            <div className="flex flex-col gap-3">
-              <button
-                onClick={() => {
-                  setPatientName(selectedAppDetails.patient);
-                  setSelectedService(services.find((s: any) => s.name === selectedAppDetails.service)?.id || '');
-                  setSelectedProfessional(selectedAppDetails.professionalId);
-                  setSelectedTime(selectedAppDetails.time);
-                  setIsDetailsModalOpen(false);
-                  setIsModalOpen(true);
-                }}
-                className={`w-full py-3 rounded-xl border ${isDarkMode ? "border-zinc-800 text-white hover:bg-zinc-800" : "border-zinc-200 text-zinc-900 hover:bg-zinc-100"} font-medium transition-colors`}
-              >
-                Remarcar Agendamento
-              </button>
-
-              <button
-                onClick={async () => {
-                  const msg = 'ATENDIMENTO FINALIZADO';
-
-                  const targetPatientName = selectedAppDetails.patient;
-                  if (targetPatientName) {
-                    const newRecord = {
-                      id: Date.now().toString(),
-                      date: new Date().toLocaleDateString('pt-BR'),
-                      type: 'Anotação Relevante',
-                      content: encryptField(transcription.trim())
-                    };
-
-                    const historyArray = transcription.trim() ? [newRecord] : [];
-                    const matchedPatient = patients?.find((p: any) => p.name === targetPatientName);
-
-                    if (matchedPatient && matchedPatient.id) {
-                      // Patient exists, append transcription if any
-                      if (transcription.trim()) {
-                        const updatedHistory = matchedPatient.history ? [newRecord, ...matchedPatient.history] : [newRecord];
-                        try {
-                          const docRef = doc(db, 'clientes', matchedPatient.id);
-                          await setDoc(docRef, { ...matchedPatient, history: updatedHistory }, { merge: true });
-                          logAuditEvent({
-                            userId: auth.currentUser?.uid || 'unknown',
-                            userEmail: auth.currentUser?.email || 'unknown',
-                            userName: auth.currentUser?.displayName || 'Usuário',
-                            action: 'SALVOU_REGISTRO_MEDICO',
-                            module: 'Agenda',
-                            details: `Gravou áudio/anotação para paciente ${matchedPatient.name}.`
-                          });
-                        } catch (error) {
-                          console.error('Erro ao salvar anotação do atendimento no paciente:', error);
-                        }
-                      }
-                    } else {
-                      // Patient doesn't exist, auto-create
-                      const newPatientId = Date.now().toString();
-                      const newPatient = {
-                        id: newPatientId,
-                        name: targetPatientName,
-                        phone: '',
-                        email: '',
-                        notes: encryptField(''),
-                        cpf: '',
-                        tipo: 'Particular',
-                        tags: '',
-                        ativo: true,
-                        birthDate: '',
-                        idade: '',
-                        sexo: '',
-                        estadoCivil: '',
-                        profissao: '',
-                        endereco: '',
-                        rg: '',
-                        cnpj: '',
-                        cor: '',
-                        origem: '',
-                        convenio: '',
-                        history: historyArray
-                      };
-
-                      try {
-                        const docRef = doc(db, 'clientes', newPatientId);
-                        await setDoc(docRef, newPatient);
-                        logAuditEvent({
-                          userId: auth.currentUser?.uid || 'unknown',
-                          userEmail: auth.currentUser?.email || 'unknown',
-                          userName: auth.currentUser?.displayName || 'Usuário',
-                          action: 'CRIOU_PACIENTE_AUTO',
-                          module: 'Agenda',
-                          details: `Paciente ${targetPatientName} criado automaticamente ao finalizar atendimento.`
+      {/* Details Modal */}
+      <AppointmentDetailsModal
+        isOpen={isDetailsModalOpen && !!selectedAppDetails}
+        appointment={selectedAppDetails}
+        professionals={professionals}
+        services={services}
+        patients={patients}
+        isDarkMode={isDarkMode}
+        onClose={() => {
+          setIsDetailsModalOpen(false);
+          setSelectedAppDetails(null);
+          setTranscription('');
+          setIsRecording(false);
+          if (recognitionRef.current) recognitionRef.current.stop();
+        }}
+        onEdit={(app) => {
+          setPatientName(app.patient);
+          setSelectedService(services.find((s: any) => s.name === app.service)?.id || '');
+          setSelectedProfessional(app.professionalId);
+          setSelectedTime(app.time);
+          setSelectedAppId(app.id);
+          setIsModalOpen(true);
+        }}
+        onDuplicate={(app) => {
+          setPatientName(app.patient);
+          setSelectedService(services.find((s: any) => s.name === app.service)?.id || '');
+          setSelectedProfessional(app.professionalId);
+          setSelectedTime(app.time);
+          setSelectedAppId(null); // Ensure new ID
+          setIsModalOpen(true);
+        }}
+        onDelete={async (appId) => {
+          try {
+            await deleteDoc(doc(db, 'agendamentos', String(appId)));
+            setAppointments((prev: any[]) => prev.filter(a => String(a.id) !== String(appId)));
+            addToast('Agendamento excluído.', 'success');
+          } catch (e) {
+            console.error('Erro ao excluir agendamento:', e);
+            addToast('Erro ao excluir.', 'error');
+          }
+        }}
+        onComplete={async (app, transcriptionText) => {
+          const targetPatientName = app.patient;
+          if (targetPatientName) {
+            const newRecord = {
+              id: Date.now().toString(),
+              date: new Date().toLocaleDateString('pt-BR'),
+              type: 'Anotação Relevante',
+              content: encryptField(transcriptionText.trim())
+            };
+            const matchedPatient = patients?.find((p: any) => p.name === targetPatientName);
+            if (matchedPatient?.id && transcriptionText.trim()) {
+              try {
+                const updatedHistory = [newRecord, ...(matchedPatient.history || [])];
+                await setDoc(doc(db, 'clientes', matchedPatient.id), { ...matchedPatient, history: updatedHistory }, { merge: true });
+              } catch (e) { console.error(e); }
+            }
+          }
+          if (app.serviceIds && app.serviceIds.length > 0) {
+            let totalValue = 0;
+            for (const sid of app.serviceIds) {
+              const s = services?.find((serv: any) => serv.id === sid);
+              if (s) {
+                totalValue += Number(s.price || s.valor || s.value || 0);
+                
+                // Redução de estoque para cada item do serviço
+                if (s.items && s.items.length > 0) {
+                  for (const item of s.items) {
+                    try {
+                      const invDocRef = doc(db, 'estoque', item.itemId);
+                      const invSnap = await getDoc(invDocRef);
+                      if (invSnap.exists()) {
+                        const currentStock = invSnap.data().stock || 0;
+                        await updateDoc(invDocRef, {
+                          stock: Math.max(0, currentStock - (item.quantity || 1))
                         });
-                      } catch (error) {
-                        console.error('Erro ao auto-cadastrar paciente:', error);
                       }
-                    }
+                    } catch (err) { console.error('Erro ao baixar estoque:', err); }
                   }
-
-                  // FINANCEIRO (Receitas) & ESTOQUE (Baixa) INTEGRATION
-                  if (selectedAppDetails.serviceIds && selectedAppDetails.serviceIds.length > 0) {
-                    let totalValue = 0;
-                    const inventoryUpdates: Record<string, number> = {};
-
-                    for (const sid of selectedAppDetails.serviceIds) {
-                      const s = services?.find((serv: any) => serv.id === sid);
-                      if (s) {
-                        totalValue += Number(s.price || s.valor || s.value || 0);
-                        if (s.items && Array.isArray(s.items)) {
-                          for (const item of s.items) {
-                            inventoryUpdates[item.itemId] = (inventoryUpdates[item.itemId] || 0) + (item.quantity || 1);
-                          }
-                        }
-                      }
-                    }
-
-                    // 1. Finance Record
-                    if (totalValue > 0) {
-                      const financeId = Date.now().toString() + Math.floor(Math.random() * 1000).toString();
-                      const newExpense = {
-                        id: financeId,
-                        description: `Atendimento: ${selectedAppDetails.service} - ${selectedAppDetails.patient}`,
-                        category: 'Serviços Prestados',
-                        quantity: 1,
-                        value: totalValue,
-                        dueDate: new Date().toISOString().split('T')[0],
-                        status: 'Pago',
-                        recurrence: 'Não',
-                        type: 'Receita',
-                        date: new Date().toISOString()
-                      };
-                      try {
-                        await setDoc(doc(db, 'financeiro', financeId), newExpense);
-                        logAuditEvent({
-                          userId: auth.currentUser?.uid || 'unknown',
-                          userEmail: auth.currentUser?.email || 'unknown',
-                          userName: auth.currentUser?.displayName || 'Usuário',
-                          action: 'CRIOU_RECEITA_AUTO',
-                          module: 'Agenda',
-                          details: `Receita gerada automaticamente via conclusão de atendimento (${selectedAppDetails.patient}). Valor: R$ ${totalValue}`
-                        });
-                      } catch (e) {
-                        console.error("Erro ao gerar receita automática:", e);
-                      }
-                    }
-
-                    // 2. Inventory Deduction
-                    for (const [itemId, qtyToDeduct] of Object.entries(inventoryUpdates)) {
-                      try {
-                        const itemRef = doc(db, 'estoque', itemId);
-                        const itemSnap = await getDoc(itemRef);
-                        if (itemSnap.exists()) {
-                          const currentStock = Number(itemSnap.data().stock || 0);
-                          const newStock = Math.max(0, currentStock - qtyToDeduct);
-                          await setDoc(itemRef, { stock: newStock }, { merge: true });
-                          logAuditEvent({
-                            userId: auth.currentUser?.uid || 'unknown',
-                            userEmail: auth.currentUser?.email || 'unknown',
-                            userName: auth.currentUser?.displayName || 'Usuário',
-                            action: 'BAIXA_ESTOQUE_AUTO',
-                            module: 'Agenda',
-                            details: `Baixa automática de ${qtyToDeduct} unidade(s) do item ${itemSnap.data().name} via conclusão de agenda.`
-                          });
-                        }
-                      } catch (e) {
-                        console.error('Erro na baixa de estoque automática:', e);
-                      }
-                    }
-                  }
-
-                  addToast(msg, 'success');
-                  setAppointments((prev: any[]) => prev.filter(a => a.id !== selectedAppDetails.id));
-                  setIsDetailsModalOpen(false);
-                  setSelectedAppDetails(null);
-                  setTranscription('');
-                  setIsRecording(false);
-                  if (recognitionRef.current) recognitionRef.current.stop();
-                }}
-                className="w-full py-3 rounded-xl bg-green-500/10 text-green-500 hover:bg-green-500/20 font-medium transition-colors mt-2"
-              >
-                Concluído (Baixa no Estoque)
-              </button>
-
-              <button
-                onClick={() => {
-                  const cancelReason = prompt('Motivo do cancelamento (opcional):');
-                  if (cancelReason !== null) {
-                    setAppointments(prev => prev.filter(a => a.id !== selectedAppDetails.id));
-                    setIsDetailsModalOpen(false);
-                    setSelectedAppDetails(null);
-                    setTranscription('');
-                    setIsRecording(false);
-                    if (recognitionRef.current) recognitionRef.current.stop();
-                    addToast('Agendamento cancelado com sucesso.', 'success');
-                  }
-                }}
-                className="w-full py-3 rounded-xl bg-red-500/10 text-red-500 hover:bg-red-500/20 font-medium transition-colors"
-              >
-                Cancelar Atendimento
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+                }
+              }
+            }
+            if (totalValue > 0) {
+              const financeId = `fin_${app.id}`;
+              try {
+                await setDoc(doc(db, 'financeiro', financeId), {
+                  id: financeId,
+                  description: `Atendimento: ${app.service} - ${app.patient}`,
+                  category: 'Serviços Prestados',
+                  quantity: 1, value: totalValue,
+                  dueDate: new Date().toISOString().split('T')[0],
+                  status: 'Pago', recurrence: 'Não', type: 'Receita', date: new Date().toISOString()
+                });
+              } catch (e) { console.error(e); }
+            }
+          }
+          
+          // Marcar como Concluído no Firestore antes de remover/atualizar
+          try {
+            await updateDoc(doc(db, 'agendamentos', String(app.id)), { 
+              status: 'Concluído',
+              completed: true 
+            });
+          } catch (e) { console.error(e); }
+          addToast('Atendimento finalizado!', 'success');
+          setAppointments((prev: any[]) => prev.filter(a => a.id !== app.id));
+          setIsDetailsModalOpen(false);
+          setSelectedAppDetails(null);
+          setIsRecording(false);
+          if (recognitionRef.current) recognitionRef.current.stop();
+        }}
+        onNavigateToPatient={onNavigateToPatient}
+      />
     </div>
   );
 };
@@ -2801,9 +2784,10 @@ const CrmView = ({ patients, setPatients, columns, setColumns, onGenerateReceitu
   );
 };
 
-const ClientesView = ({ patients, setPatients, columns, onGenerateReceituario, isDarkMode = true }: any) => {
+const ClientesView = ({ patients, setPatients, columns, onGenerateReceituario, initialActivePatientId = null, isDarkMode = true }: any) => {
   const [isNewPatientModalOpen, setIsNewPatientModalOpen] = useState(false);
-  const [activePatientId, setActivePatientId] = useState<string | null>(null);
+  const [isSavingPatient, setIsSavingPatient] = useState(false);
+  const [activePatientId, setActivePatientId] = useState<string | null>(initialActivePatientId);
   const [searchTerm, setSearchTerm] = useState('');
 
   const activePatient = patients.find((p: any) => p.id === activePatientId) || null;
@@ -3145,7 +3129,8 @@ const ClientesView = ({ patients, setPatients, columns, onGenerateReceituario, i
   };
 
   const handleSaveRecord = async () => {
-    if (!transcription.trim() || !currentPatient) return;
+    if (!transcription.trim() || !currentPatient || isSavingPatient) return;
+    setIsSavingPatient(true);
 
     const newRecord = {
       id: Date.now().toString(),
@@ -3221,13 +3206,16 @@ const ClientesView = ({ patients, setPatients, columns, onGenerateReceituario, i
     } catch (error) {
       console.error("Erro ao salvar histórico do paciente:", error);
       alert("Erro ao salvar histórico. Tente novamente.");
+    } finally {
+      setIsSavingPatient(false);
     }
 
     setTranscription('');
   };
 
   const handleSavePatient = async () => {
-    if (!currentPatient) return;
+    if (!currentPatient || isSavingPatient) return;
+    setIsSavingPatient(true);
 
     let updatedPatient;
     if (isCreating) {
@@ -3267,6 +3255,8 @@ const ClientesView = ({ patients, setPatients, columns, onGenerateReceituario, i
     } catch (error) {
       console.error("Erro ao salvar paciente:", error);
       alert("Erro ao salvar paciente. Tente novamente.");
+    } finally {
+      setIsSavingPatient(false);
     }
 
     setIsSaved(true);
@@ -3656,13 +3646,13 @@ const ClientesView = ({ patients, setPatients, columns, onGenerateReceituario, i
 
                 <button
                   onClick={handleSavePatient}
-                  disabled={isSaved}
+                  disabled={isSaved || isSavingPatient}
                   className={`w-full ${isSaved
                     ? "bg-green-500/20 text-green-500 border-green-500/30 font-bold"
                     : `bg-gradient-to-r from-orange-400 to-orange-600 text-black font-bold shadow-[0_0_20px_rgba(249,115,22,0.2)]`
-                    } border-none py-4 rounded-2xl transition-all duration-300 mt-4 text-sm uppercase tracking-widest`}
+                    } border-none py-4 rounded-2xl transition-all duration-300 mt-4 text-sm uppercase tracking-widest ${isSavingPatient ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
-                  {isSaved ? "Salvo com sucesso ✓" : "Salvar Cadastro"}
+                  {isSavingPatient ? "Salvando..." : (isSaved ? "Salvo com sucesso ✓" : "Salvar Cadastro")}
                 </button>
               </div>
             </div>
@@ -3726,13 +3716,13 @@ const ClientesView = ({ patients, setPatients, columns, onGenerateReceituario, i
                 <div className="flex justify-end mt-4">
                   <button
                     onClick={handleSaveRecord}
-                    disabled={!transcription.trim()}
-                    className={`font-semibold px-6 py-2 rounded-xl transition-all text-sm ${transcription.trim()
+                    disabled={!transcription.trim() || isSavingPatient}
+                    className={`font-semibold px-6 py-2 rounded-xl transition-all text-sm ${transcription.trim() && !isSavingPatient
                       ? 'bg-gradient-to-r from-orange-400 to-orange-500 hover:from-orange-500 hover:to-orange-600 text-black shadow-[0_0_15px_rgba(249,115,22,0.2)]'
                       : 'bg-zinc-800 text-zinc-500 cursor-not-allowed'
                       }`}
                   >
-                    Salvar Prontuário
+                    {isSavingPatient ? "Salvando..." : "Salvar Prontuário"}
                   </button>
                 </div>
               </div>
@@ -3852,7 +3842,8 @@ const ProfissionaisView = ({ professionals, setProfessionals, isDarkMode = true 
   };
 
   const handleSave = async () => {
-    if (!name.trim()) return;
+    if (!name.trim() || isSavingProf) return;
+    setIsSavingProf(true);
 
     try {
       const idToSave = editingId || Date.now().toString();
@@ -3874,6 +3865,8 @@ const ProfissionaisView = ({ professionals, setProfessionals, isDarkMode = true 
     } catch (error) {
       console.error("Erro ao salvar profissional:", error);
       alert("Houve um erro ao salvar o profissional.");
+    } finally {
+      setIsSavingProf(false);
     }
   };
 
@@ -4154,9 +4147,10 @@ const ProfissionaisView = ({ professionals, setProfessionals, isDarkMode = true 
                 </button>
                 <button
                   onClick={handleSave}
-                  className="flex-1 bg-gradient-to-r from-orange-400 to-orange-500 hover:from-orange-500 hover:to-orange-600 text-black font-semibold py-3.5 rounded-xl transition-all shadow-[0_0_20px_rgba(249,115,22,0.2)]"
+                  disabled={isSavingProf}
+                  className={`flex-1 bg-gradient-to-r from-orange-400 to-orange-500 hover:from-orange-500 hover:to-orange-600 text-black font-semibold py-3.5 rounded-xl transition-all shadow-[0_0_20px_rgba(249,115,22,0.2)] ${isSavingProf ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
-                  Salvar
+                  {isSavingProf ? "Salvando..." : "Salvar"}
                 </button>
               </div>
             </div>
@@ -9486,6 +9480,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('Pendentes');
   const [isSaving, setIsSaving] = useState(false);
   const [selectedPatientForReceituario, setSelectedPatientForReceituario] = useState<string | null>(null);
+  const [selectedPatientForClientes, setSelectedPatientForClientes] = useState<string | null>(null);
   const [isAssistantOpen, setIsAssistantOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -9677,6 +9672,18 @@ export default function App() {
           const data = snapshot.docs.map(d => d.data());
           setServices(data);
         }, () => { setServices([]); });
+      } catch { }
+    }
+  }, [isAuthenticated]);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      try {
+        const colRef = collection(db, 'agendamentos');
+        onSnapshot(colRef, (snapshot) => {
+          const data = snapshot.docs.map(d => d.data());
+          setAppointments(data);
+        }, () => { setAppointments([]); });
       } catch { }
     }
   }, [isAuthenticated]);
@@ -10002,11 +10009,29 @@ export default function App() {
         ) : activeMenu === 'Dashboard' ? (
           <DashboardView inventory={inventory} setActiveMenu={setActiveMenu} appointments={appointments} services={services} expenses={expenses} patients={patients} professionals={professionals} isDarkMode={isDarkMode} />
         ) : activeMenu === 'Agenda' ? (
-          <AgendaView professionals={professionals} services={services} appointments={appointments} setAppointments={setAppointments} onCompleteService={handleCompleteService} isDarkMode={isDarkMode} patients={patients} />
+          <AgendaView 
+            professionals={professionals} 
+            services={services} 
+            appointments={appointments} 
+            setAppointments={setAppointments} 
+            setPatients={setPatients}
+            onCompleteService={handleCompleteService} 
+            isDarkMode={isDarkMode} 
+            patients={patients} 
+            onNavigateToPatient={(patientOrId: string) => {
+              const foundById = patients?.find((p: any) => p.id === patientOrId);
+              const foundByName = !foundById ? patients?.find((p: any) => 
+                p.name?.toLowerCase().trim() === patientOrId?.toLowerCase().trim()
+              ) : null;
+              const target = foundById || foundByName;
+              setSelectedPatientForClientes(target?.id || null);
+              setActiveMenu('Clientes');
+            }} 
+          />
         ) : activeMenu === 'CRM' ? (
           <CrmView patients={patients} setPatients={setPatients} columns={columns} setColumns={setColumns} onGenerateReceituario={handleGenerateReceituario} isDarkMode={isDarkMode} />
         ) : activeMenu === 'Clientes' ? (
-          <ClientesView patients={patients} setPatients={setPatients} columns={columns} onGenerateReceituario={handleGenerateReceituario} isDarkMode={isDarkMode} />
+          <ClientesView patients={patients} setPatients={setPatients} columns={columns} onGenerateReceituario={handleGenerateReceituario} initialActivePatientId={selectedPatientForClientes} isDarkMode={isDarkMode} />
         ) : activeMenu === 'Receituário' ? (
           <ReceituarioView patients={patients} professionals={professionals} selectedPatientId={selectedPatientForReceituario} isDarkMode={isDarkMode} clinicConfig={clinicConfig} />
         ) : activeMenu === 'Profissionais' ? (

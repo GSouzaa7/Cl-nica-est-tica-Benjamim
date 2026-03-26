@@ -5,6 +5,8 @@ import { FinanceRecord, AppointmentRecord, ServiceRecord } from '../../types/fin
 
 interface DashboardBalanceProps {
   activePeriod: string;
+  analysisPeriod: number;
+  setAnalysisPeriod: (val: number | ((prev: number) => number)) => void;
   expenses?: FinanceRecord[];
   appointments?: AppointmentRecord[];
   services?: ServiceRecord[];
@@ -27,6 +29,8 @@ function formatCurrency(value: number): string {
 
 export const DashboardBalance: React.FC<DashboardBalanceProps> = ({ 
   activePeriod, 
+  analysisPeriod,
+  setAnalysisPeriod,
   expenses = [], 
   appointments = [], 
   services = [],
@@ -34,8 +38,6 @@ export const DashboardBalance: React.FC<DashboardBalanceProps> = ({
   showValues,
   setShowValues
 }) => {
-  const [analysisPeriod, setAnalysisPeriod] = useState<number>(0);
-
   const now = new Date();
   const currYear = now.getFullYear();
 
@@ -44,8 +46,6 @@ export const DashboardBalance: React.FC<DashboardBalanceProps> = ({
     const history = [];
     const totalRange = 12; // 12 past and 12 future
     for (let i = -totalRange; i <= totalRange; i++) {
-      // We want latest (future) at lower indices? No, let's go from past to future
-      // Past to future: index 0 is 12 months ago, index 12 is current, index 24 is 12 months ahead.
       const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
       history.push({
         month: d.getMonth(),
@@ -92,50 +92,45 @@ export const DashboardBalance: React.FC<DashboardBalanceProps> = ({
 
   const currentPeriods = periodRanges[activePeriod as keyof typeof periodRanges] || [String(currYear)];
   
-  // Navigation: 
-  // Left arrow (handlePrev): Go to PAST -> Decrement index
-  // Right arrow (handleNext): Go to FUTURE -> Increment index
-  const handlePrev = () => setAnalysisPeriod((prev) => Math.max(prev - 1, 0));
-  const handleNext = () => setAnalysisPeriod((prev) => Math.min(prev + 1, currentPeriods.length - 1));
-
-  useEffect(() => {
-    // Start at 'Current Month' (Index 12 for timeline views, or appropriate for years)
-    if (activePeriod === 'DIÁRIA' || activePeriod === 'SEMANAL' || activePeriod === 'MENSAL') {
-      setAnalysisPeriod(currentMonthIndex);
-    } else {
-      // Find current year index in years array
-      const yearIdx = currentPeriods.indexOf(String(currYear));
-      setAnalysisPeriod(yearIdx !== -1 ? yearIdx : 1);
-    }
-  }, [activePeriod, currYear, currentPeriods]);
+  const handlePrev = () => setAnalysisPeriod((prev: number) => Math.max(prev - 1, 0));
+  const handleNext = () => setAnalysisPeriod((prev: number) => Math.min(prev + 1, currentPeriods.length - 1));
 
   const financials = useMemo(() => {
     const todayStr = now.toISOString().split('T')[0];
-    const selectedMeta = monthsHistory[analysisPeriod] || monthsHistory[currentMonthIndex];
-
+    
     const isInPeriod = (dateStr: string): boolean => {
       if (!dateStr) return false;
-      const [y, m] = dateStr.split('-').map(Number);
+      const [y, m, d] = dateStr.split('-').map(Number);
       if (!y || !m) return false;
 
+      // Extract year and month from the selected timeline meta
+      const selectedMeta = monthsHistory[analysisPeriod] || monthsHistory[currentMonthIndex];
+      const selectedYear = Number(currentPeriods[analysisPeriod]);
+
       switch (activePeriod) {
-        case 'DIÁRIA':
+        case 'DIÁRIA': {
+          // Chart shows all days of the selected month
+          return y === selectedMeta.year && m === selectedMeta.month + 1;
+        }
         case 'SEMANAL': {
-          // Check if it's the specific month/year at analysisPeriod
+          // Same as diaria for the sidebar summary
           return y === selectedMeta.year && m === selectedMeta.month + 1;
         }
         case 'MENSAL': {
-          // Check if it's within the 6 month range ending at selectedMeta
+          // Chart shows 6 months window ending at selectedMeta
           const dateDate = new Date(y, m - 1, 1);
           const endDate = new Date(selectedMeta.year, selectedMeta.month, 1);
           const startDate = new Date(selectedMeta.year, selectedMeta.month - 5, 1);
           return dateDate >= startDate && dateDate <= endDate;
         }
         case 'TRIMESTRAL':
-        case 'SEMESTRAL':
-        case 'ANUAL': {
-          const selectedYear = Number(currentPeriods[analysisPeriod]);
+        case 'SEMESTRAL': {
+          // Chart shows current year quarters/semesters
           return y === selectedYear;
+        }
+        case 'ANUAL': {
+          // Chart shows 4 years window ending at selectedYear
+          return y >= selectedYear - 3 && y <= selectedYear;
         }
         default:
           return false;
@@ -177,7 +172,7 @@ export const DashboardBalance: React.FC<DashboardBalanceProps> = ({
       totalSaidas: saidas,
       totalSaidasPrev: saidas + saidasPrevistas
     };
-  }, [expenses, appointments, services, activePeriod]);
+  }, [expenses, appointments, services, activePeriod, analysisPeriod, currentPeriods, monthsHistory]);
 
   return (
     <div className="flex flex-col gap-6 w-full">

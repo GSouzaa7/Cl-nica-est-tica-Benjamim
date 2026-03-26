@@ -229,6 +229,7 @@ interface AppointmentModalProps {
   initialPatientName?: string;
   initialProfessionalId?: string;
   initialServiceIds?: string[];
+  initialId?: string | number;
 }
 
 const AppointmentModal: React.FC<AppointmentModalProps> = ({
@@ -243,7 +244,8 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
   initialTime,
   initialPatientName = '',
   initialProfessionalId = '',
-  initialServiceIds = []
+  initialServiceIds = [],
+  initialId
 }) => {
   const [type, setType] = useState<'Agendamento' | 'Bloqueio' | 'Lembrete' | 'Evento'>('Agendamento');
   const [patientId, setPatientId] = useState('');
@@ -261,8 +263,15 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
   const [date, setDate] = useState(initialDate || new Date());
   const [startTime, setStartTime] = useState(initialTime || '07:30');
   const [endTime, setEndTime] = useState('08:10');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [isDataExpanded, setIsDataExpanded] = useState(true);
+  const [validationError, setValidationError] = useState('');
+
+  const showError = (msg: string) => {
+    setValidationError(msg);
+    setTimeout(() => setValidationError(''), 3500);
+  };
 
   // States for Bloqueio & Lembrete
   const [blockTitle, setBlockTitle] = useState('Bloqueio de horário');
@@ -317,6 +326,7 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
           ? initialServiceIds.map(id => ({ id, quantity: 1 }))
           : []
       );
+      setIsSubmitting(false); // Reset on open
     }
   }, [isOpen, initialDate, initialTime, initialPatientName, initialProfessionalId, initialServiceIds]);
 
@@ -429,7 +439,11 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
                       type="text"
                       placeholder="Pesquise/Selecione"
                       value={patientSearch}
-                      onChange={(e) => { setPatientSearch(e.target.value); setShowPatientResults(true); }}
+                      onChange={(e) => { 
+                        setPatientSearch(e.target.value); 
+                        setPatientId(''); // Clear ID when typing a new name
+                        setShowPatientResults(true); 
+                      }}
                       onFocus={() => setShowPatientResults(true)}
                       className={`
                         w-full pl-11 pr-10 py-3.5 rounded-xl border text-sm transition-all
@@ -1241,9 +1255,16 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className={`p-8 border-t flex justify-end gap-4 ${isDarkMode ? 'border-white/5 bg-black/20' : 'border-neutral-100 bg-neutral-50/50'}`}>
-          <button
-            onClick={onClose}
+        <div className={`p-8 border-t flex flex-col gap-4 ${isDarkMode ? 'border-white/5 bg-black/20' : 'border-neutral-100 bg-neutral-50/50'}`}>
+          {validationError && (
+            <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border ${isDarkMode ? 'bg-red-500/10 border-red-500/20 text-red-400' : 'bg-red-50 border-red-200 text-red-600'} animate-in fade-in slide-in-from-bottom-2`}>
+              <AlertCircle size={16} className="shrink-0" />
+              <p className="text-sm font-medium">{validationError}</p>
+            </div>
+          )}
+          <div className="flex justify-end gap-4">
+            <button
+              onClick={onClose}
             className={`
               px-8 py-3.5 rounded-xl text-sm font-bold uppercase tracking-wider transition-all
               ${isDarkMode
@@ -1254,59 +1275,69 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
             Cancelar
           </button>
           <button
-            onClick={() => {
+            disabled={isSubmitting}
+            onClick={async () => {
               if (type === 'Agendamento' && (!patientSearch || !professionalId || !startTime)) {
-                alert('Erro: Preencha Paciente, Profissional e Horário antes de confirmar.');
+                showError('Preencha Paciente, Profissional e Horário antes de confirmar.');
                 return;
               }
               if (type === 'Bloqueio' && !blockTitle) {
-                alert('Erro: Digite um título para o bloqueio.');
+                showError('Digite um título para o bloqueio.');
                 return;
               }
               if (type === 'Lembrete' && !reminderTitle) {
-                alert('Erro: Digite um título para o lembrete.');
+                showError('Digite um título para o lembrete.');
                 return;
               }
               if (type === 'Evento' && !eventTitle) {
-                alert('Erro: Digite um título para o evento.');
+                showError('Digite um título para o evento.');
                 return;
               }
 
-              onConfirm({
-                type,
-                patientId,
-                patientName: type === 'Bloqueio' ? blockTitle : (type === 'Lembrete' ? reminderTitle : (type === 'Evento' ? eventTitle : patientSearch)),
-                professionalId: type === 'Bloqueio' && isAllClinic ? 'all' : (type === 'Lembrete' ? participantIds[0] : (type === 'Evento' ? eventProfessionalIds[0] : professionalId)),
-                participantIds: type === 'Lembrete' ? participantIds : [],
-                blockProfessionalIds: type === 'Bloqueio' ? blockProfessionalIds : [],
-                eventProfessionalIds: type === 'Evento' ? eventProfessionalIds : [],
-                eventServiceIds: type === 'Evento' ? eventServiceIds : [],
-                allowOtherAgendamentos: type === 'Evento' ? allowOtherAgendamentos : false,
-                status,
-                color,
-                observations,
-                services: type === 'Agendamento' ? selectedServices : [],
-                date,
-                startTime,
-                endTime: (type === 'Lembrete' || isFullDay) ? '23:59' : (type === 'Evento' ? endTime : endTime),
-                endDate: type === 'Evento' ? endDate : date,
+              try {
+                setIsSubmitting(true);
+                await onConfirm({
+                  type,
+                  patientId,
+                  patientName: type === 'Bloqueio' ? blockTitle : (type === 'Lembrete' ? reminderTitle : (type === 'Evento' ? eventTitle : patientSearch)),
+                  professionalId: type === 'Bloqueio' && isAllClinic ? 'all' : (type === 'Lembrete' ? participantIds[0] : (type === 'Evento' ? eventProfessionalIds[0] : professionalId)),
+                  participantIds: type === 'Lembrete' ? participantIds : [],
+                  blockProfessionalIds: type === 'Bloqueio' ? blockProfessionalIds : [],
+                  eventProfessionalIds: type === 'Evento' ? eventProfessionalIds : [],
+                  eventServiceIds: type === 'Evento' ? eventServiceIds : [],
+                  allowOtherAgendamentos: type === 'Evento' ? allowOtherAgendamentos : false,
+                  status,
+                  color,
+                  observations,
+                  services: type === 'Agendamento' ? selectedServices : [],
+                  date,
+                  startTime,
+                  endTime: (type === 'Lembrete' || isFullDay) ? '23:59' : (type === 'Evento' ? endTime : endTime),
+                  endDate: type === 'Evento' ? endDate : date,
 
-                isAllClinic,
-                isFullDay,
-                recurrence,
-                customRecurrence: recurrence !== 'Não se repete' ? {
-                  repeatEvery,
-                  repeatUnit,
-                  endsAt,
-                  occurrencesCount,
-                  endDate: recurrenceEndDate
-                } : null
-              });
+                  isAllClinic,
+                  isFullDay,
+                  recurrence,
+                  id: initialId, // Pass back the ID for edits
+                  customRecurrence: recurrence !== 'Não se repete' ? {
+                    repeatEvery,
+                    repeatUnit,
+                    endsAt,
+                    occurrencesCount,
+                    endDate: recurrenceEndDate
+                  } : null
+                });
+              } catch (error) {
+                console.error('Error confirming appointment:', error);
+                setIsSubmitting(false);
+              }
             }}
-            className="px-10 py-3.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-sm font-bold uppercase tracking-wider transition-all shadow-lg shadow-orange-500/20 active:scale-95"
+            disabled={isSubmitting}
+            className={`px-10 py-3.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-sm font-bold uppercase tracking-wider transition-all shadow-lg shadow-orange-500/20 active:scale-95 ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
           >
-            {type === 'Agendamento' ? 'Agendar' : 'Salvar Bloqueio'}
+            {isSubmitting ? 'Salvando...' : (type === 'Agendamento' ? 'Agendar' : 'Salvar Bloqueio')}
           </button>
+          </div>
         </div>
       </div>
     </div>
