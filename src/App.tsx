@@ -9570,16 +9570,21 @@ export default function App() {
 
   // Sync theme class on <html> element for CSS custom properties
   React.useEffect(() => {
-    if (isDarkMode) {
+    // Force dark mode on login screen regardless of saved preference
+    const effectiveDarkMode = isAuthenticated ? isDarkMode : true;
+    
+    if (effectiveDarkMode) {
       document.documentElement.classList.remove('light');
       document.documentElement.classList.add('dark');
-      localStorage.setItem('theme', 'dark');
     } else {
       document.documentElement.classList.remove('dark');
       document.documentElement.classList.add('light');
-      localStorage.setItem('theme', 'light');
     }
-  }, [isDarkMode]);
+    
+    if (isAuthenticated) {
+      localStorage.setItem('theme', isDarkMode ? 'dark' : 'light');
+    }
+  }, [isDarkMode, isAuthenticated]);
   // isAuthLoading removed from here to follow hook order
   const [patients, setPatients] = useState<any[]>([]);
 
