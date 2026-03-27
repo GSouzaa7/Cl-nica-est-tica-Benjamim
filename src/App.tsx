@@ -1,68 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import * as XLSX from 'xlsx';
 import { HexColorPicker } from 'react-colorful';
-import {
-  LayoutDashboard,
-  Calendar,
-  BarChart3,
-  Users,
-  User,
-  Briefcase,
-  Box,
-  DollarSign,
-  PieChart,
-  Settings,
-  LogOut,
-  Building2,
-  Shield,
-  Bot,
-  Webhook,
-  Palette,
-  Eye,
-  Plus,
-  Pencil,
-  Trash2,
-  Asterisk,
-  Clock,
-  CheckCircle2,
-  XCircle,
-  List,
-  TrendingUp,
-  TrendingDown,
-  AlertTriangle,
-  ArrowRight,
-  ChevronLeft,
-  ChevronRight,
-  X,
-  ChevronDown,
-  MoreVertical,
-  Mic,
-  Square,
-  Upload,
-  MessageCircle,
-  FileText,
-  Filter,
-  Download,
-  Search,
-  Sparkles,
-  Activity,
-  Loader2,
-  Copy,
-  Ticket,
-  Crown,
-  Target,
-  Key,
-  Link,
-  ExternalLink,
-  Zap,
-  Receipt,
-  Percent,
-  FileSignature,
-  CheckCircle,
-  Sun,
-  Moon,
-  Menu
-} from 'lucide-react';
+import { LayoutDashboard, Calendar, BarChart3, Users, User, Briefcase, Box, DollarSign, PieChart, Settings, LogOut, Building2, Shield, Bot, Webhook, Palette, Eye, Plus, Pencil, Trash2, Asterisk, Clock, CheckCircle2, XCircle, List, TrendingUp, TrendingDown, AlertTriangle, ArrowRight, ChevronLeft, ChevronRight, X, ChevronDown, MoreVertical, Mic, Square, Upload, MessageCircle, FileText, Filter, Download, Search, Sparkles, Activity, Loader2, Copy, Ticket, Crown, Target, Key, Link, ExternalLink, Zap, Receipt, Percent, FileSignature, CheckCircle, Sun, Moon, Menu, Gift } from 'lucide-react';
 
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
 
@@ -71,7 +10,7 @@ import { useToast } from './contexts/ToastContext';
 import { signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import { auth, db } from './lib/firebase';
 import { registrarNovoUsuario, resetarSenha, verificarEmailExiste } from './lib/authService';
-import { doc, getDoc, setDoc, collection, getDocs, onSnapshot, writeBatch, deleteDoc, query, orderBy, arrayRemove, arrayUnion } from 'firebase/firestore';
+import { doc, getDoc, setDoc, collection, getDocs, onSnapshot, writeBatch, deleteDoc, query, orderBy, arrayRemove, arrayUnion, updateDoc } from 'firebase/firestore';
 import { ReceituarioView } from './ReceituarioView';
 import { SaveButton } from './components/SaveButton';
 import { logAuditEvent } from './lib/auditLogger';
@@ -94,6 +33,7 @@ import { AppointmentDetailsModal } from './components/calendar/AppointmentDetail
 import { PeriodSelector } from './components/ui/PeriodSelector';
 import { LucideIcon, FileStack } from 'lucide-react';
 import { AgendaReportsView } from './components/agenda/AgendaReportsView';
+import { FrequenciaDashboard } from './components/dashboard/FrequenciaDashboard';
 
 const calculateAge = (birthDate: string): string => {
   if (!birthDate) return '';
@@ -127,12 +67,89 @@ const Toggle = ({ checked, onChange, disabled, isDarkMode = true }: { checked: b
   );
 };
 
+const MiniSelect = ({ 
+  label, 
+  value, 
+  onChange, 
+  options, 
+  isDarkMode = true,
+  placeholder = "Selecionar..."
+}: { 
+  label?: string, 
+  value: string, 
+  onChange: (val: string) => void, 
+  options: string[], 
+  isDarkMode?: boolean,
+  placeholder?: string
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    if (isOpen) document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isOpen]);
+
+  return (
+    <div className="relative w-full" ref={containerRef}>
+      {label && <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-1.5 uppercase">{label}</label>}
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className={`w-full bg-[#0a0a0a] border ${isOpen ? 'border-orange-500 shadow-[0_0_15px_rgba(249,115,22,0.1)]' : 'border-zinc-800'} rounded-xl px-4 py-2.5 flex items-center justify-between transition-all group`}
+      >
+        <span className={`text-sm font-medium ${value ? 'text-orange-500' : 'text-zinc-500'}`}>
+          {value || placeholder}
+        </span>
+        <ChevronDown size={16} className={`${isOpen ? 'rotate-180 text-orange-500' : 'text-zinc-500 group-hover:text-zinc-400'} transition-all`} />
+      </button>
+
+      {isOpen && (
+        <div className={`absolute top-full mt-2 left-0 w-full z-[110] rounded-2xl border shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 ${isDarkMode ? "bg-[#0a0a0a] border-zinc-800/50 text-white" : "bg-white border-zinc-200 text-zinc-900"}`}>
+          <div className="py-1 max-h-60 overflow-y-auto custom-scrollbar">
+            {options.map((option) => (
+              <button
+                key={option}
+                type="button"
+                onClick={() => {
+                  onChange(option);
+                  setIsOpen(false);
+                }}
+                className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${
+                  value === option 
+                    ? 'bg-gradient-to-r from-orange-600/20 to-transparent text-orange-500 font-bold' 
+                    : (isDarkMode ? 'hover:bg-white/5 text-zinc-300' : 'hover:bg-zinc-50 text-zinc-700')
+                }`}
+              >
+                {option}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 const MiniDatePicker = ({ value, onChange, isDarkMode = true, label }: { value: string, onChange: (val: string) => void, isDarkMode?: boolean, label?: string }) => {
+
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Parse initial value or default to today
-  const initialDate = value ? new Date(value + 'T12:00:00') : new Date();
+  const initialDate = (() => {
+    if (!value) return new Date();
+    if (value.includes('/')) {
+      const parts = value.split('/');
+      if (parts.length === 3) return new Date(`${parts[2]}-${parts[1]}-${parts[0]}T12:00:00`);
+    }
+    return new Date(value + 'T12:00:00');
+  })();
   const [viewDate, setViewDate] = useState(initialDate);
   const [showYearSelector, setShowYearSelector] = useState(false);
 
@@ -173,7 +190,9 @@ const MiniDatePicker = ({ value, onChange, isDarkMode = true, label }: { value: 
 
   const formattedValue = useMemo(() => {
     if (!value) return '';
+    if (value.includes('/')) return value;
     const [y, m, d] = value.split('-');
+    if (!y || !m || !d) return value;
     return `${d}/${m}/${y}`;
   }, [value]);
 
@@ -1989,6 +2008,15 @@ const CrmView = ({ patients, setPatients, columns, setColumns, onGenerateReceitu
   const [editCor, setEditCor] = useState('');
   const [editOrigem, setEditOrigem] = useState('');
   const [editConvenio, setEditConvenio] = useState('');
+  const [editGestante, setEditGestante] = useState('Não');
+  const [editTabagista, setEditTabagista] = useState('Não');
+  const [editDiabetes, setEditDiabetes] = useState('Não');
+  const [editHipertensao, setEditHipertensao] = useState('Não');
+  const [editMarcapasso, setEditMarcapasso] = useState('Não');
+  const [editHormonal, setEditHormonal] = useState('Não');
+  const [editHepatica, setEditHepatica] = useState('Não');
+  const [editFiltroSolar, setEditFiltroSolar] = useState('Não');
+  const [editMedicamentos, setEditMedicamentos] = useState('Não');
 
   React.useEffect(() => {
     if (activeCard) {
@@ -2011,6 +2039,15 @@ const CrmView = ({ patients, setPatients, columns, setColumns, onGenerateReceitu
       setEditCor(activeCard.cor || '');
       setEditOrigem(activeCard.origem || '');
       setEditConvenio(activeCard.convenio || '');
+      setEditGestante(activeCard.gestante || 'Não');
+      setEditTabagista(activeCard.tabagista || 'Não');
+      setEditDiabetes(activeCard.diabetes || 'Não');
+      setEditHipertensao(activeCard.hipertensao || 'Não');
+      setEditMarcapasso(activeCard.marcapasso || 'Não');
+      setEditHormonal(activeCard.hormonal || 'Não');
+      setEditHepatica(activeCard.hepatica || 'Não');
+      setEditFiltroSolar(activeCard.filtroSolar || 'Não');
+      setEditMedicamentos(activeCard.medicamentos || 'Não');
     }
   }, [activeCard?.id]);
 
@@ -2071,6 +2108,15 @@ const CrmView = ({ patients, setPatients, columns, setColumns, onGenerateReceitu
         cor: '',
         origem: '',
         convenio: '',
+        gestante: 'Não',
+        tabagista: 'Não',
+        diabetes: 'Não',
+        hipertensao: 'Não',
+        marcapasso: 'Não',
+        hormonal: 'Não',
+        hepatica: 'Não',
+        filtroSolar: 'Não',
+        medicamentos: 'Não',
         history: []
       };
 
@@ -2196,6 +2242,15 @@ const CrmView = ({ patients, setPatients, columns, setColumns, onGenerateReceitu
       cor: editCor,
       origem: editOrigem,
       convenio: editConvenio,
+      gestante: editGestante,
+      tabagista: editTabagista,
+      diabetes: editDiabetes,
+      hipertensao: editHipertensao,
+      marcapasso: editMarcapasso,
+      hormonal: editHormonal,
+      hepatica: editHepatica,
+      filtroSolar: editFiltroSolar,
+      medicamentos: editMedicamentos,
       history: [newRecord, ...(activeCard.history || [])]
     };
 
@@ -2230,6 +2285,15 @@ const CrmView = ({ patients, setPatients, columns, setColumns, onGenerateReceitu
       cor: editCor,
       origem: editOrigem,
       convenio: editConvenio,
+      gestante: editGestante,
+      tabagista: editTabagista,
+      diabetes: editDiabetes,
+      hipertensao: editHipertensao,
+      marcapasso: editMarcapasso,
+      hormonal: editHormonal,
+      hepatica: editHepatica,
+      filtroSolar: editFiltroSolar,
+      medicamentos: editMedicamentos,
     };
     try {
       await setDoc(doc(db, 'clientes', activeCard.id), updatedCard);
@@ -2515,18 +2579,13 @@ const CrmView = ({ patients, setPatients, columns, setColumns, onGenerateReceitu
                     <h4 className="text-[10px] font-bold text-orange-500/70 tracking-[0.2em] uppercase">Perfil & Classificação</h4>
                     <div className="space-y-3">
                       <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-1.5 uppercase">Tipo</label>
-                          <select
+                        <MiniSelect
+                            label="Tipo"
                             value={editTipo}
-                            onChange={(e) => setEditTipo(e.target.value)}
-                            className={`w-full bg-[#0a0a0a] border border-zinc-800 rounded-xl px-3 py-2.5 ${isDarkMode ? "text-white" : "text-zinc-900"} focus:outline-none focus:border-orange-500 transition-colors text-sm`}
-                          >
-                            <option value="Particular">Particular</option>
-                            <option value="Convênio">Convênio</option>
-                            <option value="Cortesia">Cortesia</option>
-                          </select>
-                        </div>
+                            onChange={(val) => setEditTipo(val)}
+                            options={['Particular', 'Convênio', 'Cortesia']}
+                            isDarkMode={isDarkMode}
+                          />
                         <div>
                           <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-1.5 uppercase">Convênio</label>
                           <input
@@ -2631,19 +2690,13 @@ const CrmView = ({ patients, setPatients, columns, setColumns, onGenerateReceitu
                         </div>
                       </div>
                       <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-1.5 uppercase">Sexo</label>
-                          <select
-                            value={editSexo}
-                            onChange={(e) => setEditSexo(e.target.value)}
-                            className={`w-full bg-[#0a0a0a] border border-zinc-800 rounded-xl px-3 py-2.5 ${isDarkMode ? "text-white" : "text-zinc-900"} focus:outline-none focus:border-orange-500 transition-colors text-sm`}
-                          >
-                            <option value="">Selecione...</option>
-                            <option value="Feminino">Feminino</option>
-                            <option value="Masculino">Masculino</option>
-                            <option value="Outro">Outro</option>
-                          </select>
-                        </div>
+                        <MiniSelect
+                          label="Sexo"
+                          value={editSexo}
+                          onChange={(val) => setEditSexo(val)}
+                          options={['Feminino', 'Masculino', 'Outro']}
+                          isDarkMode={isDarkMode}
+                        />
                         <div>
                           <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-1.5 uppercase">Estado Civil</label>
                           <input
@@ -2666,6 +2719,28 @@ const CrmView = ({ patients, setPatients, columns, setColumns, onGenerateReceitu
                     </div>
                   </div>
 
+                  {/* Anamnese */}
+                  <div className="space-y-4 mb-6">
+                    <h4 className="text-[10px] font-bold text-orange-500/70 tracking-[0.2em] uppercase">Anamnese</h4>
+                    <div className="grid grid-cols-1 gap-4">
+                      {[
+                        { label: 'Gestante?', value: editGestante, setter: setEditGestante },
+                        { label: 'Tabagista?', value: editTabagista, setter: setEditTabagista },
+                        { label: 'Possui diabetes?', value: editDiabetes, setter: setEditDiabetes },
+                        { label: 'Possui hipertensão?', value: editHipertensao, setter: setEditHipertensao },
+                        { label: 'Utiliza marcapasso?', value: editMarcapasso, setter: setEditMarcapasso },
+                        { label: 'Possui alterações hormonais ou na tireóide?', value: editHormonal, setter: setEditHormonal },
+                        { label: 'Possui doença hepática?', value: editHepatica, setter: setEditHepatica },
+                        { label: 'Utiliza filtro solar diariamente?', value: editFiltroSolar, setter: setEditFiltroSolar },
+                        { label: 'Utiliza medicamentos contínuos?', value: editMedicamentos, setter: setEditMedicamentos },
+                      ].map((q, idx) => (
+                        <div key={idx}>
+                          <MiniSelect label={q.label} value={q.value} onChange={(val) => q.setter(val)} options={["Sim", "Não"]} isDarkMode={isDarkMode} />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
                   <div>
                     <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Observações Gerais</label>
                     <textarea
@@ -2675,6 +2750,7 @@ const CrmView = ({ patients, setPatients, columns, setColumns, onGenerateReceitu
                       className={`w-full bg-[#0a0a0a] border border-zinc-800 rounded-xl px-4 py-3 ${isDarkMode ? "text-white" : "text-zinc-900"} focus:outline-none focus:border-orange-500 transition-colors text-sm resize-none h-24`}
                     />
                   </div>
+
                 </div>
 
                 <button
@@ -2784,11 +2860,14 @@ const CrmView = ({ patients, setPatients, columns, setColumns, onGenerateReceitu
   );
 };
 
-const ClientesView = ({ patients, setPatients, columns, onGenerateReceituario, initialActivePatientId = null, isDarkMode = true }: any) => {
+const ClientesView = ({ patients, setPatients, appointments, columns, onGenerateReceituario, initialActivePatientId = null, isDarkMode = true }: any) => {
   const [isNewPatientModalOpen, setIsNewPatientModalOpen] = useState(false);
   const [isSavingPatient, setIsSavingPatient] = useState(false);
   const [activePatientId, setActivePatientId] = useState<string | null>(initialActivePatientId);
   const [searchTerm, setSearchTerm] = useState('');
+  const [activeClientesSubTab, setActiveClientesSubTab] = useState<'TODOS' | 'ANIVERSARIANTES' | 'FREQUENCIA'>('TODOS');
+  const [birthdayMonth, setBirthdayMonth] = useState<number>(new Date().getMonth());
+  const [birthdayYear, setBirthdayYear] = useState<number>(new Date().getFullYear());
 
   const activePatient = patients.find((p: any) => p.id === activePatientId) || null;
   const isCreating = isNewPatientModalOpen && !activePatientId;
@@ -2826,6 +2905,16 @@ const ClientesView = ({ patients, setPatients, columns, onGenerateReceituario, i
   const [editCor, setEditCor] = useState('');
   const [editOrigem, setEditOrigem] = useState('');
   const [editConvenio, setEditConvenio] = useState('');
+  const [editGestante, setEditGestante] = useState('Não');
+  const [editTabagista, setEditTabagista] = useState('Não');
+  const [editDiabetes, setEditDiabetes] = useState('Não');
+  const [editHipertensao, setEditHipertensao] = useState('Não');
+  const [editMarcapasso, setEditMarcapasso] = useState('Não');
+  const [editHormonal, setEditHormonal] = useState('Não');
+  const [editHepatica, setEditHepatica] = useState('Não');
+  const [editFiltroSolar, setEditFiltroSolar] = useState('Não');
+  const [editMedicamentos, setEditMedicamentos] = useState('Não');
+
   const [isSaved, setIsSaved] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [importProgress, setImportProgress] = useState(0);
@@ -3051,6 +3140,15 @@ const ClientesView = ({ patients, setPatients, columns, onGenerateReceituario, i
       setEditCor(currentPatient.cor || '');
       setEditOrigem(currentPatient.origem || '');
       setEditConvenio(currentPatient.convenio || '');
+      setEditGestante(currentPatient.gestante || 'Não');
+      setEditTabagista(currentPatient.tabagista || 'Não');
+      setEditDiabetes(currentPatient.diabetes || 'Não');
+      setEditHipertensao(currentPatient.hipertensao || 'Não');
+      setEditMarcapasso(currentPatient.marcapasso || 'Não');
+      setEditHormonal(currentPatient.hormonal || 'Não');
+      setEditHepatica(currentPatient.hepatica || 'Não');
+      setEditFiltroSolar(currentPatient.filtroSolar || 'Não');
+      setEditMedicamentos(currentPatient.medicamentos || 'Não');
     }
   }, [currentPatient?.id]);
 
@@ -3163,6 +3261,15 @@ const ClientesView = ({ patients, setPatients, columns, onGenerateReceituario, i
         cor: editCor,
         origem: editOrigem,
         convenio: editConvenio,
+        gestante: editGestante,
+        tabagista: editTabagista,
+        diabetes: editDiabetes,
+        hipertensao: editHipertensao,
+        marcapasso: editMarcapasso,
+        hormonal: editHormonal,
+        hepatica: editHepatica,
+        filtroSolar: editFiltroSolar,
+        medicamentos: editMedicamentos,
         history: [newRecord]
       };
       setIsNewPatientModalOpen(false);
@@ -3188,6 +3295,16 @@ const ClientesView = ({ patients, setPatients, columns, onGenerateReceituario, i
         cor: editCor,
         origem: editOrigem,
         convenio: editConvenio,
+        gestante: editGestante,
+        tabagista: editTabagista,
+        diabetes: editDiabetes,
+        hipertensao: editHipertensao,
+        marcapasso: editMarcapasso,
+        hormonal: editHormonal,
+        hepatica: editHepatica,
+        filtroSolar: editFiltroSolar,
+        medicamentos: editMedicamentos,
+
         history: [newRecord, ...(currentPatient.history || [])]
       };
     }
@@ -3217,28 +3334,44 @@ const ClientesView = ({ patients, setPatients, columns, onGenerateReceituario, i
     if (!currentPatient || isSavingPatient) return;
     setIsSavingPatient(true);
 
+    const commonFields = {
+      name: editName || 'Paciente Sem Nome',
+      phone: editPhone,
+      email: editEmail,
+      notes: encryptField(editNotes),
+      cpf: clientCPF.replace(/\D/g, ''),
+      tipo: editTipo,
+      tags: editTags,
+      ativo: editAtivo,
+      birthDate: editBirthDate,
+      idade: editIdade,
+      sexo: editSexo,
+      estadoCivil: editEstadoCivil,
+      profissao: editProfissao,
+      endereco: editEndereco,
+      rg: editRG,
+      cnpj: editCNPJ.replace(/\D/g, ''),
+      cor: editCor,
+      origem: editOrigem,
+      convenio: editConvenio,
+      gestante: editGestante,
+      tabagista: editTabagista,
+      diabetes: editDiabetes,
+      hipertensao: editHipertensao,
+      marcapasso: editMarcapasso,
+      hormonal: editHormonal,
+      hepatica: editHepatica,
+      filtroSolar: editFiltroSolar,
+      medicamentos: editMedicamentos,
+    };
+
     let updatedPatient;
     if (isCreating) {
-      updatedPatient = {
-        ...currentPatient,
-        id: Date.now().toString(),
-        name: editName || 'Paciente Sem Nome',
-        phone: editPhone,
-        email: editEmail,
-        notes: encryptField(editNotes),
-        cpf: clientCPF.replace(/\D/g, ''),
-      };
+      updatedPatient = { ...currentPatient, ...commonFields, id: Date.now().toString() };
       setIsNewPatientModalOpen(false);
       setActivePatientId(updatedPatient.id);
     } else {
-      updatedPatient = {
-        ...currentPatient,
-        name: editName,
-        phone: editPhone,
-        email: editEmail,
-        notes: encryptField(editNotes),
-        cpf: clientCPF.replace(/\D/g, ''),
-      };
+      updatedPatient = { ...currentPatient, ...commonFields };
     }
 
     try {
@@ -3277,76 +3410,172 @@ const ClientesView = ({ patients, setPatients, columns, onGenerateReceituario, i
     return nameMatch || cpfMatch || phoneMatch;
   }).sort((a: any, b: any) => (a.name || '').localeCompare(b.name || ''));
 
+  const displayedPatients = useMemo(() => {
+    let list = [...filteredPatients];
+    if (activeClientesSubTab === 'ANIVERSARIANTES') {
+      const currentMonth = birthdayMonth;
+      list = list.filter((p: any) => {
+        const bdate = p.birthDate || p.editBirthDate;
+        if (!bdate || typeof bdate !== 'string') return false;
+        let month = -1;
+        if (bdate.includes('-')) {
+          month = parseInt(bdate.split('-')[1], 10) - 1;
+        } else if (bdate.includes('/')) {
+          month = parseInt(bdate.split('/')[1], 10) - 1;
+        }
+        return month === currentMonth;
+      });
+      // Sort by day of month
+      list.sort((a: any, b: any) => {
+        const getDay = (dateStr: any) => {
+          if (!dateStr || typeof dateStr !== 'string') return 0;
+          if (dateStr.includes('-')) return parseInt(dateStr.split('-')[2], 10);
+          if (dateStr.includes('/')) return parseInt(dateStr.split('/')[0], 10);
+          return 0;
+        };
+        const dayA = getDay(a.birthDate || a.editBirthDate);
+        const dayB = getDay(b.birthDate || b.editBirthDate);
+        return dayA - dayB;
+      });
+    } else if (activeClientesSubTab === 'FREQUENCIA') {
+      list.sort((a: any, b: any) => {
+        const countA = a.history?.length || 0;
+        const countB = b.history?.length || 0;
+        return countB - countA;
+      });
+    }
+    return list;
+  }, [filteredPatients, activeClientesSubTab, birthdayMonth]);
+
   return (
     <div className="flex-1 flex flex-col relative overflow-hidden">
       {/* Background */}
 
 
       {/* Header */}
-      <header className="pt-12 px-12 pb-8 z-10 shrink-0 flex items-center justify-between">
-        <div>
-          <div className="flex items-center gap-3 mb-2">
-            <Users className="text-orange-500" size={32} />
-            <h1 className={`text-3xl font-bold ${isDarkMode ? "text-white" : "text-zinc-900"} tracking-tight`}>Base de Pacientes <span className="text-zinc-500 text-xl ml-2">{patients.length}</span></h1>
+      <header className="pt-12 px-12 pb-8 z-10 shrink-0 flex flex-col gap-6">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div>
+            <div className="flex items-center gap-3 mb-2">
+              <Users className="text-orange-500" size={32} />
+              <h1 className={`text-3xl font-bold ${isDarkMode ? "text-white" : "text-zinc-900"} tracking-tight`}>Base de Pacientes <span className="text-zinc-500 text-xl ml-2">{patients.length}</span></h1>
+            </div>
+            <p className={`text-sm ${isDarkMode ? "text-zinc-400" : "text-zinc-500"}`}>Prontuários criptografados • LGPD Compliant</p>
           </div>
-          <p className={`text-sm ${isDarkMode ? "text-zinc-400" : "text-zinc-500"}`}>Prontuários criptografados • LGPD Compliant</p>
-        </div>
 
-        <div className="flex items-center gap-4">
-          <div className="relative">
-            <Search className={`absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 ${isDarkMode ? 'text-zinc-500' : 'text-zinc-400'}`} />
+          <div className="flex items-center gap-4">
+            <div className="relative">
+              <Search className={`absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 ${isDarkMode ? 'text-zinc-500' : 'text-zinc-400'}`} />
+              <input
+                type="text"
+                placeholder="Buscar por Nome, CPF ou Tel..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className={`w-64 md:w-80 pl-11 pr-4 py-2.5 text-sm rounded-full border focus:outline-none focus:ring-1 focus:ring-orange-500 transition-all ${isDarkMode
+                  ? 'bg-[#121214] border-zinc-800 text-white placeholder-zinc-500'
+                  : 'bg-white border-zinc-200 text-zinc-900 placeholder-zinc-400'
+                  }`}
+              />
+            </div>
+
             <input
-              type="text"
-              placeholder="Buscar por Nome, CPF ou Tel..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className={`w-64 md:w-80 pl-11 pr-4 py-2.5 text-sm rounded-full border focus:outline-none focus:ring-1 focus:ring-orange-500 transition-all ${isDarkMode
-                ? 'bg-[#121214] border-zinc-800 text-white placeholder-zinc-500'
-                : 'bg-white border-zinc-200 text-zinc-900 placeholder-zinc-400'
-                }`}
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileUpload}
+              accept=".xlsx, .xls, .csv"
+              className="hidden"
             />
+
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isImporting}
+              className={`bg-[#121214] border border-zinc-800 text-zinc-300 font-semibold px-6 py-2.5 rounded-full flex items-center gap-2 transition-all hover:bg-zinc-800/80 disabled:opacity-50`}
+            >
+              {isImporting ? (
+                <>
+                  <Loader2 size={18} className="animate-spin text-orange-500" />
+                  <span>Importando {importProgress}%</span>
+                </>
+              ) : (
+                <>
+                  <Upload size={18} className="text-orange-500" />
+                  <span>Importar</span>
+                </>
+              )}
+            </button>
+
+            <button
+              onClick={() => { setIsNewPatientModalOpen(true); setActivePatientId(null); }}
+              className="bg-gradient-to-r from-orange-400 to-orange-500 hover:from-orange-500 hover:to-orange-600 text-black font-semibold px-6 py-2.5 rounded-full flex items-center gap-2 transition-all shadow-[0_0_15px_rgba(249,115,22,0.3)]"
+            >
+              <Plus size={18} />
+              Novo Paciente
+            </button>
           </div>
-
-          <input
-            type="file"
-            ref={fileInputRef}
-            onChange={handleFileUpload}
-            accept=".xlsx, .xls, .csv"
-            className="hidden"
-          />
-
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            disabled={isImporting}
-            className={`bg-[#121214] border border-zinc-800 text-zinc-300 font-semibold px-6 py-2.5 rounded-full flex items-center gap-2 transition-all hover:bg-zinc-800/80 disabled:opacity-50`}
-          >
-            {isImporting ? (
-              <>
-                <Loader2 size={18} className="animate-spin text-orange-500" />
-                <span>Importando {importProgress}%</span>
-              </>
-            ) : (
-              <>
-                <Upload size={18} className="text-orange-500" />
-                <span>Importar</span>
-              </>
-            )}
-          </button>
-
-          <button
-            onClick={() => { setIsNewPatientModalOpen(true); setActivePatientId(null); }}
-            className="bg-gradient-to-r from-orange-400 to-orange-500 hover:from-orange-500 hover:to-orange-600 text-black font-semibold px-6 py-2.5 rounded-full flex items-center gap-2 transition-all shadow-[0_0_15px_rgba(249,115,22,0.3)]"
-          >
-            <Plus size={18} />
-            Novo Paciente
-          </button>
+        </div>
+        {/* Sub-tabs Link Bar */}
+        <div className={`flex items-center gap-6 border-b ${isDarkMode ? "border-zinc-800/50" : "border-zinc-200/50"} pb-4`}>
+          {[
+            { id: 'TODOS', label: 'Todos os Clientes', icon: Users },
+            { id: 'ANIVERSARIANTES', label: 'Aniversariantes', icon: Gift },
+            { id: 'FREQUENCIA', label: 'Frequência', icon: Activity }
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveClientesSubTab(tab.id as 'TODOS' | 'ANIVERSARIANTES' | 'FREQUENCIA')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${activeClientesSubTab === tab.id ? 'bg-[#1c0d04] text-orange-500 border border-[#431c09]' : 'text-zinc-500 hover:text-zinc-300 border border-transparent'}`}
+            >
+              <tab.icon size={16} />
+              {tab.label}
+            </button>
+          ))}
         </div>
       </header>
 
-      {/* Patient List */}
+      {/* Patient List OR Dashboard */}
+      {activeClientesSubTab === 'FREQUENCIA' ? (
+        <FrequenciaDashboard patients={patients} appointments={appointments} isDarkMode={isDarkMode} />
+      ) : (
       <div className="flex-1 overflow-y-auto px-12 pb-10 z-10 custom-scrollbar">
+
+        {/* Month Navigator for Aniversariantes */}
+        {activeClientesSubTab === 'ANIVERSARIANTES' && (() => {
+          const monthNames = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+          const prevMonth = () => {
+            if (birthdayMonth === 0) { setBirthdayMonth(11); setBirthdayYear(y => y - 1); }
+            else setBirthdayMonth(m => m - 1);
+          };
+          const nextMonth = () => {
+            if (birthdayMonth === 11) { setBirthdayMonth(0); setBirthdayYear(y => y + 1); }
+            else setBirthdayMonth(m => m + 1);
+          };
+          return (
+            <div className={`flex items-center justify-between mb-6 p-4 rounded-2xl border ${isDarkMode ? 'bg-[#0a0a0a] border-zinc-800/80' : 'bg-white border-zinc-200'}`}>
+              <div className="flex items-center gap-2">
+                <Gift className="text-orange-500" size={16} />
+                <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Período de Aniversário</span>
+              </div>
+              <div className="flex items-center gap-4">
+                <button onClick={prevMonth} className="w-8 h-8 rounded-lg bg-zinc-800/60 hover:bg-orange-500/20 text-zinc-400 hover:text-orange-500 flex items-center justify-center transition-colors">
+                  <ChevronLeft size={16} />
+                </button>
+                <span className={`text-sm font-bold min-w-[160px] text-center ${isDarkMode ? 'text-white' : 'text-zinc-900'}`}>
+                  {monthNames[birthdayMonth]} {birthdayYear}
+                </span>
+                <button onClick={nextMonth} className="w-8 h-8 rounded-lg bg-zinc-800/60 hover:bg-orange-500/20 text-zinc-400 hover:text-orange-500 flex items-center justify-center transition-colors">
+                  <ChevronRight size={16} />
+                </button>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className={`text-sm font-bold text-orange-500`}>{displayedPatients.length}</span>
+                <span className="text-xs text-zinc-500">aniversariantes</span>
+              </div>
+            </div>
+          );
+        })()}
+
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredPatients.map((patient: any) => (
+          {displayedPatients.map((patient: any) => (
             <div key={patient.id} className={`bg-[#0a0a0a] border ${isDarkMode ? "border-zinc-800/80" : "border-zinc-200/80"} rounded-2xl p-6 hover:border-orange-500/30 transition-colors group`}>
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-center gap-4">
@@ -3394,6 +3623,7 @@ const ClientesView = ({ patients, setPatients, columns, onGenerateReceituario, i
           ))}
         </div>
       </div>
+      )}
 
       {/* Modal */}
       {(isNewPatientModalOpen || activePatientId) && currentPatient && (
@@ -3477,18 +3707,13 @@ const ClientesView = ({ patients, setPatients, columns, onGenerateReceituario, i
                     <h4 className="text-[10px] font-bold text-orange-500/70 tracking-[0.2em] uppercase">Perfil & Origem</h4>
                     <div className="space-y-3">
                       <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-1.5 uppercase">Tipo</label>
-                          <select
+                        <MiniSelect
+                            label="Tipo"
                             value={editTipo}
-                            onChange={(e) => setEditTipo(e.target.value)}
-                            className={`w-full bg-[#0a0a0a] border border-zinc-800 rounded-xl px-3 py-2.5 ${isDarkMode ? "text-white" : "text-zinc-900"} focus:outline-none focus:border-orange-500 transition-colors text-sm`}
-                          >
-                            <option value="Particular">Particular</option>
-                            <option value="Convênio">Convênio</option>
-                            <option value="Cortesia">Cortesia</option>
-                          </select>
-                        </div>
+                            onChange={(val) => setEditTipo(val)}
+                            options={['Particular', 'Convênio', 'Cortesia']}
+                            isDarkMode={isDarkMode}
+                          />
                         <div>
                           <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-1.5 uppercase">Convênio</label>
                           <input
@@ -3585,19 +3810,13 @@ const ClientesView = ({ patients, setPatients, columns, onGenerateReceituario, i
                         </div>
                       </div>
                       <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-1.5 uppercase">Sexo</label>
-                          <select
-                            value={editSexo}
-                            onChange={(e) => setEditSexo(e.target.value)}
-                            className={`w-full bg-[#0a0a0a] border border-zinc-800 rounded-xl px-3 py-2.5 ${isDarkMode ? "text-white" : "text-zinc-900"} focus:outline-none focus:border-orange-500 transition-colors text-sm`}
-                          >
-                            <option value="">Selecione...</option>
-                            <option value="Feminino">Feminino</option>
-                            <option value="Masculino">Masculino</option>
-                            <option value="Outro">Outro</option>
-                          </select>
-                        </div>
+                        <MiniSelect
+                          label="Sexo"
+                          value={editSexo}
+                          onChange={(val) => setEditSexo(val)}
+                          options={['Feminino', 'Masculino', 'Outro']}
+                          isDarkMode={isDarkMode}
+                        />
                         <div>
                           <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-1.5 uppercase">Estado Civil</label>
                           <input
@@ -3633,6 +3852,28 @@ const ClientesView = ({ patients, setPatients, columns, onGenerateReceituario, i
                     </div>
                   </div>
 
+                  {/* Anamnese */}
+                  <div className="space-y-4">
+                    <h4 className="text-[10px] font-bold text-orange-500/70 tracking-[0.2em] uppercase">Anamnese</h4>
+                    <div className="grid grid-cols-1 gap-4">
+                      {[
+                        { label: 'Gestante?', value: editGestante, setter: setEditGestante },
+                        { label: 'Tabagista?', value: editTabagista, setter: setEditTabagista },
+                        { label: 'Possui diabetes?', value: editDiabetes, setter: setEditDiabetes },
+                        { label: 'Possui hipertensão?', value: editHipertensao, setter: setEditHipertensao },
+                        { label: 'Utiliza marcapasso?', value: editMarcapasso, setter: setEditMarcapasso },
+                        { label: 'Possui alterações hormonais ou na tireóide?', value: editHormonal, setter: setEditHormonal },
+                        { label: 'Possui doença hepática?', value: editHepatica, setter: setEditHepatica },
+                        { label: 'Utiliza filtro solar diariamente?', value: editFiltroSolar, setter: setEditFiltroSolar },
+                        { label: 'Utiliza medicamentos contínuos?', value: editMedicamentos, setter: setEditMedicamentos },
+                      ].map((q, idx) => (
+                        <div key={idx}>
+                          <MiniSelect label={q.label} value={q.value} onChange={(val) => q.setter(val)} options={["Sim", "Não"]} isDarkMode={isDarkMode} />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
                   <div>
                     <label className="block text-[10px] font-bold text-zinc-500 tracking-wider mb-2 uppercase">Observações Gerais</label>
                     <textarea
@@ -3642,6 +3883,7 @@ const ClientesView = ({ patients, setPatients, columns, onGenerateReceituario, i
                       className={`w-full bg-[#0a0a0a] border border-zinc-800 rounded-xl px-4 py-3 ${isDarkMode ? "text-white" : "text-zinc-900"} focus:outline-none focus:border-orange-500 transition-colors text-sm resize-none h-24`}
                     />
                   </div>
+
                 </div>
 
                 <button
@@ -3790,6 +4032,7 @@ const ClientesView = ({ patients, setPatients, columns, onGenerateReceituario, i
 const ProfissionaisView = ({ professionals, setProfessionals, isDarkMode = true }: any) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [isSavingProf, setIsSavingProf] = useState(false);
 
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<string | null>(null);
@@ -9484,6 +9727,9 @@ export default function App() {
   const [isAssistantOpen, setIsAssistantOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [activeClientesSubTab, setActiveClientesSubTab] = useState<'TODOS' | 'ANIVERSARIANTES' | 'FREQUENCIA'>('TODOS');
+  const [birthdayMonth, setBirthdayMonth] = useState<number>(new Date().getMonth());
+  const [birthdayYear, setBirthdayYear] = useState<number>(new Date().getFullYear());
   const [chatMessage, setChatMessage] = useState('');
   const [chatHistory, setChatHistory] = useState([
     { role: 'assistant', text: 'Olá! Sou o Estetix AI. Como posso ajudar com a gestão da sua clínica hoje?' }
@@ -10036,7 +10282,7 @@ export default function App() {
         ) : activeMenu === 'CRM' ? (
           <CrmView patients={patients} setPatients={setPatients} columns={columns} setColumns={setColumns} onGenerateReceituario={handleGenerateReceituario} isDarkMode={isDarkMode} />
         ) : activeMenu === 'Clientes' ? (
-          <ClientesView patients={patients} setPatients={setPatients} columns={columns} onGenerateReceituario={handleGenerateReceituario} initialActivePatientId={selectedPatientForClientes} isDarkMode={isDarkMode} />
+          <ClientesView patients={patients} setPatients={setPatients} appointments={appointments} columns={columns} onGenerateReceituario={handleGenerateReceituario} initialActivePatientId={selectedPatientForClientes} isDarkMode={isDarkMode} />
         ) : activeMenu === 'Receituário' ? (
           <ReceituarioView patients={patients} professionals={professionals} selectedPatientId={selectedPatientForReceituario} isDarkMode={isDarkMode} clinicConfig={clinicConfig} />
         ) : activeMenu === 'Profissionais' ? (
